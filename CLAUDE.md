@@ -124,4 +124,5 @@ npm run migrate:new -- add-todos
 npm run migrate         # DATABASE_URL 대상
 npm run migrate:status
 node scripts/gh.mjs pr-list      # 열린 PR + CI 상태 (pr-create / pr-status / pr-watch / deploys)
+npm run pipeline -- run <step> <episodeId>   # 파이프라인 단계 실행 (보통은 Actions 가 호출)
 ```
