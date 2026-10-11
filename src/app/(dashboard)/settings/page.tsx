@@ -2,42 +2,95 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
-import { isProbeBusy, latestProbe, latestSuccessfulProbe, type ProbeState } from "@/pipeline/probe";
+import type { ModelOption } from "@/pipeline/catalog";
+import { isProbeBusy, latestProbe, latestSuccessfulProbe, needsRefresh, type ProbeState } from "@/pipeline/probe";
 import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
 import { getSettings } from "@/pipeline/settings";
-import { ProbeButton } from "./probe-button";
+import { AutoProbe, ProbeButton } from "./probe-button";
 import { SettingsForm } from "./settings-form";
 
 export const dynamic = "force-dynamic";
 
 const PROBE_STATE_LABELS: Record<ProbeState, string> = {
-  pending: "실행 대기",
-  running: "조회 중",
+  pending: "갱신 대기",
+  running: "갱신 중",
   done: "완료",
   failed: "실패",
 };
 
 export default async function SettingsPage() {
   await requireSession();
-  const [settings, probe, catalog] = await Promise.all([getSettings(), latestProbe(), latestSuccessfulProbe()]);
+  const [settings, probe, lastSuccess] = await Promise.all([getSettings(), latestProbe(), latestSuccessfulProbe()]);
   const busy = isProbeBusy(probe);
   const availability = dispatchAvailability();
-  const items = catalog?.models ?? [];
-  const tools = catalog?.tools ?? [];
+  // 목록이 없거나 하루 넘게 지났으면 화면을 여는 순간 자동으로 다시 가져온다(프로덕션에서만).
+  const autoRefresh = availability.ok && needsRefresh(probe, lastSuccess);
+  const catalog = lastSuccess?.catalog ?? { video: [], image: [], audio: [], other: {} };
+  const claude = lastSuccess?.claudeModels;
+  const claudeOptions: ModelOption[] = Array.isArray(claude)
+    ? claude.map((model) => ({ id: model.id, label: model.label, vertical: null, fiveSeconds: null, detail: "" }))
+    : [];
+  const tools = lastSuccess?.tools ?? [];
 
   return (
     <>
-      <AutoRefresh active={busy} />
+      <AutoProbe enabled={autoRefresh} />
+      <AutoRefresh active={busy || autoRefresh} />
       <h1>설정</h1>
 
       <section>
-        <h2>ManyMotions 모델 조회</h2>
+        <h2>생성 설정</h2>
         <p className="muted small">
-          사용할 수 있는 모델·목소리와 크레딧을 ManyMotions 에서 직접 가져옵니다. 크레딧은 쓰지 않습니다.
+          {lastSuccess
+            ? `모델 목록: ${formatDateTime(lastSuccess.updatedAt)} 기준 (매일 자동 갱신)`
+            : busy || autoRefresh
+              ? "모델 목록을 처음 가져오는 중입니다. 1~2분 뒤 자동으로 표시됩니다."
+              : "모델 목록이 아직 없습니다."}
         </p>
+        <SettingsForm
+          monthlyCreditLimit={settings.monthlyCreditLimit}
+          voice={settings.voice ?? ""}
+          fields={[
+            {
+              name: "scriptModel",
+              label: "대본 모델 (Claude)",
+              value: settings.scriptModel ?? "",
+              options: claudeOptions,
+              emptyLabel: `기본값 (${DEFAULT_SCRIPT_MODEL})`,
+            },
+            {
+              name: "videoModel",
+              label: "영상 모델 (텍스트→영상, 5초 장면 2개)",
+              value: settings.videoModel ?? "",
+              options: catalog.video,
+              emptyLabel: "선택 안 함",
+            },
+            {
+              name: "imageModel",
+              label: "이미지 모델 (텍스트→이미지, 장면 2개)",
+              value: settings.imageModel ?? "",
+              options: catalog.image,
+              emptyLabel: "선택 안 함",
+            },
+            {
+              name: "voiceModel",
+              label: "음성 모델 (내레이션)",
+              value: settings.voiceModel ?? "",
+              options: catalog.audio,
+              emptyLabel: "선택 안 함",
+            },
+          ]}
+        />
+        {!Array.isArray(claude) && claude?.error ? (
+          <p className="warn small">Claude 모델 목록을 가져오지 못했습니다: {claude.error}</p>
+        ) : null}
+      </section>
+
+      <section>
+        <h2>모델 목록 갱신</h2>
         {probe ? (
-          <p>
-            마지막 조회: <strong>{PROBE_STATE_LABELS[probe.state]}</strong> · {formatDateTime(probe.updatedAt)}
+          <p className="small">
+            마지막 갱신: <strong>{PROBE_STATE_LABELS[probe.state]}</strong> · {formatDateTime(probe.updatedAt)}
             {probe.runUrl ? (
               <>
                 {" · "}
@@ -47,63 +100,16 @@ export default async function SettingsPage() {
               </>
             ) : null}
           </p>
-        ) : (
-          <p className="muted">아직 조회하지 않았습니다.</p>
-        )}
-        {probe?.state === "failed" && probe.error ? <p className="error prewrap">{probe.error}</p> : null}
-        {/* 프리뷰·로컬에서도 버튼은 보이게 두고 누를 수 없게만 한다(실행 요청은 프로덕션에서만). */}
-        <ProbeButton disabled={busy || !availability.ok} label={busy ? "조회 중…" : "모델 조회"} />
+        ) : null}
+        {probe?.state === "failed" && probe.error ? <p className="error prewrap small">{probe.error}</p> : null}
+        <ProbeButton disabled={busy || !availability.ok} label={busy ? "갱신 중…" : "지금 새로 가져오기"} />
         {availability.ok ? null : <p className="warn small">{availability.reason}</p>}
       </section>
 
-      <section>
-        <h2>생성 설정</h2>
-        <SettingsForm
-          options={items.map((item) => ({ id: item.id, label: item.label }))}
-          monthlyCreditLimit={settings.monthlyCreditLimit}
-          fields={[
-            { name: "scriptModel", label: "대본 모델 (Claude)", hint: `비우면 ${DEFAULT_SCRIPT_MODEL}`, value: settings.scriptModel ?? "", fromCatalog: false },
-            { name: "videoModel", label: "영상 모델 (5초 장면 2개)", hint: "예정: Kling 3.0 Standard", value: settings.videoModel ?? "", fromCatalog: true },
-            { name: "imageModel", label: "이미지 모델 (장면 2개)", hint: "예정: Seedream 4.5", value: settings.imageModel ?? "", fromCatalog: true },
-            { name: "voiceModel", label: "음성 모델", hint: "예정: ElevenLabs v3", value: settings.voiceModel ?? "", fromCatalog: true },
-            { name: "voice", label: "목소리 (채널 전체 고정)", hint: "조회 결과의 목소리 ID", value: settings.voice ?? "", fromCatalog: true },
-          ]}
-        />
-      </section>
-
-      {catalog ? (
+      {lastSuccess ? (
         <section>
-          <h2>조회 결과 ({formatDateTime(catalog.updatedAt)})</h2>
-          {items.length ? (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>이름</th>
-                    <th>종류</th>
-                    <th>크레딧</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <code>{item.id}</code>
-                      </td>
-                      <td>{item.label}</td>
-                      <td>{item.kind ?? ""}</td>
-                      <td>{item.credits ?? ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="warn">응답에서 모델 목록을 찾지 못했습니다. 아래 원문을 확인하세요.</p>
-          )}
           <details>
-            <summary>도구 {tools.length}개 (이름·필수 입력)</summary>
+            <summary>ManyMotions 도구 {tools.length}개 (이름·필수 입력)</summary>
             <ul className="small">
               {tools.map((tool) => (
                 <li key={tool.name}>
@@ -114,9 +120,23 @@ export default async function SettingsPage() {
               ))}
             </ul>
           </details>
+          {Object.keys(catalog.other).length ? (
+            <details>
+              <summary>기타 목록 ({Object.keys(catalog.other).join(", ")})</summary>
+              <ul className="small">
+                {Object.entries(catalog.other).flatMap(([key, options]) =>
+                  options.map((option) => (
+                    <li key={`${key}-${option.id}`}>
+                      <code>{option.id}</code> {option.label}
+                    </li>
+                  )),
+                )}
+              </ul>
+            </details>
+          ) : null}
           <details>
             <summary>응답 원문</summary>
-            <pre className="raw">{JSON.stringify(catalog.listings, null, 2)}</pre>
+            <pre className="raw">{JSON.stringify(lastSuccess.listings, null, 2)}</pre>
           </details>
         </section>
       ) : null}

@@ -27,10 +27,14 @@ describe.skipIf(!testDatabaseUrl)("모델 조회·설정 (실제 DB)", () => {
 
     await finishProbe(started.id, {
       tools: [{ name: "list_models" }],
-      listings: { list_models: [{ model_id: "m", name: "M" }] },
-      models: [{ id: "m", label: "M", kind: null, credits: null, source: "list_models" }],
+      listings: { list_models: { image: [{ id: "img/t2i", name: "Img", category: "generate" }] } },
+      catalog: { video: [], image: [], audio: [], other: {} },
+      claudeModels: [{ id: "claude-opus-5-5", label: "Claude Opus 5.5" }],
     });
-    expect(await latestSuccessfulProbe()).toMatchObject({ id: started.id, state: "done", models: [{ id: "m" }] });
+    const saved = await latestSuccessfulProbe();
+    expect(saved).toMatchObject({ id: started.id, state: "done", claudeModels: [{ id: "claude-opus-5-5" }] });
+    // 선택지는 저장된 원문에서 계산한다.
+    expect(saved?.catalog.image.map((o) => o.id)).toEqual(["img/t2i"]);
     expect(await requestProbe()).toMatchObject({ state: "pending" });
   });
 
@@ -51,7 +55,8 @@ describe.skipIf(!testDatabaseUrl)("모델 조회·설정 (실제 DB)", () => {
   it("list_ 로 시작하고 필수 인자가 없는 도구만 부르고, 하나가 실패해도 계속한다", async () => {
     const { collectCatalog } = await import("@/pipeline/probe");
     const called: string[] = [];
-    const result = await collectCatalog({
+    const result = await collectCatalog(
+      {
       listTools: async () => [
         { name: "list_models" },
         { name: "list_voices", inputSchema: { required: [] } },
@@ -61,12 +66,31 @@ describe.skipIf(!testDatabaseUrl)("모델 조회·설정 (실제 DB)", () => {
       callTool: async (name: string) => {
         called.push(name);
         if (name === "list_voices") throw new Error("권한 없음");
-        return { models: [{ model_id: "kling", name: "Kling", type: "video" }] };
+        return { video: [{ name: "Kling", t2v_id: "kling/t2v" }] };
       },
-    });
+      },
+      async () => {
+        throw new Error("Anthropic 401");
+      },
+    );
     expect(called).toEqual(["list_models", "list_voices"]);
     expect(result.listings.list_voices).toEqual({ error: "권한 없음" });
-    expect(result.models.map((m) => m.id)).toEqual(["kling"]);
+    expect(result.catalog.video.map((m) => m.id)).toEqual(["kling/t2v"]);
+    // Claude 목록이 실패해도 ManyMotions 결과는 남는다.
+    expect(result.claudeModels).toEqual({ error: "Anthropic 401" });
+  });
+
+  it("자동 갱신: 목록이 없거나 하루 지났을 때만, 진행 중·방금 실패면 안 함", async () => {
+    const { needsRefresh, CATALOG_MAX_AGE_MS } = await import("@/pipeline/probe");
+    const now = Date.UTC(2026, 9, 12);
+    const probe = (state: "pending" | "running" | "done" | "failed", ageMs: number) =>
+      ({ state, updatedAt: new Date(now - ageMs) }) as Parameters<typeof needsRefresh>[0];
+
+    expect(needsRefresh(null, null, now)).toBe(true);
+    expect(needsRefresh(probe("done", 1000), probe("done", 1000), now)).toBe(false);
+    expect(needsRefresh(probe("done", CATALOG_MAX_AGE_MS + 1), probe("done", CATALOG_MAX_AGE_MS + 1), now)).toBe(true);
+    expect(needsRefresh(probe("running", 1000), null, now)).toBe(false);
+    expect(needsRefresh(probe("failed", 1000), null, now)).toBe(false);
   });
 
   it("설정 저장: 빈 값은 미설정, 한도는 양의 정수만", async () => {

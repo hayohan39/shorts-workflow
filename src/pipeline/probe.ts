@@ -1,9 +1,10 @@
 import { query } from "@/lib/db";
 import { redact } from "@/lib/health";
-import { extractCatalog, type CatalogItem } from "@/pipeline/catalog";
+import { countOptions, parseModelCatalog, type ModelCatalog } from "@/pipeline/catalog";
 import type { McpClient, McpTool } from "@/pipeline/providers/mcp";
 
-// ManyMotions "모델 조회". 설정 화면 버튼 → Actions(probe) → 결과를 provider_probes 에 저장.
+// 모델 조회: ManyMotions 모델 목록과 Claude 모델 목록을 provider_probes 에 저장한다.
+// 하루 한 번 자동(Actions cron), 설정 화면을 열었을 때 목록이 없거나 오래됐으면 자동, 그리고 수동 새로 고침.
 // 크레딧을 쓰지 않도록 이름이 list_ 로 시작하고 필수 인자가 없는 도구만 부른다.
 
 export type ProbeState = "pending" | "running" | "done" | "failed";
@@ -14,11 +15,14 @@ export interface Probe {
   runUrl: string | null;
   tools: McpTool[] | null;
   listings: Record<string, unknown> | null;
-  models: CatalogItem[] | null;
+  catalog: ModelCatalog;
+  claudeModels: ClaudeModelList | null;
   error: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type ClaudeModelList = { id: string; label: string }[] | { error: string };
 
 interface ProbeRow {
   id: number;
@@ -26,15 +30,17 @@ interface ProbeRow {
   run_url: string | null;
   tools: McpTool[] | null;
   listings: Record<string, unknown> | null;
-  models: CatalogItem[] | null;
+  claude_models: ClaudeModelList | null;
   error: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
-const COLUMNS = "id, state, run_url, tools, listings, models, error, created_at, updated_at";
+const COLUMNS = "id, state, run_url, tools, listings, claude_models, error, created_at, updated_at";
 /** 이 시간이 지나도록 대기·실행 중이면 멈춘 것으로 보고 새 조회를 허용한다. */
 export const PROBE_STALE_MS = 15 * 60 * 1000;
+/** 마지막 성공 조회가 이보다 오래되면 설정 화면을 열 때 자동으로 다시 조회한다. */
+export const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function toProbe(row: ProbeRow): Probe {
   return {
@@ -43,7 +49,9 @@ function toProbe(row: ProbeRow): Probe {
     runUrl: row.run_url,
     tools: row.tools,
     listings: row.listings,
-    models: row.models,
+    // 기능별 선택지는 저장된 응답 원문에서 매번 계산한다(분류 규칙을 바꿔도 다시 조회할 필요 없음).
+    catalog: parseModelCatalog(row.listings),
+    claudeModels: row.claude_models,
     error: row.error,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -61,6 +69,14 @@ export async function latestSuccessfulProbe(): Promise<Probe | null> {
     `select ${COLUMNS} from provider_probes where state = 'done' order by id desc limit 1`,
   );
   return row ? toProbe(row) : null;
+}
+
+/** 자동으로 다시 조회해야 하는가: 성공한 조회가 없거나 오래됐고, 진행 중인 조회도 없을 때. */
+export function needsRefresh(latest: Probe | null, lastSuccess: Probe | null, now = Date.now()): boolean {
+  if (isProbeBusy(latest, now)) return false;
+  // 방금 실패했다면 자동으로 계속 다시 시도하지 않는다(수동 새로 고침은 가능).
+  if (latest?.state === "failed" && now - latest.updatedAt.getTime() < CATALOG_MAX_AGE_MS) return false;
+  return !lastSuccess || now - lastSuccess.updatedAt.getTime() > CATALOG_MAX_AGE_MS;
 }
 
 export function isProbeBusy(probe: Probe | null, now = Date.now()): boolean {
@@ -93,12 +109,19 @@ export async function startProbe(runUrl: string | null): Promise<Probe> {
 
 export async function finishProbe(
   id: number,
-  result: { tools: McpTool[]; listings: Record<string, unknown>; models: CatalogItem[] },
+  result: { tools: McpTool[]; listings: Record<string, unknown>; catalog: ModelCatalog; claudeModels: ClaudeModelList },
 ): Promise<Probe> {
   const [row] = await query<ProbeRow>(
-    `update provider_probes set state = 'done', tools = $2, listings = $3, models = $4, error = null, updated_at = now()
+    `update provider_probes set state = 'done', tools = $2, listings = $3, models = $4, claude_models = $5,
+        error = null, updated_at = now()
       where id = $1 returning ${COLUMNS}`,
-    [id, JSON.stringify(result.tools), JSON.stringify(result.listings), JSON.stringify(result.models)],
+    [
+      id,
+      JSON.stringify(result.tools),
+      JSON.stringify(result.listings),
+      JSON.stringify(result.catalog),
+      JSON.stringify(result.claudeModels),
+    ],
   );
   return toProbe(row);
 }
@@ -120,8 +143,20 @@ export function isListingTool(tool: McpTool): boolean {
   return /^list_/.test(tool.name) && (tool.inputSchema?.required ?? []).length === 0;
 }
 
-/** 실제 조회. 도구 하나가 실패해도 나머지는 계속하고, 그 실패는 결과에 남긴다. */
-export async function collectCatalog(client: Pick<McpClient, "listTools" | "callTool">) {
+/**
+ * 실제 조회. 도구 하나가 실패해도 나머지는 계속하고, 그 실패는 결과에 남긴다.
+ * Claude 모델 목록은 실패해도 ManyMotions 결과는 저장한다(설정 화면은 기본 모델로 동작).
+ */
+export async function collectCatalog(
+  client: Pick<McpClient, "listTools" | "callTool">,
+  listClaudeModels: () => Promise<{ id: string; label: string }[]>,
+) {
+  let claudeModels: ClaudeModelList;
+  try {
+    claudeModels = await listClaudeModels();
+  } catch (error) {
+    claudeModels = { error: error instanceof Error ? error.message : String(error) };
+  }
   const tools = await client.listTools();
   const listings: Record<string, unknown> = {};
   for (const tool of tools.filter(isListingTool)) {
@@ -131,5 +166,6 @@ export async function collectCatalog(client: Pick<McpClient, "listTools" | "call
       listings[tool.name] = { error: error instanceof Error ? error.message : String(error) };
     }
   }
-  return { tools, listings, models: extractCatalog(listings) };
+  const catalog = parseModelCatalog(listings);
+  return { tools, listings, catalog, claudeModels, optionCount: countOptions(catalog) };
 }

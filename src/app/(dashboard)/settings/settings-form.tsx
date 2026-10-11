@@ -1,53 +1,70 @@
 "use client";
 
 import { useActionState } from "react";
+import type { ModelOption } from "@/pipeline/catalog";
 import { saveSettingsAction, type SimpleState } from "../actions";
 
 interface Field {
-  name: "scriptModel" | "videoModel" | "imageModel" | "voiceModel" | "voice";
+  name: "scriptModel" | "videoModel" | "imageModel" | "voiceModel";
   label: string;
-  hint: string;
   value: string;
-  /** ManyMotions 조회 결과에서 고르는 값인가(대본 모델은 아님). */
-  fromCatalog: boolean;
+  options: ModelOption[];
+  /** 빈 값(미설정)을 고를 때 보이는 문구. */
+  emptyLabel: string;
+}
+
+function optionLabel(option: ModelOption): string {
+  const notes = [
+    option.detail,
+    option.vertical === false ? "세로 9:16 미지원" : "",
+    option.fiveSeconds === false ? "5초 미지원" : "",
+  ].filter(Boolean);
+  return notes.length ? `${option.label} (${notes.join(" · ")})` : option.label;
 }
 
 export function SettingsForm({
   fields,
-  options,
+  voice,
   monthlyCreditLimit,
 }: {
   fields: Field[];
-  /** 모델 조회로 확인한 ID. 비어 있으면 아직 조회 전. */
-  options: { id: string; label: string }[];
+  voice: string;
   monthlyCreditLimit: number;
 }) {
   const [state, formAction, pending] = useActionState<SimpleState, FormData>(saveSettingsAction, {});
-  const known = new Set(options.map((option) => option.id));
+  // 저장이 끝나면 React 가 폼을 처음 값으로 되돌린다. 저장된 값이 바뀌면 폼을 새로 그려서
+  // 되돌아간 값이 아니라 방금 저장한 값이 보이게 한다.
+  const formKey = JSON.stringify([fields.map((field) => field.value), voice, monthlyCreditLimit]);
 
   return (
-    <form action={formAction} className="stack">
-      <datalist id="catalog">
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </datalist>
-      {fields.map((field) => (
-        <label key={field.name} className="field">
-          <span>{field.label}</span>
-          <input
-            name={field.name}
-            defaultValue={field.value}
-            list={field.fromCatalog ? "catalog" : undefined}
-            placeholder={field.hint}
-          />
-          {field.fromCatalog && field.value && options.length > 0 && !known.has(field.value) ? (
-            <small className="warn">조회 결과에 없는 값입니다. 아래 목록에서 ID 를 확인하세요.</small>
-          ) : null}
-        </label>
-      ))}
+    <form key={formKey} action={formAction} className="stack">
+      {fields.map((field) => {
+        const known = field.options.some((option) => option.id === field.value);
+        return (
+          <label key={field.name} className="field">
+            <span>{field.label}</span>
+            <select name={field.name} defaultValue={field.value}>
+              <option value="">{field.emptyLabel}</option>
+              {/* 저장된 값이 지금 목록에 없으면 사라지지 않게 따로 보여 준다. */}
+              {field.value && !known ? <option value={field.value}>{field.value} (목록에 없음)</option> : null}
+              {field.options.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {optionLabel(option)}
+                </option>
+              ))}
+            </select>
+            {field.options.length === 0 ? <small className="muted">목록이 비어 있습니다.</small> : null}
+            {field.value && !known && field.options.length > 0 ? (
+              <small className="warn">저장된 값이 최신 목록에 없습니다. 다시 골라 주세요.</small>
+            ) : null}
+          </label>
+        );
+      })}
+      <label className="field">
+        <span>목소리 (채널 전체 고정)</span>
+        <input name="voice" defaultValue={voice} placeholder="음성 모델의 목소리 ID" />
+        <small className="muted">목소리 목록은 음성 생성 단계를 만들 때 함께 정리합니다.</small>
+      </label>
       <label className="field">
         <span>월 크레딧 한도</span>
         <input name="monthlyCreditLimit" type="number" min={1} step={1} required defaultValue={monthlyCreditLimit} />

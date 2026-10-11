@@ -1,7 +1,8 @@
 name: Pipeline
 
 # 쇼츠 파이프라인의 자동 단계(대본·장면·합성·업로드)를 에피소드 하나에 대해 실행한다.
-# probe 는 에피소드 없이 ManyMotions 모델 목록을 조회한다(설정 화면의 "모델 조회").
+# probe 는 에피소드 없이 ManyMotions·Claude 모델 목록을 조회한다(설정 화면의 드롭다운).
+# probe 는 매일 한 번 자동으로도 돈다(schedule). 그때는 입력이 없으므로 probe 로 본다.
 # 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
 # 직접 실행해도 된다: Actions → Pipeline → Run workflow.
 #
@@ -18,12 +19,14 @@ on:
         description: 에피소드 번호 (probe 는 비워 둠)
         type: string
         required: false
+  schedule:
+    - cron: "17 18 * * *" # 매일 03:17 KST
 
-run-name: "${{ inputs.episode_id && format('#{0} ', inputs.episode_id) || '' }}${{ inputs.step }}"
+run-name: "${{ inputs.episode_id && format('#{0} ', inputs.episode_id) || '' }}${{ inputs.step || 'probe' }}"
 
 # 같은 에피소드는 한 번에 하나씩. 다른 에피소드는 동시에 돌 수 있다. probe 끼리도 하나씩.
 concurrency:
-  group: pipeline-${{ inputs.step == 'probe' && 'probe' || format('episode-{0}', inputs.episode_id) }}
+  group: pipeline-${{ (inputs.step || 'probe') == 'probe' && 'probe' || format('episode-{0}', inputs.episode_id) }}
   cancel-in-progress: false
 
 defaults:
@@ -43,7 +46,7 @@ jobs:
     timeout-minutes: 45
     env:
       # 입력값은 스크립트에 직접 끼우지 않고 환경변수로만 넘긴다.
-      STEP: ${{ inputs.step }}
+      STEP: ${{ inputs.step || 'probe' }}
       EPISODE_ID: ${{ inputs.episode_id }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

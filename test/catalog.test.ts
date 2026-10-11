@@ -1,32 +1,76 @@
 import { describe, expect, it } from "vitest";
-import { extractCatalog } from "@/pipeline/catalog";
+import { countOptions, hasOption, parseModelCatalog } from "@/pipeline/catalog";
 import { waitForJob, JobTimeoutError } from "@/pipeline/providers/poll";
 
-describe("모델 목록 추출", () => {
-  it("여러 형태의 응답에서 ID·이름·종류·크레딧을 뽑는다", () => {
-    const items = extractCatalog({
-      list_models: {
-        models: [
-          { model_id: "kling-3.0-standard", name: "Kling 3.0 Standard", type: "video", credits_per_second: 21 },
-          { model_id: "seedream-4.5", name: "Seedream 4.5", type: "image", credits: 23 },
-        ],
+// 2026-10 프로덕션 조회 응답의 실제 형태(image)와 도구 설명에 적힌 형태(video)를 따른다.
+const listings = {
+  list_models: {
+    note: "For reference-image + spoken dialogue together, use the video_editor_* tools.",
+    image: [
+      {
+        id: "openai/gpt-image-2.5/flare/text-to-image",
+        name: "GPT Image 2.5 Flare",
+        category: "generate",
+        multi_ref: false,
+        max_images: 4,
+        resolutions: ["1K"],
+        aspect_ratios: ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        requires_image: false,
       },
-      list_voices: [{ voice_id: "v-ko-1", display_name: "지민", category: "voice" }],
-    });
-    expect(items).toEqual([
-      { id: "kling-3.0-standard", label: "Kling 3.0 Standard", kind: "video", credits: "21", source: "list_models" },
-      { id: "seedream-4.5", label: "Seedream 4.5", kind: "image", credits: "23", source: "list_models" },
-      { id: "v-ko-1", label: "지민", kind: "voice", credits: null, source: "list_voices" },
+      {
+        id: "openai/gpt-image-2.5/flare/edit",
+        name: "GPT Image 2.5 Flare Edit",
+        category: "edit",
+        resolutions: ["1K"],
+        aspect_ratios: ["1:1", "9:16"],
+        requires_image: true,
+      },
+      { id: "square/only", name: "Square Only", category: "generate", aspect_ratios: ["1:1"], requires_image: false },
+    ],
+    video: [
+      {
+        name: "Kling 3.0 Standard",
+        text_to_video: true,
+        image_to_video: true,
+        t2v_id: "kling/v3/standard/text-to-video",
+        i2v_id: "kling/v3/standard/image-to-video",
+        durations: [5, 10],
+        aspect_ratios: ["16:9", "9:16", "1:1"],
+      },
+      { name: "Image Only", text_to_video: false, image_to_video: true, i2v_id: "x/i2v", durations: ["6"] },
+      { id: "flag/only", name: "Flag Only", text_to_video: true, durations: ["6s", "8s"] },
+    ],
+    audio: [{ id: "elevenlabs/v3/tts", name: "ElevenLabs v3", category: "tts" }],
+    upscale: [{ id: "topaz/upscale", name: "Topaz" }],
+  },
+};
+
+describe("모델 목록 분류", () => {
+  it("영상은 텍스트→영상 ID 로, 이미지는 생성용만, 음성·기타는 따로", () => {
+    const catalog = parseModelCatalog(listings);
+    expect(catalog.video).toEqual([
+      {
+        id: "kling/v3/standard/text-to-video",
+        label: "Kling 3.0 Standard",
+        vertical: true,
+        fiveSeconds: true,
+        detail: "5/10초 · 이미지→영상 가능",
+      },
+      { id: "flag/only", label: "Flag Only", vertical: null, fiveSeconds: false, detail: "6/8초" },
     ]);
+    expect(catalog.image.map((o) => [o.id, o.vertical])).toEqual([
+      ["openai/gpt-image-2.5/flare/text-to-image", true],
+      ["square/only", false],
+    ]);
+    expect(catalog.audio.map((o) => o.id)).toEqual(["elevenlabs/v3/tts"]);
+    expect(Object.keys(catalog.other)).toEqual(["upscale"]);
+    expect(countOptions(catalog)).toBe(6);
+    expect(hasOption(catalog.image, "openai/gpt-image-2.5/flare/edit")).toBe(false);
   });
 
-  it("ID 만 있는 객체(작업 ID 등)와 중복은 넣지 않는다", () => {
-    const items = extractCatalog({ a: [{ id: "job-1" }, { id: "m", name: "M" }, { id: "m", name: "중복" }] });
-    expect(items.map((i) => i.id)).toEqual(["m"]);
-  });
-
-  it("오류 응답이나 문자열이면 빈 목록", () => {
-    expect(extractCatalog({ list_models: { error: "401" }, list_x: "text" })).toEqual([]);
+  it("응답이 없거나 형태가 달라도 깨지지 않는다", () => {
+    expect(parseModelCatalog(null)).toEqual({ video: [], image: [], audio: [], other: {} });
+    expect(parseModelCatalog({ list_models: { error: "401" } })).toEqual({ video: [], image: [], audio: [], other: {} });
   });
 });
 
