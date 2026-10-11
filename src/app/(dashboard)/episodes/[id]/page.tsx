@@ -80,9 +80,11 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
             </>
           ) : null}
         </p>
-        {step && buttonLabel && canDispatch ? <RunStepButton id={episode.id} step={step} label={buttonLabel} /> : null}
+        {step && buttonLabel ? (
+          <RunStepButton id={episode.id} step={step} label={buttonLabel} disabled={!canDispatch} />
+        ) : null}
         {step && !availability.ok ? (
-          <p className="warn">
+          <p className="warn small">
             {STEP_LABELS[step]} 단계는 시작되지 않았습니다. {availability.reason}
           </p>
         ) : null}

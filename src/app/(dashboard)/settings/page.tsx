@@ -51,11 +51,9 @@ export default async function SettingsPage() {
           <p className="muted">아직 조회하지 않았습니다.</p>
         )}
         {probe?.state === "failed" && probe.error ? <p className="error prewrap">{probe.error}</p> : null}
-        {availability.ok ? (
-          <ProbeButton disabled={busy} label={busy ? "조회 중…" : "모델 조회"} />
-        ) : (
-          <p className="warn">{availability.reason}</p>
-        )}
+        {/* 프리뷰·로컬에서도 버튼은 보이게 두고 누를 수 없게만 한다(실행 요청은 프로덕션에서만). */}
+        <ProbeButton disabled={busy || !availability.ok} label={busy ? "조회 중…" : "모델 조회"} />
+        {availability.ok ? null : <p className="warn small">{availability.reason}</p>}
       </section>
 
       <section>
