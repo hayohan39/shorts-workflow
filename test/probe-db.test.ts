@@ -71,7 +71,7 @@ describe.skipIf(!testDatabaseUrl)("모델 조회·설정 (실제 DB)", () => {
 
   it("설정 저장: 빈 값은 미설정, 한도는 양의 정수만", async () => {
     const { getSettings, updateSettings } = await import("@/pipeline/settings");
-    const base = { videoModel: " kling ", imageModel: "", voiceModel: "el-v3", voice: "v-ko-1", monthlyCreditLimit: "3500" };
+    const base = { scriptModel: "", videoModel: " kling ", imageModel: "", voiceModel: "el-v3", voice: "v-ko-1", monthlyCreditLimit: "3500" };
     expect(await updateSettings(base)).toMatchObject({
       videoModel: "kling",
       imageModel: null,

@@ -12,6 +12,9 @@ export function isStale(episode: Episode, now = Date.now()): boolean {
   return now - episode.updatedAt.getTime() > STALE_AFTER_MS[episode.stepState];
 }
 
+/** 지금 구현된 단계. 아직 없는 단계는 버튼을 보여 주지 않는다(docs/mvp-plan.md 의 PR 순서). */
+export const IMPLEMENTED_STEPS: readonly Step[] = ["script"];
+
 /** 사람의 결정 없이 바로 이어서 돌릴 수 있는 다음 단계. */
 const NEXT_STEP: Partial<Record<Status, Step>> = {
   queued: "script",
@@ -21,9 +24,11 @@ const NEXT_STEP: Partial<Record<Status, Step>> = {
 
 /** 지금 화면에 "실행/다시 시도" 버튼을 보여 줄 단계. 없으면 null. */
 export function runnableStep(episode: Episode, now = Date.now()): Step | null {
-  if (isBusy(episode)) return isStale(episode, now) ? episode.step : null;
-  if (episode.status === "failed") return episode.step;
-  return NEXT_STEP[episode.status] ?? null;
+  let step: Step | null;
+  if (isBusy(episode)) step = isStale(episode, now) ? episode.step : null;
+  else if (episode.status === "failed") step = episode.step;
+  else step = NEXT_STEP[episode.status] ?? null;
+  return step && IMPLEMENTED_STEPS.includes(step) ? step : null;
 }
 
 /**

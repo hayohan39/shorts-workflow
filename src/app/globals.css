@@ -283,3 +283,81 @@ pre.raw {
 small {
   font-weight: 400;
 }
+
+h3 {
+  font-size: 0.95rem;
+  margin: 1.25rem 0 0.4rem;
+}
+
+button.secondary {
+  color: var(--foreground);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.callout {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.warn-box {
+  border-color: var(--warn);
+}
+
+.warn-box ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.scenes {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.scenes > li {
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.scenes .line {
+  margin: 0.25rem 0;
+}
+
+.research {
+  padding-left: 1.1rem;
+}
+
+.research > li {
+  margin-bottom: 0.5rem;
+}
+
+.evidence {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.evidence-strong {
+  color: var(--ok);
+}
+
+.evidence-limited {
+  color: var(--warn);
+}
+
+.evidence-none {
+  color: var(--error);
+}
+
+details.edit {
+  margin-top: 1rem;
+}

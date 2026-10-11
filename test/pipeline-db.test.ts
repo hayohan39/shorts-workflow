@@ -126,7 +126,8 @@ describe.skipIf(!testDatabaseUrl)("파이프라인 DB (실제 DB)", () => {
       (error: { code: number; stdout: string }) => error,
     );
     expect(failed).toMatchObject({ code: 1 });
-    expect((failed as { stdout: string }).stdout).toContain("아직 구현되지 않았습니다");
+    // 대본 단계는 실제 API 키가 필요하다. 테스트 환경에는 없으므로 그 사유로 실패해야 한다.
+    expect((failed as { stdout: string }).stdout).toContain("ANTHROPIC_API_KEY 가 없습니다");
     expect(await getEpisode(episode.id)).toMatchObject({ status: "failed", runUrl: "https://example.test/run/2" });
 
     const { readFile, rm } = await import("node:fs/promises");

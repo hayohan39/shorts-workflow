@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { isProbeBusy, latestProbe, latestSuccessfulProbe, type ProbeState } from "@/pipeline/probe";
+import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
 import { getSettings } from "@/pipeline/settings";
 import { ProbeButton } from "./probe-button";
 import { SettingsForm } from "./settings-form";
@@ -63,10 +64,11 @@ export default async function SettingsPage() {
           options={items.map((item) => ({ id: item.id, label: item.label }))}
           monthlyCreditLimit={settings.monthlyCreditLimit}
           fields={[
-            { name: "videoModel", label: "영상 모델 (5초 장면 2개)", hint: "예정: Kling 3.0 Standard", value: settings.videoModel ?? "" },
-            { name: "imageModel", label: "이미지 모델 (장면 2개)", hint: "예정: Seedream 4.5", value: settings.imageModel ?? "" },
-            { name: "voiceModel", label: "음성 모델", hint: "예정: ElevenLabs v3", value: settings.voiceModel ?? "" },
-            { name: "voice", label: "목소리 (채널 전체 고정)", hint: "조회 결과의 목소리 ID", value: settings.voice ?? "" },
+            { name: "scriptModel", label: "대본 모델 (Claude)", hint: `비우면 ${DEFAULT_SCRIPT_MODEL}`, value: settings.scriptModel ?? "", fromCatalog: false },
+            { name: "videoModel", label: "영상 모델 (5초 장면 2개)", hint: "예정: Kling 3.0 Standard", value: settings.videoModel ?? "", fromCatalog: true },
+            { name: "imageModel", label: "이미지 모델 (장면 2개)", hint: "예정: Seedream 4.5", value: settings.imageModel ?? "", fromCatalog: true },
+            { name: "voiceModel", label: "음성 모델", hint: "예정: ElevenLabs v3", value: settings.voiceModel ?? "", fromCatalog: true },
+            { name: "voice", label: "목소리 (채널 전체 고정)", hint: "조회 결과의 목소리 ID", value: settings.voice ?? "", fromCatalog: true },
           ]}
         />
       </section>

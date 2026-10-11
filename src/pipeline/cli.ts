@@ -6,7 +6,7 @@
 //   npm run pipeline -- fail probe "" <message>
 //
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
-//           MANYMOTIONS_API_KEY(probe)
+//           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script)
 import { appendFile } from "node:fs/promises";
 import { getPool, hasDatabase } from "@/lib/db";
 import { redact } from "@/lib/health";

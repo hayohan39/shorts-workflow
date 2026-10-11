@@ -21,6 +21,7 @@
     "pipeline": "tsx src/pipeline/cli.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@vercel/functions": "^3.9.9",
     "next": "16.3.6",
     "pg": "^8.23.0",
