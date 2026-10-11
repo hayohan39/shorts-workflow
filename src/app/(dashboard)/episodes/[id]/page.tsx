@@ -29,7 +29,8 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   const busy = isBusy(episode);
   const stale = isStale(episode);
   const step = runnableStep(episode);
-  const canDispatch = dispatchAvailability().ok;
+  const availability = dispatchAvailability();
+  const canDispatch = availability.ok;
   const buttonLabel = step
     ? episode.status === "failed" || stale
       ? `${STEP_LABELS[step]} 다시 시도`
@@ -77,6 +78,11 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           ) : null}
         </p>
         {step && buttonLabel && canDispatch ? <RunStepButton id={episode.id} step={step} label={buttonLabel} /> : null}
+        {step && !availability.ok ? (
+          <p className="warn">
+            {STEP_LABELS[step]} 단계는 시작되지 않았습니다. {availability.reason}
+          </p>
+        ) : null}
         {!busy && !step && WAITING_FOR_PERSON[episode.status] ? (
           <p className="muted">{WAITING_FOR_PERSON[episode.status]}</p>
         ) : null}

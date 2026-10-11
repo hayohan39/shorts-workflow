@@ -3,7 +3,15 @@
 import { useActionState } from "react";
 import { createEpisodeAction, type NewEpisodeState } from "../../actions";
 
-export function NewEpisodeForm({ topicMax, outlineMax }: { topicMax: number; outlineMax: number }) {
+export function NewEpisodeForm({
+  topicMax,
+  outlineMax,
+  startsRun,
+}: {
+  topicMax: number;
+  outlineMax: number;
+  startsRun: boolean;
+}) {
   const [state, formAction, pending] = useActionState<NewEpisodeState, FormData>(createEpisodeAction, {});
   return (
     <form action={formAction} className="stack">
@@ -23,7 +31,7 @@ export function NewEpisodeForm({ topicMax, outlineMax }: { topicMax: number; out
       </label>
       {state.error ? <p className="error">{state.error}</p> : null}
       <button type="submit" disabled={pending}>
-        {pending ? "만드는 중…" : "만들고 대본 생성 시작"}
+        {pending ? "만드는 중…" : startsRun ? "만들고 대본 생성 시작" : "만들기"}
       </button>
     </form>
   );
