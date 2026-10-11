@@ -132,14 +132,15 @@ queued ─[대본]─► script_review ─승인─► approved ─[장면·음�
 **목적**: 영상·이미지·음성 호출을 한 곳(어댑터)에 모으고, 실제 model_id·목소리를 조회해 설정한다.
 
 작업
-- [ ] `src/pipeline/providers/types.ts`: `MediaProvider` 인터페이스 (영상·이미지·음성 생성, 작업 상태, 모델 목록)
-- [ ] `src/pipeline/providers/manymotions.ts`
-  - REST: `POST /api/v1/video/seedance-2/generate`, `POST /api/v1/image/nano-banana/generate`
-  - MCP(`/api/mcp`, JSON-RPC `tools/call`): `list_models`, `media_forge_generate`, `job_status`
-  - 완료까지 폴링(간격 점점 늘림, 전체 타임아웃), 실패 사유·크레딧 반환
-- [ ] `probe` 단계: 모델 목록·크레딧·목소리 목록을 DB 에 저장
-- [ ] 설정 화면: **모델 조회** 버튼, 영상/이미지/음성 모델과 목소리 선택(조회된 목록에서만 고름 — 추측 금지),
-      월 크레딧 한도
+- [x] `src/pipeline/providers/mcp.ts`: MCP 클라이언트(Streamable HTTP, JSON-RPC: `initialize` · `tools/list` · `tools/call`, SSE 응답·세션 ID 처리)
+- [x] `src/pipeline/providers/manymotions.ts`: `https://manymotions.com/api/mcp` 에 `Authorization: Bearer` 로 연결
+- [x] `src/pipeline/providers/poll.ts`: 작업 완료까지 폴링(간격 점점 늘림, 전체 타임아웃)
+- [x] `probe` 단계: `tools/list`(도구별 **입력 형식** 포함)와, 인자 없이 부를 수 있는 `list_*` 도구의 응답을 그대로 DB 에 저장.
+      응답에서 모델·목소리 ID 를 뽑아 선택지로 쓴다(크레딧을 쓰는 도구는 부르지 않음)
+- [x] 설정 화면: **모델 조회** 버튼, 영상/이미지/음성 모델과 목소리(조회 결과에서 고름, 목록에 없는 값은 경고), 월 크레딧 한도
+- 변경: 생성 호출(`media_forge_generate`, `job_status`)과 `MediaProvider` 구현은 ⑤로 옮겼다. 문서를 이 세션에서 열 수 없어서,
+  조회로 받은 도구 입력 형식을 보고 맞춰 쓰기 위해서다(추측 금지). REST 전용 엔드포인트(seedance-2, nano-banana)는
+  사용 예정 모델이 아니라서 쓰지 않는다.
 
 확인
 - 가짜 응답으로 요청 형식·폴링 완료/실패/타임아웃 테스트

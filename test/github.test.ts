@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDispatcher, dispatchAvailability, DispatchUnavailableError } from "@/lib/github";
+import { createDispatcher, createWorkflowDispatcher, dispatchAvailability, DispatchUnavailableError } from "@/lib/github";
 
 const production = { VERCEL_ENV: "production", GITHUB_DISPATCH_TOKEN: "github_pat_test" };
 
@@ -40,5 +40,12 @@ describe("Actions 실행 요청", () => {
       DispatchUnavailableError,
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("모델 조회는 에피소드 없이 probe 로 실행한다", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    await createWorkflowDispatcher(production, fetchMock)({ step: "probe", episode_id: "" });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ ref: "main", inputs: { step: "probe", episode_id: "" } });
   });
 });

@@ -34,8 +34,11 @@ export class DispatchUnavailableError extends Error {
 
 export type Dispatcher = (step: Step, episodeId: number) => Promise<void>;
 
-export function createDispatcher(env: Env = process.env, fetchImpl: typeof fetch = fetch): Dispatcher {
-  return async (step, episodeId) => {
+/** pipeline.yml 을 주어진 입력으로 실행 요청한다. */
+export type WorkflowDispatcher = (inputs: Record<string, string>) => Promise<void>;
+
+export function createWorkflowDispatcher(env: Env = process.env, fetchImpl: typeof fetch = fetch): WorkflowDispatcher {
+  return async (inputs) => {
     const availability = dispatchAvailability(env);
     if (!availability.ok) throw new DispatchUnavailableError(availability.reason);
 
@@ -47,7 +50,7 @@ export function createDispatcher(env: Env = process.env, fetchImpl: typeof fetch
         "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ref: "main", inputs: { step, episode_id: String(episodeId) } }),
+      body: JSON.stringify({ ref: "main", inputs }),
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -55,4 +58,10 @@ export function createDispatcher(env: Env = process.env, fetchImpl: typeof fetch
       throw new Error(`GitHub 실행 요청 실패: ${response.status} ${body?.message ?? response.statusText}${hint}`);
     }
   };
+}
+
+/** 에피소드 단계 실행 요청. */
+export function createDispatcher(env: Env = process.env, fetchImpl: typeof fetch = fetch): Dispatcher {
+  const dispatch = createWorkflowDispatcher(env, fetchImpl);
+  return (step, episodeId) => dispatch({ step, episode_id: String(episodeId) });
 }
