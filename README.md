@@ -26,6 +26,7 @@ npm run check                # lint + typecheck + test + build
 
 ## 참고
 
+- 기획서: [docs/plan.md](docs/plan.md) · 1단계(MVP) 계획: [docs/mvp-plan.md](docs/mvp-plan.md)
 - 결정 기록: [docs/decisions.md](docs/decisions.md)
 - Claude 작업 규칙: [CLAUDE.md](CLAUDE.md)
 - 헬스체크: `/api/health`
