@@ -1,14 +1,8 @@
 @AGENTS.md
 
-<!-- template-only:start -->
-> **여기는 템플릿 리포지토리(project-bootstrap)다.** 아래 내용은 이 템플릿으로 만든
-> 프로젝트용이다. 템플릿 자체를 고칠 때는 `docs/bootstrap/MAINTAINING.md` 를 먼저 읽는다.
-> 새 프로젝트를 만들어 달라는 요청이면 `new-project` 스킬을 따른다.
-<!-- template-only:end -->
+# shorts-workflow
 
-# {{PROJECT_NAME}}
-
-{{PROJECT_DESCRIPTION}}
+주제·목차를 넣으면 대본→영상→자막→유튜브 업로드까지 자동화하는 쇼츠 파이프라인
 
 개인 미니 프로젝트다. 리포지토리 주인(이하 "사용자")은 Claude 세션에서 개발을 요청하고
 진행 상황을 묻고, GitHub 에서 PR 을 리뷰해 merge 한다. 커밋과 PR 은 Claude 가 만든다.
