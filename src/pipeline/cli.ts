@@ -8,10 +8,12 @@
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
 //           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script)
 import { appendFile } from "node:fs/promises";
+import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";
 import { redact } from "@/lib/health";
 import { failStep } from "@/pipeline/episodes";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
+import { listClaudeModels, readAnthropicKey } from "@/pipeline/providers/anthropic";
 import { createManyMotionsClient, readManyMotionsKey } from "@/pipeline/providers/manymotions";
 import { runStep } from "@/pipeline/runner";
 import { isStep, STATUS_LABELS, STEP_LABELS, TransitionError, type Step } from "@/pipeline/status";
@@ -45,12 +47,19 @@ async function probe(command: string | undefined, message: string): Promise<numb
   const started = await startProbe(process.env.RUN_URL || null);
   try {
     const client = createManyMotionsClient(readManyMotionsKey());
-    const result = await finishProbe(started.id, await collectCatalog(client));
+    const collected = await collectCatalog(client, () =>
+      listClaudeModels(new Anthropic({ apiKey: readAnthropicKey() })),
+    );
+    const result = await finishProbe(started.id, collected);
     const tools = result.tools ?? [];
+    const { catalog } = result;
+    const claude = Array.isArray(collected.claudeModels)
+      ? `Claude 모델 ${collected.claudeModels.length}개`
+      : `Claude 모델 조회 실패: ${collected.claudeModels.error}`;
     await summary([
       title,
       "",
-      `✅ 도구 ${tools.length}개 · 고를 수 있는 항목 ${result.models?.length ?? 0}개`,
+      `✅ 도구 ${tools.length}개 · 영상 ${catalog.video.length} · 이미지 ${catalog.image.length} · 음성 ${catalog.audio.length} · ${claude}`,
       "",
       ...tools.map((tool) => `- \`${tool.name}\` ${tool.description?.split("\n")[0] ?? ""}`),
     ]);
