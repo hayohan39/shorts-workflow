@@ -59,6 +59,32 @@ describe.skipIf(!testDatabaseUrl)("파이프라인 DB (실제 DB)", () => {
     expect(await decide(episode.id, "approve-script")).toMatchObject({ status: "approved" });
   });
 
+  it("실행 중에는 진행 메모와 시작 시각이 남고, 끝나면 메모를 지운다", async () => {
+    const { createEpisode, getEpisode, reportProgress, requestStep } = await import("@/pipeline/episodes");
+    const { runStep } = await import("@/pipeline/runner");
+    const episode = await createEpisode({ topic: "진행", outline: "" });
+
+    const requested = await requestStep(episode.id, "script");
+    expect(requested.stepStartedAt).toBeInstanceOf(Date);
+    // 실행 중이 아니면 메모를 받지 않는다(늦게 온 메모가 다음 단계에 섞이지 않게).
+    expect(await reportProgress(episode.id, "script", "대기 중 메모")).toBe(false);
+
+    let during: string | null = null;
+    const result = await runStep(episode.id, "script", {
+      runUrl: null,
+      handlers: {
+        script: async (_e, context) => {
+          await context.progress("자료 조사 중 · 웹 검색 1회 sk-ant-api03-secret");
+          during = (await getEpisode(episode.id))!.stepProgress;
+        },
+      },
+    });
+    expect(during).toContain("자료 조사 중");
+    expect(during).not.toContain("secret");
+    expect(result.episode).toMatchObject({ status: "script_review", stepProgress: null });
+    expect(await reportProgress(episode.id, "script", "끝난 뒤 메모")).toBe(false);
+  });
+
   it("작업이 실패하면 failed + 에러, 다시 시도하면 그 단계부터", async () => {
     const { createEpisode, requestStep } = await import("@/pipeline/episodes");
     const { runStep } = await import("@/pipeline/runner");

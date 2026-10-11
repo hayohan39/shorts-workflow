@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import { generateScript, ScriptGenerationError, type SendMessage } from "@/pipeline/script/generate";
+import { modelProfile } from "@/pipeline/script/model";
 import type { ScriptSubmission } from "@/pipeline/script/schema";
 import { validSubmission } from "./helpers/script";
 
@@ -50,11 +51,39 @@ describe("대본 생성 (가짜 API)", () => {
     expect(String(params.messages[0].content)).toContain("주제: PDRN");
   });
 
-  it("pause_turn 이면 같은 대화를 그대로 이어서 보낸다", async () => {
+  it("Haiku 5.5 는 기본형 웹 도구로, 서버 대체 모델 없이 요청한다", async () => {
+    const { send, calls } = fake([submit(validSubmission())]);
+    await generateScript(input, { model: "claude-haiku-5-5", send });
+    const params = calls[0];
+    expect(params.output_config).toEqual({ effort: "high" });
+    expect(params.fallbacks).toBeUndefined();
+    expect(params.betas).toBeUndefined();
+    expect(params.tools?.map((t) => ("type" in t && t.type ? t.type : t.name))).toEqual([
+      "web_search_20250305",
+      "web_fetch_20250910",
+      "submit_script",
+    ]);
+  });
+
+  it("모델별 옵션: effort 를 못 받는 옛 모델은 빼고, Sonnet 5.5 는 대체 모델을 쓴다", () => {
+    expect(modelProfile("claude-haiku-4-5")).toMatchObject({ effort: false, fallbacks: false });
+    expect(modelProfile("claude-sonnet-5-5")).toEqual({
+      webSearch: "web_search_20260209",
+      webFetch: "web_fetch_20260209",
+      effort: true,
+      fallbacks: true,
+    });
+    expect(modelProfile("claude-opus-5")).toMatchObject({ fallbacks: true });
+    expect(modelProfile("claude-opus-4-8")).toMatchObject({ webSearch: "web_search_20260209", fallbacks: false });
+  });
+
+  it("pause_turn 이면 같은 대화를 그대로 이어서 보내고 진행 메모를 남긴다", async () => {
     const { send, calls } = fake([text("pause_turn"), submit(validSubmission())]);
-    await generateScript(input, { model: "m", send });
+    const notes: string[] = [];
+    await generateScript(input, { model: "m", send, onProgress: async (note) => void notes.push(note) });
     expect(calls).toHaveLength(2);
     expect(calls[1].messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(notes).toEqual(["자료 조사 중 · 웹 검색 2회 · 페이지 1개"]);
   });
 
   it("제출 없이 끝나면 한 번 요청하고, 그래도 없으면 실패", async () => {

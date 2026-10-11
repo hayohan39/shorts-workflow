@@ -5,5 +5,5 @@ import { runScriptStep } from "@/pipeline/steps/script";
 //   script ④ · render ⑤ · compose ⑥ · upload ⑦  (docs/mvp-plan.md)
 // 비어 있는 단계를 실행하면 "아직 구현되지 않았습니다" 로 실패 처리된다.
 export const handlers: StepHandlers = {
-  script: (episode) => runScriptStep(episode),
+  script: (episode, context) => runScriptStep(episode, { progress: context.progress }),
 };

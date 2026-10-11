@@ -9,17 +9,20 @@ interface Field {
   label: string;
   value: string;
   options: ModelOption[];
-  /** 빈 값(미설정)을 고를 때 보이는 문구. */
+  /** 가성비 추천 모델 ID(목록에 ★ 표시). */
+  recommended: string | null;
+  /** 빈 값(자동 = 추천 모델 사용)을 고를 때 보이는 문구. */
   emptyLabel: string;
 }
 
-function optionLabel(option: ModelOption): string {
+function optionLabel(option: ModelOption, recommended: boolean): string {
   const notes = [
     option.detail,
     option.vertical === false ? "세로 9:16 미지원" : "",
     option.fiveSeconds === false ? "5초 미지원" : "",
   ].filter(Boolean);
-  return notes.length ? `${option.label} (${notes.join(" · ")})` : option.label;
+  const label = recommended ? `★ ${option.label}` : option.label;
+  return notes.length ? `${label} (${notes.join(" · ")})` : label;
 }
 
 export function SettingsForm({
@@ -49,7 +52,7 @@ export function SettingsForm({
               {field.value && !known ? <option value={field.value}>{field.value} (목록에 없음)</option> : null}
               {field.options.map((option) => (
                 <option key={option.id} value={option.id}>
-                  {optionLabel(option)}
+                  {optionLabel(option, option.id === field.recommended)}
                 </option>
               ))}
             </select>

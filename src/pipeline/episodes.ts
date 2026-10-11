@@ -19,6 +19,10 @@ export interface Episode {
   status: Status;
   step: Step | null;
   stepState: StepState | null;
+  /** 단계를 요청(대기)하거나 시작한 시각. */
+  stepStartedAt: Date | null;
+  /** Actions 가 적는 진행 메모. */
+  stepProgress: string | null;
   runUrl: string | null;
   scheduledAt: Date | null;
   youtubeVideoId: string | null;
@@ -35,6 +39,8 @@ interface EpisodeRow {
   status: Status;
   step: Step | null;
   step_state: StepState | null;
+  step_started_at: Date | null;
+  step_progress: string | null;
   run_url: string | null;
   scheduled_at: Date | null;
   youtube_video_id: string | null;
@@ -44,12 +50,13 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, topic, outline, status, step, step_state, run_url, scheduled_at,
+const COLUMNS = `id, topic, outline, status, step, step_state, step_started_at, step_progress, run_url, scheduled_at,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
 export const OUTLINE_MAX = 2000;
 const ERROR_MAX = 2000;
+const PROGRESS_MAX = 200;
 
 export class EpisodeNotFoundError extends Error {
   constructor(id: number) {
@@ -66,6 +73,8 @@ function toEpisode(row: EpisodeRow): Episode {
     status: row.status,
     step: row.step,
     stepState: row.step_state,
+    stepStartedAt: row.step_started_at,
+    stepProgress: row.step_progress,
     runUrl: row.run_url,
     scheduledAt: row.scheduled_at,
     youtubeVideoId: row.youtube_video_id,
@@ -146,6 +155,8 @@ export function requestStep(id: number, step: Step): Promise<Episode> {
     status: statusForRequest(episode, step),
     step,
     step_state: "pending",
+    step_started_at: new Date(),
+    step_progress: null,
     run_url: null,
     error: null,
   }));
@@ -157,6 +168,8 @@ export function startStep(id: number, step: Step, runUrl: string | null): Promis
     status: statusForStart(episode, step),
     step,
     step_state: "running",
+    step_started_at: new Date(),
+    step_progress: null,
     run_url: runUrl,
     error: null,
   }));
@@ -166,6 +179,7 @@ export function completeStep(id: number, step: Step): Promise<Episode> {
   return updateLocked(id, (episode) => ({
     status: statusForDone(episode, step),
     step_state: "done",
+    step_progress: null,
   }));
 }
 
@@ -183,6 +197,19 @@ export function failStep(id: number, step: Step, message: string): Promise<Episo
       error: redact(message).slice(0, ERROR_MAX),
     };
   });
+}
+
+/**
+ * 실행 중인 단계의 진행 메모를 남긴다. 그 단계가 실행 중일 때만 적고, 아니면 무시한다.
+ * updated_at 도 갱신되므로 "응답 없음" 판정(isStale)의 생존 신호 역할도 한다.
+ */
+export async function reportProgress(id: number, step: Step, text: string): Promise<boolean> {
+  const rows = await query<{ id: number }>(
+    `update episodes set step_progress = $3, updated_at = now()
+      where id = $1 and step = $2 and step_state = 'running' returning id`,
+    [id, step, redact(text).slice(0, PROGRESS_MAX)],
+  );
+  return rows.length > 0;
 }
 
 /** 사람의 승인·반려. */

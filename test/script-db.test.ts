@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
       prompts.push(String(params.messages[0].content));
       return reply(validSubmission());
     };
-    await runScriptStep((await getEpisode(episode.id))!, send);
+    await runScriptStep((await getEpisode(episode.id))!, { send });
     const v1 = await latestScript(episode.id);
     expect(v1).toMatchObject({ version: 1, source: "generated", model: "claude-opus-5-5" });
     // 근거 문장의 "완치율"도 걸린다: 자동 반려하지 않고 사람이 문맥을 보고 판단하도록 경고만 남긴다.
@@ -49,7 +49,7 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     expect(v1?.usage).toMatchObject({ webSearches: 1 });
 
     await setReviewerNote(v1!.id, "훅을 더 짧게");
-    await runScriptStep((await getEpisode(episode.id))!, send);
+    await runScriptStep((await getEpisode(episode.id))!, { send });
     expect((await latestScript(episode.id))?.version).toBe(2);
     expect(prompts[1]).toContain("메모: 훅을 더 짧게");
     expect(prompts[1]).toContain("이전 내레이션: 연어에서 뽑은");
@@ -60,9 +60,11 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     const { runScriptStep } = await import("@/pipeline/steps/script");
     const episode = await createEpisode({ topic: "히알루론산", outline: "" });
     let prompt = "";
-    await runScriptStep((await getEpisode(episode.id))!, async (params) => {
-      prompt = String(params.messages[0].content);
-      return reply(validSubmission());
+    await runScriptStep((await getEpisode(episode.id))!, {
+      send: async (params) => {
+        prompt = String(params.messages[0].content);
+        return reply(validSubmission());
+      },
     });
     expect(prompt).toContain("최근 편");
     expect(prompt).toContain("훅: 연어에서 뽑은 DNA");
@@ -73,7 +75,7 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     const { runScriptStep } = await import("@/pipeline/steps/script");
     const { latestScript, saveEditedScript } = await import("@/pipeline/scripts");
     const episode = await createEpisode({ topic: "수정", outline: "" });
-    await runScriptStep((await getEpisode(episode.id))!, async () => reply(validSubmission()));
+    await runScriptStep((await getEpisode(episode.id))!, { send: async () => reply(validSubmission()) });
     const base = (await latestScript(episode.id))!;
 
     const edited = await saveEditedScript(base, {
