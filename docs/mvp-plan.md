@@ -248,8 +248,8 @@ queued ─[대본]─► script_review ─승인─► approved ─[장면·음�
 | 언제 | 이름 | 어디에 | 발급처 |
 | --- | --- | --- | --- |
 | ② 후 | `DASHBOARD_PASSWORD` | Vercel (Production·Preview) | 직접 정한 긴 비밀번호 |
-| ② 후 | `SESSION_SECRET` | Vercel (Production·Preview) | 임의의 긴 문자열 (예: `openssl rand -hex 32`) |
-| ② 후 | `GITHUB_DISPATCH_TOKEN` | Vercel (Production·Preview) | GitHub → Settings → Developer settings → Fine-grained token: 저장소 `shorts-workflow` 만, 권한 **Actions: Read and write** |
+| ② 후 | `SESSION_SECRET` | Vercel (Production·Preview) | 임의의 32자 이상 문자열 (예: `openssl rand -hex 32`) |
+| ② 후 | `GITHUB_DISPATCH_TOKEN` | Vercel (**Production 만**) | GitHub → Settings → Developer settings → Fine-grained token: 저장소 `shorts-workflow` 만, 권한 **Actions: Read and write** |
 | ③ 후 | `MANYMOTIONS_API_KEY` | GitHub Secrets | manymotions.com dashboard/api-keys (`cw_live_…`) |
 | ④ 후 | `ANTHROPIC_API_KEY` | GitHub Secrets | console.anthropic.com (Claude 구독과 별도 결제). 리포지토리 생성 때 복사되지 않음 |
 | ⑤ 전 | `BLOB_READ_WRITE_TOKEN` | Vercel(자동) + GitHub Secrets | Vercel → shorts-workflow → Storage → Blob 스토어 생성·연결 |
@@ -260,11 +260,13 @@ queued ─[대본]─► script_review ─승인─► approved ─[장면·음�
   **동의 화면 게시 상태를 "프로덕션"으로** 둔다("테스트"면 리프레시 토큰이 7일 뒤 만료). 본인 계정이라
   "확인되지 않은 앱" 경고는 "계속"으로 넘어가면 된다. 그 다음 `scripts/youtube-auth.mjs` 로 토큰 발급.
 - 이미 있음: `DATABASE_URL`(Vercel·GitHub 모두), Vercel·Neon 연결
+- `GITHUB_DISPATCH_TOKEN` 을 Preview 에 넣지 않는 이유: PR 프리뷰는 복제 DB 를 쓰는데 Actions 는 프로덕션 DB 를 본다.
+  프리뷰에서 실행하면 엉뚱한 에피소드가 처리된다. 코드도 프로덕션(`VERCEL_ENV=production`)이 아니면 실행 요청을 보내지 않는다.
 
-## 결정 필요
+## 결정된 사항
 
 1. **대시보드 → Actions 실행 방식**: GitHub fine-grained 토큰(`GITHUB_DISPATCH_TOKEN`)으로 버튼을 누르는 즉시 실행
-   (추천: 무료, 즉시 실행, 이 저장소의 Actions 권한만). 대안인 "Actions 가 몇 분마다 DB 를 확인"은 토큰이
+   (확정: 무료, 즉시 실행, 이 저장소의 Actions 권한만). 대안인 "Actions 가 몇 분마다 DB 를 확인"은 토큰이
    필요 없지만 최대 5분 이상 지연되고, 5분마다 실행하면 월 약 8,600회라 비공개 저장소의 무료 Actions 시간(월 2,000분)을 넘긴다.
 2. 대시보드 로그인은 **비밀번호 1개**로 확정(2026-10-11, 사용자 선택).
 
