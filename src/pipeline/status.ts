@@ -72,6 +72,13 @@ export const STEP_LABELS: Record<Step, string> = {
   upload: "유튜브 업로드",
 };
 
+export const STEP_STATE_LABELS: Record<StepState, string> = {
+  pending: "실행 대기",
+  running: "실행 중",
+  done: "완료",
+  failed: "실패",
+};
+
 export class TransitionError extends Error {
   constructor(message: string) {
     super(message);

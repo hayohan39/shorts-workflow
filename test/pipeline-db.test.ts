@@ -3,35 +3,24 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createMigratedSchema, testDatabaseUrl } from "./helpers/db";
 
 const run = promisify(execFile);
 
-// 실제 Postgres 가 있을 때만 돈다 (CI 는 서비스 컨테이너로 TEST_DATABASE_URL 을 준다).
 // 테스트 전용 스키마에 실제 마이그레이션을 적용하고 그 위에서 파이프라인 DB 코드를 검증한다.
-const url = process.env.TEST_DATABASE_URL;
-const schema = `pl_${Date.now()}`;
-const schemaUrl = url ? `${url}${url.includes("?") ? "&" : "?"}options=-c%20search_path%3D${schema}` : "";
+describe.skipIf(!testDatabaseUrl)("파이프라인 DB (실제 DB)", () => {
+  let schemaUrl = "";
+  let drop: () => Promise<void>;
 
-describe.skipIf(!url)("파이프라인 DB (실제 DB)", () => {
   beforeAll(async () => {
-    const { default: pg } = await import("pg");
-    const admin = new pg.Client({ connectionString: url });
-    await admin.connect();
-    await admin.query(`create schema ${schema}`);
-    await admin.end();
-    const env = { ...process.env, DATABASE_URL: schemaUrl, DATABASE_URL_UNPOOLED: "" };
-    await run("node", [path.resolve("scripts", "migrate.mjs")], { env });
+    ({ url: schemaUrl, drop } = await createMigratedSchema("pl"));
     process.env.DATABASE_URL = schemaUrl;
   });
 
   afterAll(async () => {
     const { getPool } = await import("@/lib/db");
     await getPool().end();
-    const { default: pg } = await import("pg");
-    const admin = new pg.Client({ connectionString: url });
-    await admin.connect();
-    await admin.query(`drop schema if exists ${schema} cascade`);
-    await admin.end();
+    await drop();
   });
 
   it("설정 기본값 한 행이 있다", async () => {
