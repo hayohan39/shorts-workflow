@@ -5,15 +5,18 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { getEpisode } from "@/pipeline/episodes";
+import { latestScript } from "@/pipeline/scripts";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, type Status } from "@/pipeline/status";
 import { isStale, runnableStep } from "@/pipeline/trigger";
 import { RunStepButton } from "./run-step-button";
+import { ScriptReview } from "./script-review";
 
 export const dynamic = "force-dynamic";
 
 // 사람이 볼 차례인 상태의 안내. 검토 화면은 이후 업데이트에서 이 자리에 들어온다.
 const WAITING_FOR_PERSON: Partial<Record<Status, string>> = {
-  script_review: "대본 검토 화면은 다음 업데이트에서 추가됩니다.",
+  script_review: "아래 대본을 검토하고 승인하거나 반려하세요.",
+  approved: "장면·음성 생성은 다음 업데이트에서 추가됩니다.",
   video_review: "영상 검토 화면은 다음 업데이트에서 추가됩니다.",
   ready: "유튜브 업로드 버튼은 다음 업데이트에서 추가됩니다.",
   uploaded: "업로드가 끝났습니다.",
@@ -23,7 +26,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const episode = await getEpisode(id);
+  const [episode, script] = await Promise.all([getEpisode(id), latestScript(id)]);
   if (!episode) notFound();
 
   const busy = isBusy(episode);
@@ -77,9 +80,11 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
             </>
           ) : null}
         </p>
-        {step && buttonLabel && canDispatch ? <RunStepButton id={episode.id} step={step} label={buttonLabel} /> : null}
+        {step && buttonLabel ? (
+          <RunStepButton id={episode.id} step={step} label={buttonLabel} disabled={!canDispatch} />
+        ) : null}
         {step && !availability.ok ? (
-          <p className="warn">
+          <p className="warn small">
             {STEP_LABELS[step]} 단계는 시작되지 않았습니다. {availability.reason}
           </p>
         ) : null}
@@ -87,6 +92,8 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           <p className="muted">{WAITING_FOR_PERSON[episode.status]}</p>
         ) : null}
       </section>
+
+      {script ? <ScriptReview script={script} reviewing={episode.status === "script_review" && !busy} /> : null}
     </>
   );
 }

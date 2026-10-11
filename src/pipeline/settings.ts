@@ -46,6 +46,7 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export interface SettingsInput {
+  scriptModel: string;
   videoModel: string;
   imageModel: string;
   voiceModel: string;
@@ -66,7 +67,7 @@ export async function updateSettings(input: SettingsInput): Promise<Settings> {
   }
   const [row] = await query<SettingsRow>(
     `update settings set video_model = $1, image_model = $2, voice_model = $3, voice = $4,
-        monthly_credit_limit = $5, updated_at = now()
+        monthly_credit_limit = $5, script_model = $6, updated_at = now()
       returning ${COLUMNS}`,
     [
       text(input.videoModel, "영상 모델"),
@@ -74,6 +75,7 @@ export async function updateSettings(input: SettingsInput): Promise<Settings> {
       text(input.voiceModel, "음성 모델"),
       text(input.voice, "목소리"),
       limit,
+      text(input.scriptModel, "대본 모델"),
     ],
   );
   return toSettings(row);

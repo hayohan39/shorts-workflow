@@ -63,6 +63,7 @@ jobs:
         # 외부 API 키는 이 단계에만 넘긴다(npm ci 같은 다른 단계에는 노출하지 않음).
         env:
           MANYMOTIONS_API_KEY: ${{ secrets.MANYMOTIONS_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: npm run pipeline -- run "$STEP" "$EPISODE_ID"
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.
