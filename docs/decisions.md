@@ -34,13 +34,21 @@
   `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` / `YOUTUBE_REFRESH_TOKEN` (GitHub Secrets).
   비용 약 $30~32/월. 공급자 호출은 어댑터 한 곳에 모아 교체할 수 있게 한다.
 
-## 2026-10-11 MVP 승인 방식
+## 2026-10-11 대시보드에서 모든 작업 진행 (MVP 범위 변경)
 
-- 결정: 1단계(MVP)에서는 대시보드 없이 Actions 의 `Pipeline` 워크플로 버튼(workflow_dispatch)으로
-  실행·승인한다. 검토 내용은 실행 결과 Summary 에 보여 준다.
-- 이유: 쓰기 권한자만 실행할 수 있어 별도 인증이 필요 없고, 휴대폰에서도 된다. 대시보드는 2단계.
-- 검토한 대안: GitHub Issue 코멘트로 승인(파싱·권한 확인이 더 필요), 바로 대시보드 구현(MVP 범위 초과).
-- 영향: 없음. 2단계에서 같은 상태 전이 코드를 대시보드가 재사용한다.
+- 결정: 대본 생성·승인, 영상 확인·승인, 유튜브 업로드를 1단계부터 Vercel 대시보드에서 한다.
+  생성 작업은 그대로 GitHub Actions 에서 돌고, 대시보드 버튼이 GitHub API 로 `pipeline.yml` 을 실행한다.
+- 이유: 사용자 요청. Actions 화면을 직접 다루지 않고 휴대폰에서 버튼만 누르기 위해서.
+- 검토한 대안: Actions 수동 실행 버튼으로 승인(처음 계획, 화면이 불편), Actions 가 주기적으로 DB 확인
+  (토큰 불필요하지만 지연이 크고 무료 Actions 시간 초과).
+- 영향: 1단계 기간 약 1주 → 1.5주. Vercel 환경변수 `GITHUB_DISPATCH_TOKEN`(fine-grained, 이 저장소 Actions 쓰기만).
+
+## 2026-10-11 대시보드 인증: 비밀번호 1개
+
+- 결정: Vercel 환경변수 `DASHBOARD_PASSWORD` 로 로그인하고, `SESSION_SECRET` 으로 서명한 httpOnly 쿠키로 유지한다.
+- 이유: 사용자 1명. 무료, 외부 서비스·라이브러리 없음, 설정 1분, 락인 없음.
+- 검토한 대안: GitHub 로그인(Auth.js + OAuth 앱), Google 로그인 — 비밀번호 관리가 필요 없지만 설정과 의존성이 늘어남.
+- 영향: Vercel 환경변수 `DASHBOARD_PASSWORD`, `SESSION_SECRET`. 비밀번호를 바꾸면 다시 로그인하면 된다.
 
 ## 2026-10-11 기본 스택
 
