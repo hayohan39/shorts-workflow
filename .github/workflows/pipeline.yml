@@ -1,0 +1,68 @@
+name: Pipeline
+
+# 쇼츠 파이프라인의 자동 단계(대본·장면·합성·업로드)를 에피소드 하나에 대해 실행한다.
+# 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
+# 직접 실행해도 된다: Actions → Pipeline → Run workflow.
+#
+# 상태 기록은 전부 `npm run pipeline` 이 DB 에 한다. 여기서는 실행 환경만 준비한다.
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 실행할 단계
+        type: choice
+        required: true
+        options: [script, render, compose, upload]
+      episode_id:
+        description: 에피소드 번호
+        type: string
+        required: true
+
+run-name: "#${{ inputs.episode_id }} ${{ inputs.step }}"
+
+# 같은 에피소드는 한 번에 하나씩. 다른 에피소드는 동시에 돌 수 있다.
+concurrency:
+  group: pipeline-episode-${{ inputs.episode_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: Run step
+    if: ${{ !github.event.repository.is_template }}
+    runs-on: ubuntu-latest
+    # deploy.yml 과 같은 환경의 시크릿(DATABASE_URL 등)을 쓴다.
+    environment: production
+    timeout-minutes: 45
+    env:
+      # 입력값은 스크립트에 직접 끼우지 않고 환경변수로만 넘긴다.
+      STEP: ${{ inputs.step }}
+      EPISODE_ID: ${{ inputs.episode_id }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Run
+        id: run
+        run: npm run pipeline -- run "$STEP" "$EPISODE_ID"
+
+      # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.
+      # 이미 기록됐거나 실행 중이 아니면 아무것도 바꾸지 않는다.
+      - name: Record interruption
+        if: ${{ (failure() || cancelled()) && steps.run.outcome != 'failure' }}
+        run: npm run pipeline -- fail "$STEP" "$EPISODE_ID" "Actions 실행이 중간에 중단되었습니다. 다시 시도하세요."
