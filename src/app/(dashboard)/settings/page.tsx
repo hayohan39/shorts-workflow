@@ -6,6 +6,9 @@ import type { ModelOption } from "@/pipeline/catalog";
 import { isProbeBusy, latestProbe, latestSuccessfulProbe, needsRefresh, type ProbeState } from "@/pipeline/probe";
 import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
 import { recommendedOption } from "@/pipeline/recommended";
+import { getCostStatus, monthlyActualCost, recentCosts, utcMonthStart } from "@/pipeline/costs";
+import { formatUsd } from "@/pipeline/script/pricing";
+import { scriptCostSince } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { AutoProbe, ProbeButton } from "./probe-button";
 import { SettingsForm } from "./settings-form";
@@ -19,9 +22,24 @@ const PROBE_STATE_LABELS: Record<ProbeState, string> = {
   failed: "실패",
 };
 
+const COST_TYPE_LABELS: Record<string, string> = {
+  tokens: "토큰",
+  web_search: "웹 검색",
+  code_execution: "코드 실행",
+  session_usage: "세션",
+};
+
 export default async function SettingsPage() {
   await requireSession();
-  const [settings, probe, lastSuccess] = await Promise.all([getSettings(), latestProbe(), latestSuccessfulProbe()]);
+  const [settings, probe, lastSuccess, costStatus, costDays, actual, calculated] = await Promise.all([
+    getSettings(),
+    latestProbe(),
+    latestSuccessfulProbe(),
+    getCostStatus(),
+    recentCosts(7),
+    monthlyActualCost(),
+    scriptCostSince(utcMonthStart()),
+  ]);
   const busy = isProbeBusy(probe);
   const availability = dispatchAvailability();
   // 목록이 없거나 하루 넘게 지났으면 화면을 여는 순간 자동으로 다시 가져온다(프로덕션에서만).
@@ -99,6 +117,69 @@ export default async function SettingsPage() {
         </p>
         {!Array.isArray(claude) && claude?.error ? (
           <p className="warn small">Claude 모델 목록을 가져오지 못했습니다: {claude.error}</p>
+        ) : null}
+      </section>
+
+      <section id="costs">
+        <h2>Claude 실제 비용</h2>
+        {actual ? (
+          <p>
+            이번 달(UTC) 실제 <strong>{formatUsd(actual.usd)}</strong> · 대본 계산값 {formatUsd(calculated.total)} (
+            {calculated.runs}회)
+            <br />
+            <span className="muted small">
+              {formatDateTime(actual.fetchedAt)} 조회 · 요청 후 보통 5분 안에 반영되고, 모델 목록과 함께 매일 갱신됩니다.
+            </span>
+          </p>
+        ) : (
+          <p className="muted small">아직 실제 비용을 가져온 적이 없습니다.</p>
+        )}
+        {costStatus?.state === "failed" ? (
+          <p className="error small prewrap">마지막 조회 실패: {costStatus.message}</p>
+        ) : null}
+        {!costStatus || costStatus.state === "skipped" ? (
+          <div className="callout small">
+            <strong>연결 방법</strong>
+            <ol>
+              <li>Claude Console 이 조직 계정이어야 합니다(Settings → Organization). 개인 계정은 Admin 키를 만들 수 없습니다.</li>
+              <li>
+                Console 설정에서 Admin API 키(sk-ant-admin01-…)를 만듭니다(
+                <a href="https://platform.claude.com/docs/en/manage-claude/admin-api-keys" target="_blank" rel="noreferrer">
+                  안내
+                </a>
+                ).
+              </li>
+              <li>
+                GitHub 저장소 → Settings → Secrets and variables → Actions 에 <code>ANTHROPIC_ADMIN_KEY</code> 로
+                등록합니다(채팅에 붙이지 마세요).
+              </li>
+              <li>
+                선택: 이 프로젝트 키를 별도 워크스페이스에 두었다면 Variables 에 <code>ANTHROPIC_COST_WORKSPACE_ID</code>
+                (wrkspc_…)를 넣으면 그 워크스페이스 비용만 셉니다.
+              </li>
+              <li>아래 &quot;지금 새로 가져오기&quot; 를 누르면 1~2분 뒤 표시됩니다.</li>
+            </ol>
+          </div>
+        ) : null}
+        {costDays.length ? (
+          <details>
+            <summary className="small">최근 {costDays.length}일 (UTC 날짜)</summary>
+            <ul className="small">
+              {costDays.map((day) => (
+                <li key={day.day}>
+                  {day.day}: <strong>{formatUsd(day.usd)}</strong>
+                  {day.breakdown.length ? (
+                    <span className="muted">
+                      {" — "}
+                      {day.breakdown
+                        .map((part) => `${part.model ?? COST_TYPE_LABELS[part.costType] ?? part.costType} ${formatUsd(part.usd)}`)
+                        .join(" · ")}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </details>
         ) : null}
       </section>
 

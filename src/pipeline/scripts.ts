@@ -92,6 +92,15 @@ export async function scriptCostTotal(episodeId: number): Promise<{ total: numbe
   return { total, runs: rows.length, unknown };
 }
 
+/** since 이후 대본 생성 비용 계산값 합계(실제 청구액과 비교용). */
+export async function scriptCostSince(since: Date): Promise<{ total: number; runs: number }> {
+  const rows = await query<{ source: "generated" | "edited"; model: string | null; usage: Record<string, number> | null }>(
+    `select source, model, usage from scripts where source = 'generated' and created_at >= $1`,
+    [since],
+  );
+  return { total: rows.reduce((sum, row) => sum + (scriptCost(row) ?? 0), 0), runs: rows.length };
+}
+
 /** 다른 에피소드의 최근 대본(훅·장면 구성을 겹치지 않게 하려고 프롬프트에 넣는다). */
 export async function recentScripts(excludeEpisodeId: number, limit = 5): Promise<Script[]> {
   const rows = await query<ScriptRow>(
