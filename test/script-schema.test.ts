@@ -20,6 +20,26 @@ describe("대본 형식", () => {
     expect(draft.needsAiDisclosure).toBe(false);
   });
 
+  it("출처는 http(s) 링크만 남긴다", () => {
+    const draft = toDraft(
+      validSubmission({
+        research: [
+          {
+            claim: "x",
+            evidence: "limited",
+            sources: [
+              { title: "악성", url: "javascript:alert(1)" },
+              { title: "데이터", url: "data:text/html,hi" },
+              { title: "논문", url: " https://example.org/paper " },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(draft.research[0].sources).toEqual([{ title: "논문", url: "https://example.org/paper" }]);
+    expect(draft.description).not.toContain("javascript:");
+  });
+
   it("실사풍 인물이 있으면 AI 합성 공개 표시", () => {
     const submission = validSubmission();
     submission.scenes[1].realistic_person = true;

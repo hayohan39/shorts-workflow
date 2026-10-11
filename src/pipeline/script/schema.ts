@@ -131,7 +131,7 @@ export function buildDescription(summary: string, research: ResearchItem[]): str
   const sources: string[] = [];
   for (const item of research) {
     for (const source of item.sources) {
-      if (!/^https?:\/\//.test(source.url) || seen.has(source.url)) continue;
+      if (!isWebUrl(source.url) || seen.has(source.url)) continue;
       seen.add(source.url);
       sources.push(`- ${compact(source.title)}: ${source.url}`);
     }
@@ -139,8 +139,17 @@ export function buildDescription(summary: string, research: ResearchItem[]): str
   return [compact(summary), "", "출처", ...(sources.length ? sources : ["- (확인된 출처 없음)"]), "", DISCLAIMER].join("\n");
 }
 
-/** 제출된 대본을 저장 형태로 바꾼다. 해시태그는 #shorts 를 맨 앞에 두고 최대 5개. */
+const isWebUrl = (url: string) => /^https?:\/\//i.test(url.trim());
+
+/**
+ * 제출된 대본을 저장 형태로 바꾼다. 해시태그는 #shorts 를 맨 앞에 두고 최대 5개.
+ * 출처는 http(s) 링크만 남긴다(웹 조사 중 들어온 javascript: 같은 링크가 화면에 노출되지 않게).
+ */
 export function toDraft(submission: ScriptSubmission): ScriptDraft {
+  const research = submission.research.map((item) => ({
+    ...item,
+    sources: item.sources.filter((source) => isWebUrl(source.url)).map((source) => ({ ...source, url: source.url.trim() })),
+  }));
   const scenes = [...submission.scenes]
     .sort((a, b) => a.no - b.no)
     .map((scene, index) => ({
@@ -153,11 +162,11 @@ export function toDraft(submission: ScriptSubmission): ScriptDraft {
     (tag, index, all) => tag && all.indexOf(tag) === index,
   );
   return {
-    research: submission.research,
+    research,
     scenes,
     narration: scenes.map((scene) => scene.narration).join(" "),
     title: compact(submission.title),
-    description: buildDescription(submission.summary, submission.research),
+    description: buildDescription(submission.summary, research),
     tags: tags.slice(0, RULES.tagsMax),
     needsAiDisclosure: scenes.some((scene) => scene.realistic_person),
   };
