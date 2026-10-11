@@ -28,4 +28,19 @@ describe("redact", () => {
     expect(redact(message)).toBe("connect failed: postgres://***");
     expect(redact(message)).not.toContain("secret");
   });
+
+  it("API 키·토큰을 가린다 (외부 API 가 오류에 키를 되돌려 주는 경우)", () => {
+    const message = [
+      "MCP 요청 실패: 401 invalid key: cw_live_AbC123-xyz",
+      'header "Authorization: Bearer cw_test_qwe"',
+      "anthropic sk-ant-api03-ZZZ_yy",
+      "github github_pat_11ABC_def ghp_abc123",
+    ].join("\n");
+    const out = redact(message);
+    for (const secret of ["cw_live_AbC123", "cw_test_qwe", "sk-ant-api03", "github_pat_11ABC", "ghp_abc123"]) {
+      expect(out).not.toContain(secret);
+    }
+    expect(out).toContain("MCP 요청 실패: 401 invalid key: cw_***");
+    expect(out).toContain("Bearer ***");
+  });
 });

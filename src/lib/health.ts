@@ -10,9 +10,17 @@ export type Health = {
   environment: string;
 };
 
-/** 시크릿이 섞일 수 있는 오류 메시지에서 연결 문자열을 가린다. */
+/**
+ * 시크릿이 섞일 수 있는 오류 메시지에서 연결 문자열과 API 키·토큰을 가린다.
+ * 외부 API 가 오류 응답에 받은 키를 그대로 되돌려 주는 경우에 대비한다.
+ */
 export function redact(message: string): string {
-  return message.replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "postgres://***");
+  return message
+    .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "postgres://***")
+    .replace(/\bBearer\s+[^\s'",]+/gi, "Bearer ***")
+    .replace(/\bcw_(?:live|test)_[\w-]+/g, "cw_***")
+    .replace(/\bsk-ant-[\w-]+/g, "sk-ant-***")
+    .replace(/\b(?:github_pat|gh[pousr])_\w+/g, "gh_***");
 }
 
 export function summarize(

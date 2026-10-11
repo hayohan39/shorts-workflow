@@ -9,6 +9,7 @@
 //           MANYMOTIONS_API_KEY(probe)
 import { appendFile } from "node:fs/promises";
 import { getPool, hasDatabase } from "@/lib/db";
+import { redact } from "@/lib/health";
 import { failStep } from "@/pipeline/episodes";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
 import { createManyMotionsClient, readManyMotionsKey } from "@/pipeline/providers/manymotions";
@@ -25,8 +26,9 @@ function parseTarget(stepArg: string | undefined, idArg: string | undefined): { 
   return { step: stepArg, id };
 }
 
+/** 실행 요약(로그·GITHUB_STEP_SUMMARY). 오류 메시지에 섞인 비밀값은 가린다. */
 async function summary(lines: string[]): Promise<void> {
-  const text = lines.join("\n") + "\n";
+  const text = redact(lines.join("\n") + "\n");
   console.log(text);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, text);
 }
