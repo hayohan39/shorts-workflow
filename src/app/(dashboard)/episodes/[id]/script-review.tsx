@@ -1,4 +1,5 @@
-import type { Script } from "@/pipeline/scripts";
+import { scriptCost, type Script } from "@/pipeline/scripts";
+import { formatUsd } from "@/pipeline/script/pricing";
 import { countChars, RULES, type EvidenceLevel } from "@/pipeline/script/schema";
 import { ScriptActions, ScriptEditForm } from "./script-forms";
 
@@ -24,6 +25,7 @@ function fieldLabel(field: string): string {
 
 /** 대본 검토 화면. reviewing 이면 승인·반려·수정 버튼을 보여 준다. */
 export function ScriptReview({ script, reviewing }: { script: Script; reviewing: boolean }) {
+  const cost = script.source === "generated" ? scriptCost(script) : null;
   const length = countChars(script.narration);
   const lengthOk = length >= RULES.narrationMin && length <= RULES.narrationMax;
   const titleLength = [...script.title].length;
@@ -107,6 +109,7 @@ export function ScriptReview({ script, reviewing }: { script: Script; reviewing:
           : ""}
         {script.model ? ` · ${script.model}` : ""}
       </p>
+      {cost !== null ? <p className="small">이 버전 생성 비용: 약 {formatUsd(cost)}</p> : null}
       {script.reviewerNote ? <p className="small">검토 메모: {script.reviewerNote}</p> : null}
 
       {reviewing ? (

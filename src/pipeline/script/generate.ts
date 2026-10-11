@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { checkGuardrails } from "@/pipeline/script/guardrails";
 import { modelProfile } from "@/pipeline/script/model";
+import { formatUsd, roundCost } from "@/pipeline/script/pricing";
 import { buildUserPrompt, SYSTEM_PROMPT, type PromptInput } from "@/pipeline/script/prompt";
 import {
   countChars,
@@ -42,6 +43,8 @@ export interface ScriptUsage {
   webSearches: number;
   webFetches: number;
   rounds: number;
+  /** 대략의 비용(USD). 단가를 모르는 모델이 섞이면 null. */
+  costUsd: number | null;
 }
 
 export interface GeneratedScript {
@@ -78,20 +81,48 @@ export function requestOptions(model: string): Omit<Params, "messages"> {
 }
 
 export class ScriptGenerationError extends Error {
+  /** 실패하기 전까지 쓴 사용량(실패한 시도에도 비용이 든다). */
+  usage: ScriptUsage | null = null;
   constructor(message: string) {
     super(message);
     this.name = "ScriptGenerationError";
   }
 }
 
+/** 진행 메모·화면용 "웹 검색 3회 · 페이지 1개 · 비용 약 $0.012". */
+export function describeUsage(usage: ScriptUsage): string {
+  const cost = usage.costUsd === null ? "" : ` · 비용 약 ${formatUsd(usage.costUsd)}`;
+  return `웹 검색 ${usage.webSearches}회 · 페이지 ${usage.webFetches}개${cost}`;
+}
+
 export async function generateScript(
   input: PromptInput,
   options: { model: string; send: SendMessage; onProgress?: (text: string) => Promise<void> },
 ): Promise<GeneratedScript> {
+  const usage: ScriptUsage = { inputTokens: 0, outputTokens: 0, webSearches: 0, webFetches: 0, rounds: 0, costUsd: 0 };
+  try {
+    return await generateLoop(input, options, usage);
+  } catch (error) {
+    // 실패해도 이미 받은 응답만큼 비용이 들었으므로 사용량을 붙여서 넘긴다.
+    if (error instanceof ScriptGenerationError) {
+      error.usage = usage;
+      throw error;
+    }
+    if (usage.rounds === 0) throw error;
+    const wrapped = new ScriptGenerationError(error instanceof Error ? error.message : String(error));
+    wrapped.usage = usage;
+    throw wrapped;
+  }
+}
+
+async function generateLoop(
+  input: PromptInput,
+  options: { model: string; send: SendMessage; onProgress?: (text: string) => Promise<void> },
+  usage: ScriptUsage,
+): Promise<GeneratedScript> {
   const progress = options.onProgress ?? (async () => {});
   const base = requestOptions(options.model);
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [{ role: "user", content: buildUserPrompt(input) }];
-  const usage: ScriptUsage = { inputTokens: 0, outputTokens: 0, webSearches: 0, webFetches: 0, rounds: 0 };
   let corrections = 0;
   let reminded = false;
 
@@ -102,6 +133,8 @@ export async function generateScript(
     usage.outputTokens += response.usage.output_tokens;
     usage.webSearches += response.usage.server_tool_use?.web_search_requests ?? 0;
     usage.webFetches += response.usage.server_tool_use?.web_fetch_requests ?? 0;
+    const cost = roundCost(response.model, response.usage);
+    usage.costUsd = usage.costUsd === null || cost === null ? null : usage.costUsd + cost;
 
     if (response.stop_reason === "refusal") {
       const category = response.stop_details?.category ?? "분류 없음";
@@ -111,7 +144,7 @@ export async function generateScript(
       throw new ScriptGenerationError("응답이 길이 한도에 걸려 대본이 완성되지 않았습니다.");
     }
     messages.push({ role: "assistant", content: response.content });
-    const research = `웹 검색 ${usage.webSearches}회 · 페이지 ${usage.webFetches}개`;
+    const research = describeUsage(usage);
     if (response.stop_reason === "pause_turn") {
       await progress(`자료 조사 중 · ${research}`);
       continue;

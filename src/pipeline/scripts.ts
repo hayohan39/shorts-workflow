@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { estimateCost } from "@/pipeline/script/pricing";
 import { checkGuardrails } from "@/pipeline/script/guardrails";
 import { toDraft, validateScript, type Problem, type ResearchItem, type Scene, type ScriptDraft } from "@/pipeline/script/schema";
 
@@ -66,6 +67,29 @@ export async function latestScript(episodeId: number): Promise<Script | null> {
     [episodeId],
   );
   return row ? toScript(row) : null;
+}
+
+/** 저장된 대본 한 버전의 생성 비용(USD). 기록이 없는 예전 대본은 토큰 수로 추정한다. 생성하지 않은(직접 수정) 버전은 0. */
+export function scriptCost(script: Pick<Script, "source" | "model" | "usage">): number | null {
+  if (script.source !== "generated") return 0;
+  const recorded = script.usage?.costUsd;
+  return typeof recorded === "number" ? recorded : estimateCost(script.model, script.usage);
+}
+
+/** 에피소드의 대본 생성 비용 합계(성공해 저장된 생성만). 단가를 모르는 버전이 있으면 total 은 그만큼 빠진다. */
+export async function scriptCostTotal(episodeId: number): Promise<{ total: number; runs: number; unknown: number }> {
+  const rows = await query<{ source: "generated" | "edited"; model: string | null; usage: Record<string, number> | null }>(
+    `select source, model, usage from scripts where episode_id = $1 and source = 'generated'`,
+    [episodeId],
+  );
+  let total = 0;
+  let unknown = 0;
+  for (const row of rows) {
+    const cost = scriptCost(row);
+    if (cost === null) unknown++;
+    else total += cost;
+  }
+  return { total, runs: rows.length, unknown };
 }
 
 /** 다른 에피소드의 최근 대본(훅·장면 구성을 겹치지 않게 하려고 프롬프트에 넣는다). */

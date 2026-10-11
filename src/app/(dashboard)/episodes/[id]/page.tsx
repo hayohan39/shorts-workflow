@@ -6,7 +6,8 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatElapsed } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { getEpisode } from "@/pipeline/episodes";
-import { latestScript } from "@/pipeline/scripts";
+import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
+import { formatUsd } from "@/pipeline/script/pricing";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION, type Status } from "@/pipeline/status";
 import { isStale, runnableStep } from "@/pipeline/trigger";
 import { RunStepButton } from "./run-step-button";
@@ -27,7 +28,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const [episode, script] = await Promise.all([getEpisode(id), latestScript(id)]);
+  const [episode, script, scriptCosts] = await Promise.all([getEpisode(id), latestScript(id), scriptCostTotal(id)]);
   if (!episode) notFound();
 
   const busy = isBusy(episode);
@@ -88,6 +89,13 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
         ) : (
           <p className="muted">아직 실행한 단계가 없습니다.</p>
         )}
+        {scriptCosts.runs ? (
+          <p className="small">
+            대본 생성 비용: 약 {formatUsd(scriptCosts.total)} ({scriptCosts.runs}회 생성
+            {scriptCosts.unknown ? `, 그중 ${scriptCosts.unknown}회는 단가를 몰라 빠짐` : ""}
+            {scriptCosts.runs > 1 ? " 합계" : ""})
+          </p>
+        ) : null}
         {stale ? <p className="error">응답이 없습니다. Actions 가 멈췄을 수 있습니다. 다시 시도하세요.</p> : null}
         {episode.error ? <p className="error prewrap">{episode.error}</p> : null}
         <p className="muted small">

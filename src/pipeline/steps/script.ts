@@ -1,7 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Episode } from "@/pipeline/episodes";
 import { readAnthropicKey } from "@/pipeline/providers/anthropic";
-import { createSender, generateScript, type SendMessage } from "@/pipeline/script/generate";
+import {
+  createSender,
+  describeUsage,
+  generateScript,
+  ScriptGenerationError,
+  type SendMessage,
+} from "@/pipeline/script/generate";
 import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
 import { latestScript, recentScripts, saveScript } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
@@ -33,8 +39,14 @@ export async function runScriptStep(
       })),
     },
     { model, send: sender, onProgress: progress },
-  );
-  await progress("대본 저장 중");
+  ).catch((error: unknown) => {
+    // 실패한 시도에도 비용이 들었으면 오류 메시지에 함께 남긴다(대시보드에 보임).
+    if (error instanceof ScriptGenerationError && error.usage?.rounds) {
+      error.message = `${error.message}\n(이번 시도: ${describeUsage(error.usage)})`;
+    }
+    throw error;
+  });
+  await progress(`대본 저장 중 · ${describeUsage(result.usage)}`);
   await saveScript(episode.id, result.draft, {
     source: "generated",
     warnings: result.warnings,

@@ -47,12 +47,18 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     // 근거 문장의 "완치율"도 걸린다: 자동 반려하지 않고 사람이 문맥을 보고 판단하도록 경고만 남긴다.
     expect(v1?.warnings).toEqual([{ field: "scenes.3", message: '"완치" — 의약품 오인 표현(질병의 치료·처방)' }]);
     expect(v1?.usage).toMatchObject({ webSearches: 1 });
+    expect(typeof v1?.usage?.costUsd).toBe("number");
 
     await setReviewerNote(v1!.id, "훅을 더 짧게");
     await runScriptStep((await getEpisode(episode.id))!, { send });
     expect((await latestScript(episode.id))?.version).toBe(2);
     expect(prompts[1]).toContain("메모: 훅을 더 짧게");
     expect(prompts[1]).toContain("이전 내레이션: 연어에서 뽑은");
+
+    const { scriptCostTotal } = await import("@/pipeline/scripts");
+    const costs = await scriptCostTotal(episode.id);
+    expect(costs).toMatchObject({ runs: 2, unknown: 0 });
+    expect(costs.total).toBeGreaterThan(0);
   });
 
   it("다른 편의 훅을 프롬프트에 넣어 겹치지 않게 한다", async () => {
