@@ -109,19 +109,14 @@ export async function startProbe(runUrl: string | null): Promise<Probe> {
 
 export async function finishProbe(
   id: number,
-  result: { tools: McpTool[]; listings: Record<string, unknown>; catalog: ModelCatalog; claudeModels: ClaudeModelList },
+  result: { tools: McpTool[]; listings: Record<string, unknown>; claudeModels: ClaudeModelList },
 ): Promise<Probe> {
   const [row] = await query<ProbeRow>(
-    `update provider_probes set state = 'done', tools = $2, listings = $3, models = $4, claude_models = $5,
+    // models 컬럼(예전 형식)은 더 쓰지 않는다. 선택지는 listings 에서 매번 계산한다.
+    `update provider_probes set state = 'done', tools = $2, listings = $3, claude_models = $4,
         error = null, updated_at = now()
       where id = $1 returning ${COLUMNS}`,
-    [
-      id,
-      JSON.stringify(result.tools),
-      JSON.stringify(result.listings),
-      JSON.stringify(result.catalog),
-      JSON.stringify(result.claudeModels),
-    ],
+    [id, JSON.stringify(result.tools), JSON.stringify(result.listings), JSON.stringify(result.claudeModels)],
   );
   return toProbe(row);
 }

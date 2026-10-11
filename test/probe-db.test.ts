@@ -28,7 +28,6 @@ describe.skipIf(!testDatabaseUrl)("모델 조회·설정 (실제 DB)", () => {
     await finishProbe(started.id, {
       tools: [{ name: "list_models" }],
       listings: { list_models: { image: [{ id: "img/t2i", name: "Img", category: "generate" }] } },
-      catalog: { video: [], image: [], audio: [], other: {} },
       claudeModels: [{ id: "claude-opus-5-5", label: "Claude Opus 5.5" }],
     });
     const saved = await latestSuccessfulProbe();
