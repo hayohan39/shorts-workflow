@@ -4,9 +4,11 @@ import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
-import { createDispatcher, dispatchAvailability } from "@/lib/github";
+import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
 import { createEpisode } from "@/pipeline/episodes";
+import { failProbe, requestProbe } from "@/pipeline/probe";
+import { updateSettings } from "@/pipeline/settings";
 import { isStep, TransitionError } from "@/pipeline/status";
 import { triggerStep } from "@/pipeline/trigger";
 
@@ -59,4 +61,44 @@ export async function runStepAction(_prev: RunStepState, formData: FormData): Pr
   }
   refresh();
   return {};
+}
+
+export type SimpleState = { error?: string; saved?: boolean };
+
+/** 설정 화면의 "모델 조회". */
+export async function requestProbeAction(): Promise<SimpleState> {
+  await requireSession();
+  const availability = dispatchAvailability();
+  if (!availability.ok) return { error: availability.reason };
+  const probe = await requestProbe();
+  if (!probe) {
+    refresh();
+    return { error: "이미 조회 중입니다. 잠시 후 결과가 표시됩니다." };
+  }
+  try {
+    await createWorkflowDispatcher()({ step: "probe", episode_id: "" });
+  } catch (error) {
+    await failProbe(error instanceof Error ? error.message : String(error), probe.id);
+  }
+  refresh();
+  return {};
+}
+
+export async function saveSettingsAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const field = (name: string) => String(formData.get(name) ?? "");
+  try {
+    await updateSettings({
+      videoModel: field("videoModel"),
+      imageModel: field("imageModel"),
+      voiceModel: field("voiceModel"),
+      voice: field("voice"),
+      monthlyCreditLimit: field("monthlyCreditLimit"),
+    });
+  } catch (error) {
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return { saved: true };
 }

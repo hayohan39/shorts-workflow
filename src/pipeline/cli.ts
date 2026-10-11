@@ -2,11 +2,16 @@
 //
 //   npm run pipeline -- run  <step> <episodeId>            단계 실행
 //   npm run pipeline -- fail <step> <episodeId> <message>  러너가 중간에 죽었을 때 실패 기록
+//   npm run pipeline -- run  probe                         ManyMotions 모델 조회 (에피소드 없음)
+//   npm run pipeline -- fail probe "" <message>
 //
-// 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀)
+// 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
+//           MANYMOTIONS_API_KEY(probe)
 import { appendFile } from "node:fs/promises";
 import { getPool, hasDatabase } from "@/lib/db";
 import { failStep } from "@/pipeline/episodes";
+import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
+import { createManyMotionsClient, readManyMotionsKey } from "@/pipeline/providers/manymotions";
 import { runStep } from "@/pipeline/runner";
 import { isStep, STATUS_LABELS, STEP_LABELS, TransitionError, type Step } from "@/pipeline/status";
 import { handlers } from "@/pipeline/steps";
@@ -26,8 +31,39 @@ async function summary(lines: string[]): Promise<void> {
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, text);
 }
 
+async function probe(command: string | undefined, message: string): Promise<number> {
+  const title = "### ManyMotions 모델 조회";
+  if (command === "fail") {
+    await failProbe(message || "Actions 실행이 중간에 중단되었습니다.");
+    await summary([title, "", "중단 기록"]);
+    return 0;
+  }
+  if (command !== "run") throw new Error(USAGE);
+
+  const started = await startProbe(process.env.RUN_URL || null);
+  try {
+    const client = createManyMotionsClient(readManyMotionsKey());
+    const result = await finishProbe(started.id, await collectCatalog(client));
+    const tools = result.tools ?? [];
+    await summary([
+      title,
+      "",
+      `✅ 도구 ${tools.length}개 · 고를 수 있는 항목 ${result.models?.length ?? 0}개`,
+      "",
+      ...tools.map((tool) => `- \`${tool.name}\` ${tool.description?.split("\n")[0] ?? ""}`),
+    ]);
+    return 0;
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    await failProbe(text, started.id);
+    await summary([title, "", `❌ 실패: ${text}`]);
+    return 1;
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, stepArg, idArg, ...rest] = argv;
+  if (stepArg === "probe") return probe(command, rest.join(" "));
   const { step, id } = parseTarget(stepArg, idArg);
   const title = `### 에피소드 #${id} · ${STEP_LABELS[step]}`;
 
