@@ -1,12 +1,14 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatElapsed } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { getEpisode } from "@/pipeline/episodes";
-import { latestScript } from "@/pipeline/scripts";
-import { isBusy, STEP_LABELS, STEP_STATE_LABELS, type Status } from "@/pipeline/status";
+import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
+import { formatUsd } from "@/pipeline/script/pricing";
+import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION, type Status } from "@/pipeline/status";
 import { isStale, runnableStep } from "@/pipeline/trigger";
 import { RunStepButton } from "./run-step-button";
 import { ScriptReview } from "./script-review";
@@ -26,7 +28,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const [episode, script] = await Promise.all([getEpisode(id), latestScript(id)]);
+  const [episode, script, scriptCosts] = await Promise.all([getEpisode(id), latestScript(id), scriptCostTotal(id)]);
   if (!episode) notFound();
 
   const busy = isBusy(episode);
@@ -40,14 +42,19 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
       : `${STEP_LABELS[step]} 시작`
     : null;
 
+  const elapsed = busy && episode.stepStartedAt ? formatElapsed(episode.stepStartedAt) : null;
+
   return (
     <>
       <AutoRefresh active={busy && !stale} />
+      <Link href="/" className="back">
+        ← 에피소드 목록
+      </Link>
       <div className="row between">
         <h1>
           #{episode.id} {episode.topic}
         </h1>
-        <StatusBadge status={episode.status} />
+        <StatusBadge episode={episode} />
       </div>
 
       {episode.outline ? (
@@ -60,13 +67,35 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
       <section>
         <h2>진행</h2>
         {episode.step && episode.stepState ? (
-          <p>
-            {STEP_LABELS[episode.step]}: <strong>{STEP_STATE_LABELS[episode.stepState]}</strong>
-            {busy && !stale ? " — 자동으로 새로 고칩니다" : ""}
-          </p>
+          <>
+            <p>
+              {STEP_LABELS[episode.step]}: <strong>{STEP_STATE_LABELS[episode.stepState]}</strong>
+              {elapsed ? ` · ${elapsed} 경과` : ""}
+            </p>
+            {busy && !stale ? (
+              <div className="progress">
+                <p>
+                  {episode.stepState === "pending"
+                    ? "GitHub Actions 가 작업을 받기를 기다리는 중입니다. 보통 30초 안에 시작합니다."
+                    : (episode.stepProgress ?? "작업을 시작했습니다.")}
+                </p>
+                <p className="muted small">
+                  보통 {STEP_TYPICAL_DURATION[episode.step]} 걸립니다. 이 화면은
+                  5초마다 자동으로 새로 고칩니다.
+                </p>
+              </div>
+            ) : null}
+          </>
         ) : (
           <p className="muted">아직 실행한 단계가 없습니다.</p>
         )}
+        {scriptCosts.runs ? (
+          <p className="small">
+            대본 생성 비용: 약 {formatUsd(scriptCosts.total)} ({scriptCosts.runs}회 생성
+            {scriptCosts.unknown ? `, 그중 ${scriptCosts.unknown}회는 단가를 몰라 빠짐` : ""}
+            {scriptCosts.runs > 1 ? " 합계" : ""})
+          </p>
+        ) : null}
         {stale ? <p className="error">응답이 없습니다. Actions 가 멈췄을 수 있습니다. 다시 시도하세요.</p> : null}
         {episode.error ? <p className="error prewrap">{episode.error}</p> : null}
         <p className="muted small">

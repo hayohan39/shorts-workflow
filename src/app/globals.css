@@ -207,6 +207,11 @@ button.link {
   color: var(--accent);
 }
 
+.badge-busy {
+  color: var(--accent);
+  border-style: dashed;
+}
+
 .badge-uploaded {
   color: var(--ok);
 }
@@ -371,4 +376,21 @@ select {
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.progress {
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 0.3rem;
+}
+
+.progress p {
+  margin: 0.2rem 0;
 }

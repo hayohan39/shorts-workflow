@@ -1,8 +1,13 @@
-import { completeStep, failStep, startStep, type Episode } from "@/pipeline/episodes";
+import { completeStep, failStep, reportProgress, startStep, type Episode } from "@/pipeline/episodes";
 import { STEP_LABELS, type Step } from "@/pipeline/status";
 
+export interface StepContext {
+  /** 진행 메모를 대시보드에 남긴다. 기록이 실패해도 작업은 계속한다. */
+  progress: (text: string) => Promise<void>;
+}
+
 /** 단계 하나의 실제 작업. 실패하면 throw 한다(에러 메시지가 대시보드에 보인다). */
-export type StepHandler = (episode: Episode) => Promise<void>;
+export type StepHandler = (episode: Episode, context: StepContext) => Promise<void>;
 export type StepHandlers = Partial<Record<Step, StepHandler>>;
 
 export type RunResult = { ok: true; episode: Episode } | { ok: false; episode: Episode; error: string };
@@ -21,7 +26,12 @@ export async function runStep(
   try {
     const handler = options.handlers[step];
     if (!handler) throw new Error(`${STEP_LABELS[step]} 단계는 아직 구현되지 않았습니다.`);
-    await handler(episode);
+    const progress = async (text: string) => {
+      await reportProgress(id, step, text).catch((error: unknown) => {
+        console.warn(`진행 메모 기록 실패: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    };
+    await handler(episode, { progress });
     return { ok: true, episode: await completeStep(id, step) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

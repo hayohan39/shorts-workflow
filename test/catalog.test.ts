@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { countOptions, hasOption, parseModelCatalog } from "@/pipeline/catalog";
 import { waitForJob, JobTimeoutError } from "@/pipeline/providers/poll";
+import { effectiveModels, recommendedModels, recommendedOption } from "@/pipeline/recommended";
+import type { Settings } from "@/pipeline/settings";
 
 // 2026-10 프로덕션 조회 응답의 실제 형태(image)와 도구 설명에 적힌 형태(video)를 따른다.
 const listings = {
@@ -71,6 +73,42 @@ describe("모델 목록 분류", () => {
   it("응답이 없거나 형태가 달라도 깨지지 않는다", () => {
     expect(parseModelCatalog(null)).toEqual({ video: [], image: [], audio: [], other: {} });
     expect(parseModelCatalog({ list_models: { error: "401" } })).toEqual({ video: [], image: [], audio: [], other: {} });
+  });
+});
+
+describe("추천 모델", () => {
+  const option = (id: string, label: string, vertical: boolean | null = true, fiveSeconds: boolean | null = true) => ({
+    id,
+    label,
+    vertical,
+    fiveSeconds,
+    detail: "",
+  });
+
+  it("이름으로 추천 모델을 찾고, 없으면 세로·5초를 지원하는 첫 모델", () => {
+    const catalog = parseModelCatalog(listings);
+    expect(recommendedModels(catalog)).toEqual({
+      video: "kling/v3/standard/text-to-video",
+      image: "openai/gpt-image-2.5/flare/text-to-image",
+      voice: "elevenlabs/v3/tts",
+    });
+    expect(
+      recommendedOption("image", [option("a", "GPT Image"), option("b", "Seedream 4.5"), option("c", "Seedream 5.0")])?.id,
+    ).toBe("b");
+    // 세로를 못 하면 이름이 맞아도 고르지 않는다.
+    expect(recommendedOption("image", [option("b", "Seedream 4.5", false), option("a", "Other")])?.id).toBe("a");
+    expect(recommendedOption("video", [option("v", "Kling 3.0 Pro", true, false)])).toBeNull();
+    expect(recommendedModels(parseModelCatalog(null))).toEqual({ video: null, image: null, voice: null });
+  });
+
+  it("설정에 저장된 값이 있으면 그것을, 없으면 추천 모델을 쓴다", () => {
+    const catalog = parseModelCatalog(listings);
+    const settings = { videoModel: "my/video", imageModel: null, voiceModel: null } as Settings;
+    expect(effectiveModels(settings, catalog)).toEqual({
+      video: "my/video",
+      image: "openai/gpt-image-2.5/flare/text-to-image",
+      voice: "elevenlabs/v3/tts",
+    });
   });
 });
 

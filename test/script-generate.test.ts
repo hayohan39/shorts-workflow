@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import { generateScript, ScriptGenerationError, type SendMessage } from "@/pipeline/script/generate";
+import { modelProfile } from "@/pipeline/script/model";
 import type { ScriptSubmission } from "@/pipeline/script/schema";
 import { validSubmission } from "./helpers/script";
 
@@ -50,11 +51,63 @@ describe("대본 생성 (가짜 API)", () => {
     expect(String(params.messages[0].content)).toContain("주제: PDRN");
   });
 
-  it("pause_turn 이면 같은 대화를 그대로 이어서 보낸다", async () => {
+  it("응답마다 비용을 더하고 진행 메모에 보여 준다", async () => {
+    const haiku = { model: "claude-haiku-5-5" };
+    const { send } = fake([message("pause_turn", [{ type: "text", text: "조사" }], haiku), message("tool_use", [{ type: "tool_use", id: "t", name: "submit_script", input: validSubmission() }], haiku)]);
+    const notes: string[] = [];
+    const result = await generateScript(input, { model: "claude-haiku-5-5", send, onProgress: async (n) => void notes.push(n) });
+    // 응답 1회: 입력 100·출력 50 토큰(무시할 만큼 작음) + 웹 검색 2회 $0.02
+    expect(result.usage.costUsd).toBeCloseTo(2 * (0.02 + (100 * 0.1 + 50 * 0.5) / 1_000_000));
+    expect(notes[0]).toBe("자료 조사 중 · 웹 검색 2회 · 페이지 1개 · 비용 약 $0.020");
+  });
+
+  it("실패해도 그때까지 쓴 사용량을 오류에 붙인다", async () => {
+    const { send } = fake([text("end_turn"), text("end_turn")]);
+    const error = await generateScript(input, { model: "claude-opus-5-5", send }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ScriptGenerationError);
+    expect((error as ScriptGenerationError).usage).toMatchObject({ rounds: 2, webSearches: 4 });
+
+    const broken: SendMessage = async () => {
+      throw new Error("연결 끊김");
+    };
+    // 응답을 하나도 못 받았으면 비용이 없으니 원래 오류 그대로.
+    await expect(generateScript(input, { model: "claude-opus-5-5", send: broken })).rejects.toThrow("연결 끊김");
+  });
+
+  it("Haiku 5.5 는 기본형 웹 도구로, 서버 대체 모델 없이 요청한다", async () => {
+    const { send, calls } = fake([submit(validSubmission())]);
+    await generateScript(input, { model: "claude-haiku-5-5", send });
+    const params = calls[0];
+    expect(params.output_config).toEqual({ effort: "high" });
+    expect(params.fallbacks).toBeUndefined();
+    expect(params.betas).toBeUndefined();
+    expect(params.tools?.map((t) => ("type" in t && t.type ? t.type : t.name))).toEqual([
+      "web_search_20250305",
+      "web_fetch_20250910",
+      "submit_script",
+    ]);
+  });
+
+  it("모델별 옵션: effort 를 못 받는 옛 모델은 빼고, Sonnet 5.5 는 대체 모델을 쓴다", () => {
+    expect(modelProfile("claude-haiku-4-5")).toMatchObject({ effort: false, fallbacks: false });
+    expect(modelProfile("claude-sonnet-5-5")).toEqual({
+      webSearch: "web_search_20260209",
+      webFetch: "web_fetch_20260209",
+      effort: true,
+      fallbacks: true,
+    });
+    expect(modelProfile("claude-opus-5")).toMatchObject({ fallbacks: true });
+    expect(modelProfile("claude-opus-4-8")).toMatchObject({ webSearch: "web_search_20260209", fallbacks: false });
+  });
+
+  it("pause_turn 이면 같은 대화를 그대로 이어서 보내고 진행 메모를 남긴다", async () => {
     const { send, calls } = fake([text("pause_turn"), submit(validSubmission())]);
-    await generateScript(input, { model: "m", send });
+    const notes: string[] = [];
+    await generateScript(input, { model: "m", send, onProgress: async (note) => void notes.push(note) });
     expect(calls).toHaveLength(2);
     expect(calls[1].messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    // 비용은 응답에 적힌 모델(가짜 응답은 Opus 5.5) 단가로 계산한다(서버 대체 모델로 바뀌어도 맞게).
+    expect(notes).toEqual(["자료 조사 중 · 웹 검색 2회 · 페이지 1개 · 비용 약 $0.021"]);
   });
 
   it("제출 없이 끝나면 한 번 요청하고, 그래도 없으면 실패", async () => {

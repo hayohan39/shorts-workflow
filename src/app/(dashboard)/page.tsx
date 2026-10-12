@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { monthlyCredits } from "@/pipeline/credits";
 import { listEpisodes } from "@/pipeline/episodes";
-import { isBusy, STEP_LABELS, STEP_STATE_LABELS } from "@/pipeline/status";
+import { isBusy } from "@/pipeline/status";
 
 export const dynamic = "force-dynamic";
 
@@ -37,12 +37,10 @@ export default async function EpisodesPage() {
                   <strong>
                     #{episode.id} {episode.topic}
                   </strong>
-                  <StatusBadge status={episode.status} />
+                  <StatusBadge episode={episode} />
                 </div>
                 <div className="muted small">
-                  {episode.step && episode.stepState
-                    ? `${STEP_LABELS[episode.step]} ${STEP_STATE_LABELS[episode.stepState]} · `
-                    : ""}
+                  {episode.stepProgress && isBusy(episode) ? `${episode.stepProgress} · ` : ""}
                   {formatDateTime(episode.updatedAt)}
                 </div>
               </Link>

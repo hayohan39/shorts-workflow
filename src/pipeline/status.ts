@@ -103,6 +103,22 @@ export function isBusy(episode: EpisodeState): boolean {
   return episode.stepState === "pending" || episode.stepState === "running";
 }
 
+/** 목록·상세의 상태 표시. 단계가 대기·실행 중이면 상태 대신 그 단계를 보여 준다("대본 생성 중"). */
+export function statusLabel(episode: EpisodeState): string {
+  if (isBusy(episode) && episode.step) {
+    return `${STEP_LABELS[episode.step]} ${episode.stepState === "pending" ? "대기" : "중"}`;
+  }
+  return STATUS_LABELS[episode.status];
+}
+
+/** 단계별 보통 걸리는 시간(안내용). */
+export const STEP_TYPICAL_DURATION: Record<Step, string> = {
+  script: "2~4분",
+  render: "5~15분",
+  compose: "1~3분",
+  upload: "1분 안팎",
+};
+
 /**
  * 단계 실행을 요청할 때(대시보드 버튼, 다시 시도) 그 직후의 상태.
  * 실패한 단계를 다시 시도하면 그 단계의 시작 상태로 되돌린다. 안 되면 TransitionError.

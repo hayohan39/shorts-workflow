@@ -1,5 +1,6 @@
-import { STATUS_LABELS, type Status } from "@/pipeline/status";
+import { isBusy, statusLabel, type EpisodeState } from "@/pipeline/status";
 
-export function StatusBadge({ status }: { status: Status }) {
-  return <span className={`badge badge-${status}`}>{STATUS_LABELS[status]}</span>;
+export function StatusBadge({ episode }: { episode: EpisodeState }) {
+  const className = isBusy(episode) ? "badge-busy" : `badge-${episode.status}`;
+  return <span className={`badge ${className}`}>{statusLabel(episode)}</span>;
 }

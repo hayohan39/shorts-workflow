@@ -5,6 +5,7 @@ import { dispatchAvailability } from "@/lib/github";
 import type { ModelOption } from "@/pipeline/catalog";
 import { isProbeBusy, latestProbe, latestSuccessfulProbe, needsRefresh, type ProbeState } from "@/pipeline/probe";
 import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
+import { recommendedOption } from "@/pipeline/recommended";
 import { getSettings } from "@/pipeline/settings";
 import { AutoProbe, ProbeButton } from "./probe-button";
 import { SettingsForm } from "./settings-form";
@@ -31,6 +32,14 @@ export default async function SettingsPage() {
     ? claude.map((model) => ({ id: model.id, label: model.label, vertical: null, fiveSeconds: null, detail: "" }))
     : [];
   const tools = lastSuccess?.tools ?? [];
+  // 비워 두면(자동) 추천 모델을 쓴다. 어떤 모델인지 드롭다운 첫 줄에 보여 준다.
+  const auto = (option: ModelOption | null) => (option ? `자동 · 추천: ${option.label}` : "선택 안 함");
+  const scriptRecommended =
+    claudeOptions.find((option) => option.id === DEFAULT_SCRIPT_MODEL) ??
+    ({ id: DEFAULT_SCRIPT_MODEL, label: DEFAULT_SCRIPT_MODEL, vertical: null, fiveSeconds: null, detail: "" } as ModelOption);
+  const video = recommendedOption("video", catalog.video);
+  const image = recommendedOption("image", catalog.image);
+  const voice = recommendedOption("audio", catalog.audio);
 
   return (
     <>
@@ -56,31 +65,38 @@ export default async function SettingsPage() {
               label: "대본 모델 (Claude)",
               value: settings.scriptModel ?? "",
               options: claudeOptions,
-              emptyLabel: `기본값 (${DEFAULT_SCRIPT_MODEL})`,
+              recommended: scriptRecommended.id,
+              emptyLabel: auto(scriptRecommended),
             },
             {
               name: "videoModel",
               label: "영상 모델 (텍스트→영상, 5초 장면 2개)",
               value: settings.videoModel ?? "",
               options: catalog.video,
-              emptyLabel: "선택 안 함",
+              recommended: video?.id ?? null,
+              emptyLabel: auto(video),
             },
             {
               name: "imageModel",
               label: "이미지 모델 (텍스트→이미지, 장면 2개)",
               value: settings.imageModel ?? "",
               options: catalog.image,
-              emptyLabel: "선택 안 함",
+              recommended: image?.id ?? null,
+              emptyLabel: auto(image),
             },
             {
               name: "voiceModel",
               label: "음성 모델 (내레이션)",
               value: settings.voiceModel ?? "",
               options: catalog.audio,
-              emptyLabel: "선택 안 함",
+              recommended: voice?.id ?? null,
+              emptyLabel: auto(voice),
             },
           ]}
         />
+        <p className="muted small">
+          ★ 는 가성비 추천 모델입니다. &quot;자동&quot; 으로 두면 목록이 바뀌어도 추천 모델을 따라갑니다.
+        </p>
         {!Array.isArray(claude) && claude?.error ? (
           <p className="warn small">Claude 모델 목록을 가져오지 못했습니다: {claude.error}</p>
         ) : null}
