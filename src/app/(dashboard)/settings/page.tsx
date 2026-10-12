@@ -6,6 +6,7 @@ import type { ModelOption } from "@/pipeline/catalog";
 import { isProbeBusy, latestProbe, latestSuccessfulProbe, needsRefresh, type ProbeState } from "@/pipeline/probe";
 import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
 import { recommendedOption } from "@/pipeline/recommended";
+import { getManyMotionsAccount } from "@/pipeline/accounts";
 import { getCostStatus, monthlyActualCost, recentCosts, utcMonthStart } from "@/pipeline/costs";
 import { formatUsd } from "@/pipeline/script/pricing";
 import { scriptCostSince } from "@/pipeline/scripts";
@@ -31,7 +32,7 @@ const COST_TYPE_LABELS: Record<string, string> = {
 
 export default async function SettingsPage() {
   await requireSession();
-  const [settings, probe, lastSuccess, costStatus, costDays, actual, calculated] = await Promise.all([
+  const [settings, probe, lastSuccess, costStatus, costDays, actual, calculated, account] = await Promise.all([
     getSettings(),
     latestProbe(),
     latestSuccessfulProbe(),
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
     recentCosts(7),
     monthlyActualCost(),
     scriptCostSince(utcMonthStart()),
+    getManyMotionsAccount(),
   ]);
   const busy = isProbeBusy(probe);
   const availability = dispatchAvailability();
@@ -117,6 +119,42 @@ export default async function SettingsPage() {
         </p>
         {!Array.isArray(claude) && claude?.error ? (
           <p className="warn small">Claude 모델 목록을 가져오지 못했습니다: {claude.error}</p>
+        ) : null}
+      </section>
+
+      <section id="manymotions-credits">
+        <h2>ManyMotions 크레딧</h2>
+        {account?.credits != null ? (
+          <p>
+            잔여 <strong>{account.credits.toLocaleString("ko-KR")}</strong> 크레딧
+            <br />
+            <span className="muted small">
+              {account.fetchedAt ? `${formatDateTime(account.fetchedAt)} 조회` : ""} · 응답의 <code>{account.creditsField}</code> 값 ·
+              모델 목록과 함께 매일 갱신
+            </span>
+          </p>
+        ) : (
+          <p className="muted small">
+            {account ? "잔여 크레딧을 아직 알아내지 못했습니다." : "아직 조회한 적이 없습니다. 아래 \"지금 새로 가져오기\" 를 누르세요."}
+          </p>
+        )}
+        {account?.message ? (
+          <p className={`${account.state === "failed" ? "error" : "warn"} small prewrap`}>
+            {account.state === "failed" ? `마지막 조회 실패(${formatDateTime(account.checkedAt)}): ` : ""}
+            {account.message}
+          </p>
+        ) : null}
+        {account && Object.keys(account.fields).length ? (
+          <details>
+            <summary className="small">응답의 숫자 필드</summary>
+            <ul className="small">
+              {Object.entries(account.fields).map(([path, value]) => (
+                <li key={path}>
+                  <code>{path}</code>: {value.toLocaleString("ko-KR")}
+                </li>
+              ))}
+            </ul>
+          </details>
         ) : null}
       </section>
 

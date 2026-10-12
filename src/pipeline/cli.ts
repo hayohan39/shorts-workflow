@@ -13,6 +13,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";
 import { redact } from "@/lib/health";
 import { failStep } from "@/pipeline/episodes";
+import { refreshManyMotionsAccount } from "@/pipeline/accounts";
 import { refreshActualCosts } from "@/pipeline/costs";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
 import { listClaudeModels, readAnthropicKey } from "@/pipeline/providers/anthropic";
@@ -38,7 +39,7 @@ async function summary(lines: string[]): Promise<void> {
 }
 
 async function probe(command: string | undefined, message: string): Promise<number> {
-  const title = "### 모델 목록·실제 비용 조회";
+  const title = "### 모델 목록·실제 비용·잔여 크레딧 조회";
   if (command === "fail") {
     await failProbe(message || "Actions 실행이 중간에 중단되었습니다.");
     await summary([title, "", "중단 기록"]);
@@ -50,7 +51,9 @@ async function probe(command: string | undefined, message: string): Promise<numb
   // 실제 청구 비용은 모델 목록과 따로 가져온다. 실패해도 모델 목록 조회를 막지 않는다(상태만 남김).
   const costs = await refreshActualCosts();
   try {
-    const client = createManyMotionsClient(readManyMotionsKey());
+    const manyMotionsKey = readManyMotionsKey();
+    const balance = await refreshManyMotionsAccount(manyMotionsKey);
+    const client = createManyMotionsClient(manyMotionsKey);
     const collected = await collectCatalog(client, () =>
       listClaudeModels(new Anthropic({ apiKey: readAnthropicKey() })),
     );
@@ -66,6 +69,8 @@ async function probe(command: string | undefined, message: string): Promise<numb
       `✅ 도구 ${tools.length}개 · 영상 ${catalog.video.length} · 이미지 ${catalog.image.length} · 음성 ${catalog.audio.length} · ${claude}`,
       "",
       costs,
+      "",
+      balance,
       "",
       ...tools.map((tool) => `- \`${tool.name}\` ${tool.description?.split("\n")[0] ?? ""}`),
     ]);
