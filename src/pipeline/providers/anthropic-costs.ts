@@ -81,7 +81,8 @@ export async function fetchCostReport(options: {
 function costErrorMessage(status: number, body: string): string {
   const detail = body.slice(0, 300);
   if (status === 401 || status === 403) {
-    return `Cost API 권한 없음(${status}). Admin API 키(sk-ant-admin01-…)인지, 조직 계정인지 확인하세요. ${detail}`;
+    // 키 접두사를 그대로 쓰면 비밀값 가리기(redact)에 같이 가려져서 "admin01 로 시작" 으로 적는다.
+    return `Cost API 권한 없음(${status}). ANTHROPIC_ADMIN_KEY 가 일반 API 키가 아니라 Claude Console > Settings > Admin keys 에서 만든 Admin 키(admin01 로 시작)인지, 만든 사람이 조직 admin 인지 확인하세요. ${detail}`;
   }
   return `Cost API 오류(${status}). ${detail}`;
 }

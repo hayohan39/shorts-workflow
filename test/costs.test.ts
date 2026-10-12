@@ -63,7 +63,10 @@ describe("Cost API 응답 정리", () => {
 
     const denied = (async () => new Response("{}", { status: 403 })) as unknown as typeof fetch;
     await expect(fetchCostReport({ key: "k", startingAt: new Date(), fetchFn: denied })).rejects.toThrow(CostApiError);
-    await expect(fetchCostReport({ key: "k", startingAt: new Date(), fetchFn: denied })).rejects.toThrow("조직 계정");
+    const error = await fetchCostReport({ key: "k", startingAt: new Date(), fetchFn: denied }).catch((e: Error) => e);
+    // 화면·로그에는 비밀값 가리기를 거쳐 나가므로, 거친 뒤에도 안내가 읽혀야 한다.
+    const { redact } = await import("@/lib/health");
+    expect(redact((error as Error).message)).toContain("Settings > Admin keys 에서 만든 Admin 키(admin01 로 시작)");
   });
 });
 
