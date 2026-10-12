@@ -135,19 +135,21 @@ export default async function SettingsPage() {
           <p className="muted small">아직 실제 비용을 가져온 적이 없습니다.</p>
         )}
         {costStatus?.state === "failed" ? (
-          <p className="error small prewrap">마지막 조회 실패: {costStatus.message}</p>
+          <p className="error small prewrap">
+            마지막 조회 실패({formatDateTime(costStatus.updatedAt)}): {costStatus.message}
+          </p>
         ) : null}
-        {!costStatus || costStatus.state === "skipped" ? (
+        {!costStatus || costStatus.state !== "ok" ? (
           <div className="callout small">
             <strong>연결 방법</strong>
             <ol>
               <li>Claude Console 이 조직 계정이어야 합니다(Settings → Organization). 개인 계정은 Admin 키를 만들 수 없습니다.</li>
               <li>
-                Console 설정에서 Admin API 키(sk-ant-admin01-…)를 만듭니다(
-                <a href="https://platform.claude.com/docs/en/manage-claude/admin-api-keys" target="_blank" rel="noreferrer">
-                  안내
+                조직의 admin 역할로{" "}
+                <a href="https://platform.claude.com/settings/admin-keys" target="_blank" rel="noreferrer">
+                  Claude Console &gt; Settings &gt; Admin keys
                 </a>
-                ).
+                에서 Admin 키(sk-ant-admin01-…)를 만듭니다. 일반 API 키(sk-ant-api03-…)로는 조회할 수 없습니다(403).
               </li>
               <li>
                 GitHub 저장소 → Settings → Secrets and variables → Actions 에 <code>ANTHROPIC_ADMIN_KEY</code> 로
