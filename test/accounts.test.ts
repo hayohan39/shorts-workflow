@@ -24,6 +24,11 @@ describe("ManyMotions 계정 응답에서 잔여 크레딧 찾기", () => {
       credits: 500,
     });
     expect(pickRemainingCredits({ "usage.total_credits": 9, id: 3 })).toBeNull();
+    // credit 이라는 단어 없이 remaining/available 만 오는 응답도 찾는다.
+    expect(pickRemainingCredits({ remaining: 3210, used: 90, limit: 4000 })).toEqual({ field: "remaining", credits: 3210 });
+    expect(pickRemainingCredits({ "account.available": 15 })).toEqual({ field: "account.available", credits: 15 });
+    // 요청 수 제한의 remaining 은 크레딧이 아니다.
+    expect(pickRemainingCredits({ "rate_limit.remaining": 59, requests_remaining: 10 })).toBeNull();
   });
 });
 

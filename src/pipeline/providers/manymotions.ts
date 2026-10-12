@@ -42,11 +42,14 @@ export function numericFields(value: unknown, prefix = "", out: Record<string, n
 
 // 잔여 크레딧으로 볼 필드. 앞 패턴일수록 우선. 사용량·한도처럼 보이는 필드는 뺀다.
 const REMAINING = [/(remain|available|balance)/i, /credits?$/i];
-const NOT_REMAINING = /(used|consum|spent|limit|total|monthly|refund|cost|price|reserved|pending)/i;
+// 요청 수 제한(rate limit) 같은 "remaining" 도 빼기 위해 request/rate 도 넣는다.
+const NOT_REMAINING = /(used|consum|spent|limit|total|monthly|refund|cost|price|reserved|pending|request|rate|second|minute|hour|day)/i;
 
 /** 숫자 필드 중 잔여 크레딧을 고른다. 못 찾으면 null. */
 export function pickRemainingCredits(fields: Record<string, number>): { field: string; credits: number } | null {
-  const paths = Object.keys(fields).filter((path) => /credit|balance/i.test(path) && !NOT_REMAINING.test(path));
+  const paths = Object.keys(fields).filter(
+    (path) => /credit|balance|remain|available/i.test(path) && !NOT_REMAINING.test(path),
+  );
   for (const pattern of REMAINING) {
     const field = paths.find((path) => pattern.test(path.split(".").pop() ?? path));
     if (field) return { field, credits: fields[field] };
