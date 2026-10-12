@@ -21,6 +21,16 @@
 
 ---
 
+## 2026-10-12 Claude 실제 청구 비용 조회 (Usage & Cost Admin API)
+
+- 결정: 매일 probe(Actions)가 Anthropic Cost API(`/v1/organizations/cost_report`, 일 단위, 설명별)로 최근 35일 실제
+  청구 비용을 가져와 `api_costs` 에 저장하고, 목록·설정 화면에 대본 계산값과 나란히 보여 준다.
+- 이유: 사용자 요청(추정이 아닌 실제 금액). Cost API 는 하루 단위·조직 단위라 편별 금액은 계속 응답 사용량으로 계산하고,
+  실제 금액은 월·일 합계로 맞춰 본다.
+- 검토한 대안: Usage API(1분 단위·API 키별 토큰 수) — 편별로 나눌 수 있지만 금액이 아니라 토큰이라 결국 단가표가 필요하다.
+- 영향: GitHub 시크릿 `ANTHROPIC_ADMIN_KEY`(선택, 조직 계정의 Admin 키. 조직 관리 권한이 있어 probe 실행에만 넘김),
+  선택 변수 `ANTHROPIC_COST_WORKSPACE_ID`. 키가 없으면 조회를 건너뛰고 화면에 연결 방법을 보여 준다.
+
 ## 2026-10-12 대본 모델 기본값 Haiku 5.5, 생성 모델 추천값
 
 - 결정: 대본 모델 기본값을 Claude Haiku 5.5(`claude-haiku-5-5`, 입력 $0.10 / 출력 $0.50 per 1M 토큰)로 바꾼다.

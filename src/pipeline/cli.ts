@@ -6,12 +6,14 @@
 //   npm run pipeline -- fail probe "" <message>
 //
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
-//           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script)
+//           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe),
+//           ANTHROPIC_ADMIN_KEY(probe, 선택: 실제 청구 비용 조회), ANTHROPIC_COST_WORKSPACE_ID(선택: 그 워크스페이스만)
 import { appendFile } from "node:fs/promises";
 import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";
 import { redact } from "@/lib/health";
 import { failStep } from "@/pipeline/episodes";
+import { refreshActualCosts } from "@/pipeline/costs";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
 import { listClaudeModels, readAnthropicKey } from "@/pipeline/providers/anthropic";
 import { createManyMotionsClient, readManyMotionsKey } from "@/pipeline/providers/manymotions";
@@ -36,7 +38,7 @@ async function summary(lines: string[]): Promise<void> {
 }
 
 async function probe(command: string | undefined, message: string): Promise<number> {
-  const title = "### ManyMotions 모델 조회";
+  const title = "### 모델 목록·실제 비용 조회";
   if (command === "fail") {
     await failProbe(message || "Actions 실행이 중간에 중단되었습니다.");
     await summary([title, "", "중단 기록"]);
@@ -45,6 +47,8 @@ async function probe(command: string | undefined, message: string): Promise<numb
   if (command !== "run") throw new Error(USAGE);
 
   const started = await startProbe(process.env.RUN_URL || null);
+  // 실제 청구 비용은 모델 목록과 따로 가져온다. 실패해도 모델 목록 조회를 막지 않는다(상태만 남김).
+  const costs = await refreshActualCosts();
   try {
     const client = createManyMotionsClient(readManyMotionsKey());
     const collected = await collectCatalog(client, () =>
@@ -61,13 +65,15 @@ async function probe(command: string | undefined, message: string): Promise<numb
       "",
       `✅ 도구 ${tools.length}개 · 영상 ${catalog.video.length} · 이미지 ${catalog.image.length} · 음성 ${catalog.audio.length} · ${claude}`,
       "",
+      costs,
+      "",
       ...tools.map((tool) => `- \`${tool.name}\` ${tool.description?.split("\n")[0] ?? ""}`),
     ]);
     return 0;
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     await failProbe(text, started.id);
-    await summary([title, "", `❌ 실패: ${text}`]);
+    await summary([title, "", `❌ 실패: ${text}`, "", costs]);
     return 1;
   }
 }

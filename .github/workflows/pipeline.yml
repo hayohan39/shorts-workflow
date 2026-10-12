@@ -1,7 +1,7 @@
 name: Pipeline
 
 # 쇼츠 파이프라인의 자동 단계(대본·장면·합성·업로드)를 에피소드 하나에 대해 실행한다.
-# probe 는 에피소드 없이 ManyMotions·Claude 모델 목록을 조회한다(설정 화면의 드롭다운).
+# probe 는 에피소드 없이 ManyMotions·Claude 모델 목록과 Claude 실제 청구 비용을 조회한다(설정·목록 화면).
 # probe 는 매일 한 번 자동으로도 돈다(schedule). 그때는 입력이 없으므로 probe 로 본다.
 # 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
 # 직접 실행해도 된다: Actions → Pipeline → Run workflow.
@@ -67,6 +67,10 @@ jobs:
         env:
           MANYMOTIONS_API_KEY: ${{ secrets.MANYMOTIONS_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 실제 청구 비용 조회용 Admin 키는 조직 관리 권한까지 있어서 probe 실행에만 넘긴다(선택, 없으면 건너뜀).
+          ANTHROPIC_ADMIN_KEY: ${{ (inputs.step || 'probe') == 'probe' && secrets.ANTHROPIC_ADMIN_KEY || '' }}
+          # 선택: 이 워크스페이스의 비용만 센다(Console 의 wrkspc_… ID, 기본 워크스페이스는 default).
+          ANTHROPIC_COST_WORKSPACE_ID: ${{ vars.ANTHROPIC_COST_WORKSPACE_ID }}
         run: npm run pipeline -- run "$STEP" "$EPISODE_ID"
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.

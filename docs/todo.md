@@ -20,6 +20,7 @@ ManyMotions 모델 조회·설정(#5) · 대본 생성·검토(#6) · 설정 드
 - [x] 대본 생성 실제 테스트 (#1, Opus 5.5, 약 2분 30초)
 - [ ] Haiku 5.5 기본값으로 대본 생성해 보고 품질 확인 → 부족하면 Sonnet 5.5 로, 그래도 부족하면 Gemini 비교 검토
 - [ ] 설정에서 영상·이미지·음성 모델 선택. **음성(TTS) 모델이 목록에 있는지 확인** (없으면 ⑤에서 내레이션 방법을 정해야 함)
+- [ ] Claude 실제 비용 연결: 조직 계정 → Admin 키 → GitHub Secrets `ANTHROPIC_ADMIN_KEY` (설정 화면에 안내)
 - [ ] ⑤ 전: Vercel Blob 스토어 연결 → `BLOB_READ_WRITE_TOKEN` 을 GitHub Secrets 에도 등록
 - [ ] ⑦ 전: Google Cloud OAuth(동의 화면 게시 상태 "프로덕션") → YouTube 시크릿 3종
 

@@ -3,15 +3,23 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { monthlyActualCost, utcMonthStart } from "@/pipeline/costs";
 import { monthlyCredits } from "@/pipeline/credits";
 import { listEpisodes } from "@/pipeline/episodes";
+import { formatUsd } from "@/pipeline/script/pricing";
+import { scriptCostSince } from "@/pipeline/scripts";
 import { isBusy } from "@/pipeline/status";
 
 export const dynamic = "force-dynamic";
 
 export default async function EpisodesPage() {
   await requireSession();
-  const [episodes, credits] = await Promise.all([listEpisodes(), monthlyCredits()]);
+  const [episodes, credits, actual, calculated] = await Promise.all([
+    listEpisodes(),
+    monthlyCredits(),
+    monthlyActualCost(),
+    scriptCostSince(utcMonthStart()),
+  ]);
 
   return (
     <>
@@ -24,6 +32,21 @@ export default async function EpisodesPage() {
       </div>
       <p className="muted">
         이번 달 크레딧 {credits.used.toLocaleString("ko-KR")} / {credits.limit.toLocaleString("ko-KR")}
+      </p>
+      <p className="muted small">
+        이번 달 Claude 비용:{" "}
+        {actual ? (
+          <>
+            실제 <strong>{formatUsd(actual.usd)}</strong> ({formatDateTime(actual.fetchedAt)} 조회) ·{" "}
+          </>
+        ) : null}
+        대본 계산값 {formatUsd(calculated.total)} ({calculated.runs}회)
+        {actual ? null : (
+          <>
+            {" · "}
+            <Link href="/settings#costs">실제 비용 연결</Link>
+          </>
+        )}
       </p>
 
       {episodes.length === 0 ? (
