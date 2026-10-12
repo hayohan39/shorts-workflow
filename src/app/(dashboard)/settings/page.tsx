@@ -127,10 +127,13 @@ export default async function SettingsPage() {
         {account?.credits != null ? (
           <p>
             잔여 <strong>{account.credits.toLocaleString("ko-KR")}</strong> 크레딧
+            {"credits_used_this_period" in account.fields && "credits_total_this_period" in account.fields
+              ? ` · 이번 결제 기간 사용 ${account.fields.credits_used_this_period.toLocaleString("ko-KR")} / ${account.fields.credits_total_this_period.toLocaleString("ko-KR")}`
+              : ""}
             <br />
             <span className="muted small">
               {account.fetchedAt ? `${formatDateTime(account.fetchedAt)} 조회` : ""} · 응답의 <code>{account.creditsField}</code> 값 ·
-              모델 목록과 함께 매일 갱신
+              모델 목록과 함께 매일 갱신. 아래 &quot;이번 달 사용&quot; 은 이 파이프라인이 쓴 크레딧만 센 값입니다.
             </span>
           </p>
         ) : (

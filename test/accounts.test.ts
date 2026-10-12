@@ -10,7 +10,25 @@ describe("ManyMotions 계정 응답에서 잔여 크레딧 찾기", () => {
     });
   });
 
-  it("남은·잔액 필드를 먼저, 사용량·한도는 빼고 고른다", () => {
+  it("문서의 응답 예시: credits_remaining 을 쓰고, 이번 기간 사용량·전체도 숫자 필드로 남긴다", () => {
+    // https://manymotions.com/docs/api/endpoints — GET /api/v1/account
+    const documented = {
+      credits_remaining: 1234,
+      credits_used_this_period: 766,
+      credits_total_this_period: 2000,
+      api_key: { id: 7, scopes: ["video:write", "image:write", "jobs:read", "models:read"] },
+    };
+    const fields = numericFields(documented);
+    expect(fields).toEqual({
+      credits_remaining: 1234,
+      credits_used_this_period: 766,
+      credits_total_this_period: 2000,
+      "api_key.id": 7,
+    });
+    expect(pickRemainingCredits(fields)).toEqual({ field: "credits_remaining", credits: 1234 });
+  });
+
+  it("문서 필드가 없으면 이름으로: 남은·잔액 필드를 먼저, 사용량·한도는 빼고 고른다", () => {
     expect(pickRemainingCredits({ "credits.used": 300, "credits.remaining": 1200 })).toEqual({
       field: "credits.remaining",
       credits: 1200,
