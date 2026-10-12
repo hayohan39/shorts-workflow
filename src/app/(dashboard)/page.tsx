@@ -3,6 +3,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { getManyMotionsAccount } from "@/pipeline/accounts";
 import { monthlyActualCost, utcMonthStart } from "@/pipeline/costs";
 import { monthlyCredits } from "@/pipeline/credits";
 import { listEpisodes } from "@/pipeline/episodes";
@@ -14,11 +15,12 @@ export const dynamic = "force-dynamic";
 
 export default async function EpisodesPage() {
   await requireSession();
-  const [episodes, credits, actual, calculated] = await Promise.all([
+  const [episodes, credits, actual, calculated, account] = await Promise.all([
     listEpisodes(),
     monthlyCredits(),
     monthlyActualCost(),
     scriptCostSince(utcMonthStart()),
+    getManyMotionsAccount(),
   ]);
 
   return (
@@ -31,7 +33,13 @@ export default async function EpisodesPage() {
         </Link>
       </div>
       <p className="muted">
-        이번 달 크레딧 {credits.used.toLocaleString("ko-KR")} / {credits.limit.toLocaleString("ko-KR")}
+        {account?.credits != null ? (
+          <>
+            ManyMotions 잔여 <strong>{account.credits.toLocaleString("ko-KR")}</strong> 크레딧
+            {account.fetchedAt ? ` (${formatDateTime(account.fetchedAt)} 조회)` : ""} ·{" "}
+          </>
+        ) : null}
+        이번 달 사용 {credits.used.toLocaleString("ko-KR")} / 한도 {credits.limit.toLocaleString("ko-KR")}
       </p>
       <p className="muted small">
         이번 달 Claude 비용:{" "}

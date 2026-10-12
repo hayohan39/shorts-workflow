@@ -21,6 +21,16 @@
 
 ---
 
+## 2026-10-13 ManyMotions 잔여 크레딧 조회
+
+- 결정: probe(Actions, 매일 + 수동)가 `GET https://manymotions.com/api/v1/account`(기존 `MANYMOTIONS_API_KEY`)로 잔여 크레딧을
+  가져와 `provider_accounts` 에 저장하고 목록·설정 화면에 보여 준다. 문서(docs/api/endpoints)의 응답 필드
+  `credits_remaining` · `credits_used_this_period` · `credits_total_this_period` 를 쓰고, 형태가 바뀌면 이름 규칙
+  (remaining/available/balance/credits)으로 찾는다. 숫자 필드만 저장한다.
+  생성 API 응답에도 `credits_consumed` · `credits_remaining` 이 오므로 ⑤에서 장면별 실제 차감액을 기록한다.
+- 이유: 사용자 요청. MCP 도구에는 잔액 조회가 없고 REST 계정 API 에 있다(사용자가 문서 확인).
+- 영향: 새 환경변수 없음. 문자열 필드(이메일 등)는 저장하지 않는다.
+
 ## 2026-10-12 Claude 실제 청구 비용 조회 (Usage & Cost Admin API)
 
 - 결정: 매일 probe(Actions)가 Anthropic Cost API(`/v1/organizations/cost_report`, 일 단위, 설명별)로 최근 35일 실제
