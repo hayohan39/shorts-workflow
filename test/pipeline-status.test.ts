@@ -49,6 +49,14 @@ describe("단계 규칙", () => {
     expect(state.status).toBe("uploaded");
   });
 
+  it("내레이션은 승인된 대본에서 여러 번 만들 수 있고 상태는 그대로다", () => {
+    expect(statusForRequest(idle("approved", "script"), "voice")).toBe("approved");
+    expect(statusForDone({ status: "approved", step: "voice", stepState: "running" }, "voice")).toBe("approved");
+    expect(statusForRequest(idle("approved", "voice"), "voice")).toBe("approved");
+    expect(() => statusForRequest(idle("script_review", "script"), "voice")).toThrow(TransitionError);
+    expect(statusForRequest({ status: "failed", step: "voice", stepState: "failed" }, "voice")).toBe("approved");
+  });
+
   it("렌더 중에는 상태가 rendering 이다", () => {
     expect(statusForStart({ status: "approved", step: "render", stepState: "pending" }, "render")).toBe("rendering");
   });

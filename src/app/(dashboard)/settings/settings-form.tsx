@@ -5,7 +5,7 @@ import type { ModelOption } from "@/pipeline/catalog";
 import { saveSettingsAction, type SimpleState } from "../actions";
 
 interface Field {
-  name: "scriptModel" | "videoModel" | "imageModel" | "voiceModel";
+  name: "scriptModel" | "videoModel" | "imageModel" | "voice" | "voiceModel";
   label: string;
   value: string;
   options: ModelOption[];
@@ -27,17 +27,15 @@ function optionLabel(option: ModelOption, recommended: boolean): string {
 
 export function SettingsForm({
   fields,
-  voice,
   monthlyCreditLimit,
 }: {
   fields: Field[];
-  voice: string;
   monthlyCreditLimit: number;
 }) {
   const [state, formAction, pending] = useActionState<SimpleState, FormData>(saveSettingsAction, {});
   // 저장이 끝나면 React 가 폼을 처음 값으로 되돌린다. 저장된 값이 바뀌면 폼을 새로 그려서
   // 되돌아간 값이 아니라 방금 저장한 값이 보이게 한다.
-  const formKey = JSON.stringify([fields.map((field) => field.value), voice, monthlyCreditLimit]);
+  const formKey = JSON.stringify([fields.map((field) => field.value), monthlyCreditLimit]);
 
   return (
     <form key={formKey} action={formAction} className="stack">
@@ -63,11 +61,6 @@ export function SettingsForm({
           </label>
         );
       })}
-      <label className="field">
-        <span>목소리 (채널 전체 고정)</span>
-        <input name="voice" defaultValue={voice} placeholder="음성 모델의 목소리 ID" />
-        <small className="muted">목소리 목록은 음성 생성 단계를 만들 때 함께 정리합니다.</small>
-      </label>
       <label className="field">
         <span>월 크레딧 한도</span>
         <input name="monthlyCreditLimit" type="number" min={1} step={1} required defaultValue={monthlyCreditLimit} />

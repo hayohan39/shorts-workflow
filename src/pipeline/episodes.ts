@@ -23,6 +23,9 @@ export interface Episode {
   stepStartedAt: Date | null;
   /** Actions 가 적는 진행 메모. */
   stepProgress: string | null;
+  /** 다음 내레이션에 쓸 목소리(대시보드에서 고른 값). */
+  voiceId: string | null;
+  voiceModel: string | null;
   runUrl: string | null;
   scheduledAt: Date | null;
   youtubeVideoId: string | null;
@@ -41,6 +44,8 @@ interface EpisodeRow {
   step_state: StepState | null;
   step_started_at: Date | null;
   step_progress: string | null;
+  voice_id: string | null;
+  voice_model: string | null;
   run_url: string | null;
   scheduled_at: Date | null;
   youtube_video_id: string | null;
@@ -50,7 +55,7 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, topic, outline, status, step, step_state, step_started_at, step_progress, run_url, scheduled_at,
+const COLUMNS = `id, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
@@ -75,6 +80,8 @@ function toEpisode(row: EpisodeRow): Episode {
     stepState: row.step_state,
     stepStartedAt: row.step_started_at,
     stepProgress: row.step_progress,
+    voiceId: row.voice_id,
+    voiceModel: row.voice_model,
     runUrl: row.run_url,
     scheduledAt: row.scheduled_at,
     youtubeVideoId: row.youtube_video_id,
@@ -210,6 +217,15 @@ export async function reportProgress(id: number, step: Step, text: string): Prom
     [id, step, redact(text).slice(0, PROGRESS_MAX)],
   );
   return rows.length > 0;
+}
+
+/** 다음 내레이션에 쓸 목소리를 정한다. 값 검증은 부르는 쪽(voices.ts 목록)이 한다. */
+export async function setVoiceSelection(id: number, voiceId: string, voiceModel: string): Promise<void> {
+  await query("update episodes set voice_id = $2, voice_model = $3, updated_at = now() where id = $1", [
+    id,
+    voiceId,
+    voiceModel,
+  ]);
 }
 
 /** 사람의 승인·반려. */

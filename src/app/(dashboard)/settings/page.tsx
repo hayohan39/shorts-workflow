@@ -11,6 +11,7 @@ import { getCostStatus, monthlyActualCost, recentCosts, utcMonthStart } from "@/
 import { formatUsd } from "@/pipeline/script/pricing";
 import { scriptCostSince } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
+import { DEFAULT_VOICE_ID, DEFAULT_VOICE_MODEL, VOICE_MODELS, VOICES, voiceLabel } from "@/pipeline/voices";
 import { AutoProbe, ProbeButton } from "./probe-button";
 import { SettingsForm } from "./settings-form";
 
@@ -59,7 +60,12 @@ export default async function SettingsPage() {
     ({ id: DEFAULT_SCRIPT_MODEL, label: DEFAULT_SCRIPT_MODEL, vertical: null, fiveSeconds: null, detail: "" } as ModelOption);
   const video = recommendedOption("video", catalog.video);
   const image = recommendedOption("image", catalog.image);
-  const voice = recommendedOption("audio", catalog.audio);
+  // 내레이션은 ManyMotions 영상 편집 에이전트의 ElevenLabs 목소리를 쓴다(모델 목록에는 음성이 없다).
+  const option = (id: string, label: string): ModelOption => ({ id, label, vertical: null, fiveSeconds: null, detail: "" });
+  const voiceOptions = VOICES.map((voice) => option(voice.id, voiceLabel(voice)));
+  const voiceModelOptions = VOICE_MODELS.map((model) => option(model.id, model.label));
+  const defaultVoice = voiceOptions.find((voice) => voice.id === DEFAULT_VOICE_ID) ?? null;
+  const defaultVoiceModel = voiceModelOptions.find((model) => model.id === DEFAULT_VOICE_MODEL) ?? null;
 
   return (
     <>
@@ -78,7 +84,6 @@ export default async function SettingsPage() {
         </p>
         <SettingsForm
           monthlyCreditLimit={settings.monthlyCreditLimit}
-          voice={settings.voice ?? ""}
           fields={[
             {
               name: "scriptModel",
@@ -105,12 +110,20 @@ export default async function SettingsPage() {
               emptyLabel: auto(image),
             },
             {
+              name: "voice",
+              label: "기본 목소리 (내레이션, 에피소드마다 바꿀 수 있음)",
+              value: settings.voice ?? "",
+              options: voiceOptions,
+              recommended: DEFAULT_VOICE_ID,
+              emptyLabel: auto(defaultVoice),
+            },
+            {
               name: "voiceModel",
               label: "음성 모델 (내레이션)",
               value: settings.voiceModel ?? "",
-              options: catalog.audio,
-              recommended: voice?.id ?? null,
-              emptyLabel: auto(voice),
+              options: voiceModelOptions,
+              recommended: DEFAULT_VOICE_MODEL,
+              emptyLabel: auto(defaultVoiceModel),
             },
           ]}
         />
