@@ -14,7 +14,7 @@ on:
         description: 실행할 단계
         type: choice
         required: true
-        options: [script, render, compose, upload, probe]
+        options: [script, render, compose, upload, probe, voice-test]
       episode_id:
         description: 에피소드 번호 (probe 는 비워 둠)
         type: string
@@ -71,7 +71,8 @@ jobs:
           ANTHROPIC_ADMIN_KEY: ${{ (inputs.step || 'probe') == 'probe' && secrets.ANTHROPIC_ADMIN_KEY || '' }}
           # 선택: 이 워크스페이스의 비용만 센다(Console 의 wrkspc_… ID, 기본 워크스페이스는 default).
           ANTHROPIC_COST_WORKSPACE_ID: ${{ vars.ANTHROPIC_COST_WORKSPACE_ID }}
-        run: npm run pipeline -- run "$STEP" "$EPISODE_ID"
+        run: |
+          if [ "$STEP" = "voice-test" ]; then npx tsx scripts/voice-test.ts; else npm run pipeline -- run "$STEP" "$EPISODE_ID"; fi
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.
       # 이미 기록됐거나 실행 중이 아니면 아무것도 바꾸지 않는다.
