@@ -17,6 +17,7 @@ async function withBalanceRefresh(run: () => Promise<unknown>): Promise<void> {
     await refreshManyMotionsAccount(readManyMotionsKey());
   }
 }
+
 export const handlers: StepHandlers = {
   script: (episode, context) => runScriptStep(episode, { progress: context.progress }),
   voice: (episode, context) => withBalanceRefresh(() => runVoiceStep(episode, { progress: context.progress })),
