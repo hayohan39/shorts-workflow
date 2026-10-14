@@ -4,10 +4,12 @@ import { monthlyCredits } from "@/pipeline/credits";
 import { copyToBlob, createBlobPut, readBlobToken, type BlobPut } from "@/pipeline/providers/blob";
 import {
   createManyMotionsClient,
+  downloadHeaders,
   fetchManyMotionsAccount,
   numericFields,
   pickRemainingCredits,
   readManyMotionsKey,
+  resolveManyMotionsUrl,
 } from "@/pipeline/providers/manymotions";
 import type { McpClient } from "@/pipeline/providers/mcp";
 import { latestScript } from "@/pipeline/scripts";
@@ -26,7 +28,6 @@ import {
 // 받은 음성 파일을 Vercel Blob 으로 옮겨 assets(kind=voice)에 남긴다.
 // 에이전트는 지시 1회에 5크레딧 + 음성 75크레딧(2026-10-14 실측 합계 80). 확인 질문으로 끝나면 한 번만 더 지시한다.
 
-const MANYMOTIONS_ORIGIN = "https://manymotions.com";
 const MAX_TURNS = 2;
 
 export interface VoiceStepDeps {
@@ -35,8 +36,8 @@ export interface VoiceStepDeps {
   readBalance: () => Promise<number | null>;
   put: BlobPut;
   fetchImpl?: typeof fetch;
-  /** ManyMotions 주소의 파일을 받을 때 붙일 인증 헤더. */
-  authHeaders?: Record<string, string>;
+  /** 결과 파일을 받을 때 붙일 인증 헤더(ManyMotions 주소일 때만 붙는다). */
+  headersFor?: (url: string) => Record<string, string> | undefined;
 }
 
 export function defaultVoiceDeps(): VoiceStepDeps {
@@ -51,7 +52,7 @@ export function defaultVoiceDeps(): VoiceStepDeps {
       }
     },
     put: createBlobPut(readBlobToken()),
-    authHeaders: { Authorization: `Bearer ${key}` },
+    headersFor: (url) => downloadHeaders(url, key),
   };
 }
 
@@ -124,11 +125,11 @@ export async function runVoiceStep(
   }
 
   await progress("음성 파일 저장 중");
-  const sourceUrl = new URL(audio.url, MANYMOTIONS_ORIGIN).toString();
+  const sourceUrl = resolveManyMotionsUrl(audio.url);
   const stored = await copyToBlob(sourceUrl, `episodes/${episode.id}/narration-${voice.id}.mp3`, {
     put: deps.put,
     fetchImpl: deps.fetchImpl,
-    headers: new URL(sourceUrl).origin === MANYMOTIONS_ORIGIN ? deps.authHeaders : undefined,
+    headers: deps.headersFor?.(sourceUrl),
   });
 
   // 실제 차감액은 잔액 차이로 잰다. 잔액을 못 읽으면 실측 평균으로 적고 추정이라고 남긴다.

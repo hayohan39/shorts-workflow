@@ -67,3 +67,15 @@ export function pickRemainingCredits(fields: Record<string, number>): { field: s
   }
   return null;
 }
+
+export const MANYMOTIONS_ORIGIN = "https://manymotions.com";
+
+/** 생성 결과 주소를 절대 주소로. 이미지 결과는 "/api/media-forge/asset/..." 처럼 상대 경로로 온다. */
+export function resolveManyMotionsUrl(url: string): string {
+  return new URL(url, MANYMOTIONS_ORIGIN).toString();
+}
+
+/** ManyMotions 주소의 파일만 키로 받는다(외부 저장소 주소에는 키를 보내지 않는다). */
+export function downloadHeaders(url: string, apiKey: string): Record<string, string> | undefined {
+  return new URL(url).origin === MANYMOTIONS_ORIGIN ? { Authorization: `Bearer ${apiKey}` } : undefined;
+}

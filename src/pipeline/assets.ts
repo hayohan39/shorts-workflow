@@ -56,6 +56,7 @@ function toAsset(row: AssetRow): Asset {
 export async function saveAsset(input: {
   episodeId: number;
   kind: AssetKind;
+  sceneNo?: number | null;
   model: string | null;
   mmJobId?: string | null;
   credits: number;
@@ -63,10 +64,11 @@ export async function saveAsset(input: {
   meta?: Record<string, unknown>;
 }): Promise<Asset> {
   const [row] = await query<AssetRow>(
-    `insert into assets (episode_id, kind, model, mm_job_id, credits, url, status, meta)
-     values ($1, $2, $3, $4, $5, $6, 'done', $7) returning ${COLUMNS}`,
+    `insert into assets (episode_id, scene_no, kind, model, mm_job_id, credits, url, status, meta)
+     values ($1, $2, $3, $4, $5, $6, $7, 'done', $8) returning ${COLUMNS}`,
     [
       input.episodeId,
+      input.sceneNo ?? null,
       input.kind,
       input.model,
       input.mmJobId ?? null,

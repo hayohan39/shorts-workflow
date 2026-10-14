@@ -1,6 +1,7 @@
 // 에피소드 상태와 허용되는 전이. DB 를 모르는 순수 규칙이라 대시보드와 Actions 가 같이 쓴다.
 //
-//   queued ─script─► script_review ─approve-script─► approved (─voice─► approved, 여러 번 가능) ─render─► rendering
+//   queued ─script─► script_review ─approve-script─► approved ─render─► rendering
+//   (voice 는 approved·rendering 에서 여러 번 돌릴 수 있고 상태를 바꾸지 않는다)
 //          ─compose─► video_review ─approve-video─► ready ─upload─► uploaded
 //   어느 단계든 실패 ─► failed (step 에 실패한 단계) ─다시 시도─► 그 단계부터
 
@@ -34,14 +35,14 @@ interface StepRule {
   from: readonly Status[];
   /** 단계가 도는 동안의 상태(없으면 그대로). */
   during?: Status;
-  /** 성공했을 때의 상태. */
-  done: Status;
+  /** 성공했을 때의 상태. 없으면 상태를 그대로 둔다. */
+  done?: Status;
 }
 
 export const STEP_RULES: Record<Step, StepRule> = {
   script: { from: ["queued"], done: "script_review" },
-  // 내레이션은 승인된 대본으로 만든다. 목소리를 바꿔 여러 번 만들 수 있어 상태는 그대로 둔다.
-  voice: { from: ["approved"], done: "approved" },
+  // 내레이션은 승인된 대본으로 만든다. 장면을 만든 뒤에도 목소리를 바꿔 다시 만들 수 있어 상태는 그대로 둔다.
+  voice: { from: ["approved", "rendering"] },
   render: { from: ["approved", "rendering"], during: "rendering", done: "rendering" },
   // video_review 에서도 허용: 크레딧 없이 자막·모션만 다시 합성.
   compose: { from: ["rendering", "video_review"], done: "video_review" },
@@ -70,7 +71,7 @@ export const STATUS_LABELS: Record<Status, string> = {
 export const STEP_LABELS: Record<Step, string> = {
   script: "대본 생성",
   voice: "내레이션 생성",
-  render: "장면·음성 생성",
+  render: "장면 생성",
   compose: "영상 합성",
   upload: "유튜브 업로드",
 };
@@ -176,7 +177,7 @@ export function statusForDone(episode: EpisodeState, step: Step): Status {
   if (episode.step !== step || episode.stepState !== "running") {
     throw new TransitionError(`${STEP_LABELS[step]} 단계가 실행 중이 아닙니다.`);
   }
-  return STEP_RULES[step].done;
+  return STEP_RULES[step].done ?? episode.status;
 }
 
 /** 사람의 승인·반려 직후의 상태. */
