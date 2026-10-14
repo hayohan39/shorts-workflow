@@ -21,7 +21,7 @@ describe("단계 규칙", () => {
   it("모든 단계의 시작·완료 상태가 유효한 상태다", () => {
     for (const step of STEPS) {
       const rule = STEP_RULES[step];
-      for (const status of [...rule.from, rule.done, ...(rule.during ? [rule.during] : [])]) {
+      for (const status of [...rule.from, ...(rule.done ? [rule.done] : []), ...(rule.during ? [rule.during] : [])]) {
         expect(STATUSES).toContain(status);
       }
     }
@@ -49,9 +49,11 @@ describe("단계 규칙", () => {
     expect(state.status).toBe("uploaded");
   });
 
-  it("내레이션은 승인된 대본에서 여러 번 만들 수 있고 상태는 그대로다", () => {
+  it("내레이션은 승인 뒤·장면 생성 뒤에 여러 번 만들 수 있고 상태는 그대로다", () => {
     expect(statusForRequest(idle("approved", "script"), "voice")).toBe("approved");
     expect(statusForDone({ status: "approved", step: "voice", stepState: "running" }, "voice")).toBe("approved");
+    expect(statusForRequest(idle("rendering", "render"), "voice")).toBe("rendering");
+    expect(statusForDone({ status: "rendering", step: "voice", stepState: "running" }, "voice")).toBe("rendering");
     expect(statusForRequest(idle("approved", "voice"), "voice")).toBe("approved");
     expect(() => statusForRequest(idle("script_review", "script"), "voice")).toThrow(TransitionError);
     expect(statusForRequest({ status: "failed", step: "voice", stepState: "failed" }, "voice")).toBe("approved");
@@ -81,7 +83,7 @@ describe("단계 규칙", () => {
   it("실패한 단계만 다시 시도할 수 있고, 그 단계의 시작 상태로 돌아간다", () => {
     const failed: EpisodeState = { status: "failed", step: "render", stepState: "failed" };
     expect(statusForRequest(failed, "render")).toBe("approved");
-    expect(() => statusForRequest(failed, "compose")).toThrow(/장면·음성 생성/);
+    expect(() => statusForRequest(failed, "compose")).toThrow(/장면 생성/);
     expect(statusForStart(failed, "render")).toBe("rendering");
     expect(statusForRequest({ status: "failed", step: "script", stepState: "failed" }, "script")).toBe("queued");
   });

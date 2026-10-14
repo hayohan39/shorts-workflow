@@ -406,3 +406,12 @@ audio {
   width: 100%;
   max-width: 28rem;
 }
+
+.scene-media {
+  display: block;
+  width: 100%;
+  max-width: 16rem;
+  height: auto;
+  border-radius: 0.4rem;
+  background: #000;
+}

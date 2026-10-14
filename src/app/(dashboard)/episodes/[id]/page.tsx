@@ -11,6 +11,7 @@ import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION, type Status } from "@/pipeline/status";
+import { estimateSceneCredits, scenesDone } from "@/pipeline/steps/render";
 import { isStale, runnableStep } from "@/pipeline/trigger";
 import {
   DEFAULT_VOICE_ID,
@@ -24,6 +25,7 @@ import {
 } from "@/pipeline/voices";
 import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
+import { ScenesPanel } from "./scenes-panel";
 import { ScriptReview } from "./script-review";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +33,8 @@ export const dynamic = "force-dynamic";
 // 사람이 볼 차례인 상태의 안내. 검토 화면은 이후 업데이트에서 이 자리에 들어온다.
 const WAITING_FOR_PERSON: Partial<Record<Status, string>> = {
   script_review: "아래 대본을 검토하고 승인하거나 반려하세요.",
-  approved: "아래에서 목소리를 골라 내레이션을 만드세요. 장면 생성은 다음 업데이트에서 추가됩니다.",
+  approved: "목소리를 골라 내레이션을 만들고 장면 생성을 시작하세요.",
+  rendering: "장면이 준비됐습니다. 영상 합성은 다음 업데이트에서 추가됩니다.",
   video_review: "영상 검토 화면은 다음 업데이트에서 추가됩니다.",
   ready: "유튜브 업로드 버튼은 다음 업데이트에서 추가됩니다.",
   uploaded: "업로드가 끝났습니다.",
@@ -41,14 +44,17 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const [episode, script, scriptCosts, narrationAssets, settings] = await Promise.all([
+  const [episode, script, scriptCosts, assets, settings] = await Promise.all([
     getEpisode(id),
     latestScript(id),
     scriptCostTotal(id),
-    listAssets(id, "voice"),
+    listAssets(id),
     getSettings(),
   ]);
   if (!episode) notFound();
+  const narrationAssets = assets.filter((asset) => asset.kind === "voice");
+  const scenes = script ? scenesDone(assets, script.version) : new Map();
+  const renderEstimate = script ? estimateSceneCredits(script.scenes.filter((scene) => !scenes.has(scene.no))) : 0;
 
   const busy = isBusy(episode);
   const stale = isStale(episode);
@@ -61,9 +67,11 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
       : `${STEP_LABELS[step]} 시작`
     : null;
 
-  // 내레이션: 대본 승인 뒤(또는 내레이션 생성이 실패한 뒤) 만들 수 있다.
+  // 내레이션: 대본 승인 뒤·장면 생성 뒤(또는 내레이션 생성이 실패한 뒤) 만들 수 있다.
   const narrationOpen =
-    episode.status === "approved" || (episode.status === "failed" && episode.step === "voice");
+    episode.status === "approved" ||
+    episode.status === "rendering" ||
+    (episode.status === "failed" && episode.step === "voice");
   const showNarration = !!script && (narrationOpen || narrationAssets.length > 0);
   const lastVoiceId = typeof narrationAssets[0]?.meta.voiceId === "string" ? narrationAssets[0].meta.voiceId : null;
   const defaultVoiceId =
@@ -74,7 +82,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
     : busy
       ? "진행 중인 단계가 끝난 뒤에 만들 수 있습니다."
       : !narrationOpen
-        ? "대본이 승인된 상태에서만 만들 수 있습니다."
+        ? "대본 승인 뒤, 영상 합성 전까지만 만들 수 있습니다."
         : null;
 
   const elapsed = busy && episode.stepStartedAt ? formatElapsed(episode.stepStartedAt) : null;
@@ -147,6 +155,12 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
         {step && buttonLabel ? (
           <RunStepButton id={episode.id} step={step} label={buttonLabel} disabled={!canDispatch} />
         ) : null}
+        {step === "render" ? (
+          <p className="muted small">
+            남은 장면 {script ? script.scenes.length - scenes.size : 0}개 · 약 {renderEstimate}크레딧(추천 모델 기준) · 이미 만든 장면은
+            다시 만들지 않습니다.
+          </p>
+        ) : null}
         {step && !availability.ok ? (
           <p className="warn small">
             {STEP_LABELS[step]} 단계는 시작되지 않았습니다. {availability.reason}
@@ -178,6 +192,10 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           blockedReason={narrationBlocked}
           creditsPerRun={NARRATION_CREDITS}
         />
+      ) : null}
+
+      {script && (scenes.size > 0 || episode.status === "rendering") ? (
+        <ScenesPanel scenes={script.scenes} done={scenes} />
       ) : null}
 
       {script ? <ScriptReview script={script} reviewing={episode.status === "script_review" && !busy} /> : null}

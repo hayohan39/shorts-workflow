@@ -61,7 +61,7 @@ describe.skipIf(!testDatabaseUrl)("내레이션 생성 (실제 DB, 가짜 ManyMo
       },
       fetchImpl: (async () =>
         new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "audio/mpeg" } })) as unknown as typeof fetch,
-      authHeaders: { Authorization: "Bearer test" },
+      headersFor: () => undefined,
     };
     return { deps, calls, uploads };
   }
