@@ -6,12 +6,13 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
-import { createEpisode, decide, getEpisode } from "@/pipeline/episodes";
+import { createEpisode, decide, getEpisode, setVoiceSelection } from "@/pipeline/episodes";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
 import { updateSettings } from "@/pipeline/settings";
 import { isBusy, isStep, TransitionError } from "@/pipeline/status";
 import { triggerStep } from "@/pipeline/trigger";
+import { findVoice, isVoiceModel } from "@/pipeline/voices";
 
 export async function logoutAction(): Promise<void> {
   (await cookies()).delete(SESSION_COOKIE);
@@ -176,4 +177,32 @@ export async function editScriptAction(_prev: SimpleState, formData: FormData): 
   }
   refresh();
   return { saved: true };
+}
+
+/** 고른 목소리로 내레이션 생성을 시작한다(목소리를 바꿔 다시 만들 때도 같은 버튼). */
+export async function narrationAction(_prev: RunStepState, formData: FormData): Promise<RunStepState> {
+  await requireSession();
+  const id = Number(formData.get("id"));
+  const voice = findVoice(String(formData.get("voiceId") ?? ""));
+  const model = formData.get("voiceModel");
+  if (!Number.isInteger(id) || id <= 0 || !voice || !isVoiceModel(model)) return { error: "잘못된 요청입니다." };
+
+  const availability = dispatchAvailability();
+  if (!availability.ok) return { error: availability.reason };
+  const episode = await getEpisode(id);
+  if (!episode) return { error: "에피소드를 찾을 수 없습니다." };
+  if (isBusy(episode)) return { error: "진행 중인 단계가 끝난 뒤에 다시 시도하세요." };
+
+  await setVoiceSelection(id, voice.id, model);
+  try {
+    await triggerStep(id, "voice", createDispatcher());
+  } catch (error) {
+    if (error instanceof TransitionError) {
+      refresh();
+      return { error: error.message };
+    }
+    throw error;
+  }
+  refresh();
+  return {};
 }

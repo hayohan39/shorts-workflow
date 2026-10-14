@@ -5,12 +5,25 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatElapsed } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
+import { listAssets } from "@/pipeline/assets";
 import { getEpisode } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
+import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION, type Status } from "@/pipeline/status";
 import { isStale, runnableStep } from "@/pipeline/trigger";
+import {
+  DEFAULT_VOICE_ID,
+  DEFAULT_VOICE_MODEL,
+  findVoice,
+  isVoiceModel,
+  NARRATION_CREDITS,
+  VOICE_MODELS,
+  VOICES,
+  voiceLabel,
+} from "@/pipeline/voices";
 import { RunStepButton } from "./run-step-button";
+import { NarrationPanel } from "./narration-panel";
 import { ScriptReview } from "./script-review";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +31,7 @@ export const dynamic = "force-dynamic";
 // 사람이 볼 차례인 상태의 안내. 검토 화면은 이후 업데이트에서 이 자리에 들어온다.
 const WAITING_FOR_PERSON: Partial<Record<Status, string>> = {
   script_review: "아래 대본을 검토하고 승인하거나 반려하세요.",
-  approved: "장면·음성 생성은 다음 업데이트에서 추가됩니다.",
+  approved: "아래에서 목소리를 골라 내레이션을 만드세요. 장면 생성은 다음 업데이트에서 추가됩니다.",
   video_review: "영상 검토 화면은 다음 업데이트에서 추가됩니다.",
   ready: "유튜브 업로드 버튼은 다음 업데이트에서 추가됩니다.",
   uploaded: "업로드가 끝났습니다.",
@@ -28,7 +41,13 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const [episode, script, scriptCosts] = await Promise.all([getEpisode(id), latestScript(id), scriptCostTotal(id)]);
+  const [episode, script, scriptCosts, narrationAssets, settings] = await Promise.all([
+    getEpisode(id),
+    latestScript(id),
+    scriptCostTotal(id),
+    listAssets(id, "voice"),
+    getSettings(),
+  ]);
   if (!episode) notFound();
 
   const busy = isBusy(episode);
@@ -41,6 +60,22 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
       ? `${STEP_LABELS[step]} 다시 시도`
       : `${STEP_LABELS[step]} 시작`
     : null;
+
+  // 내레이션: 대본 승인 뒤(또는 내레이션 생성이 실패한 뒤) 만들 수 있다.
+  const narrationOpen =
+    episode.status === "approved" || (episode.status === "failed" && episode.step === "voice");
+  const showNarration = !!script && (narrationOpen || narrationAssets.length > 0);
+  const lastVoiceId = typeof narrationAssets[0]?.meta.voiceId === "string" ? narrationAssets[0].meta.voiceId : null;
+  const defaultVoiceId =
+    findVoice(episode.voiceId)?.id ?? findVoice(lastVoiceId)?.id ?? findVoice(settings.voice)?.id ?? DEFAULT_VOICE_ID;
+  const defaultVoiceModel = [episode.voiceModel, settings.voiceModel].find(isVoiceModel) ?? DEFAULT_VOICE_MODEL;
+  const narrationBlocked = !availability.ok
+    ? availability.reason
+    : busy
+      ? "진행 중인 단계가 끝난 뒤에 만들 수 있습니다."
+      : !narrationOpen
+        ? "대본이 승인된 상태에서만 만들 수 있습니다."
+        : null;
 
   const elapsed = busy && episode.stepStartedAt ? formatElapsed(episode.stepStartedAt) : null;
 
@@ -121,6 +156,29 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           <p className="muted">{WAITING_FOR_PERSON[episode.status]}</p>
         ) : null}
       </section>
+
+      {showNarration ? (
+        <NarrationPanel
+          episodeId={episode.id}
+          voices={VOICES.map((voice) => ({ id: voice.id, label: voiceLabel(voice) }))}
+          models={VOICE_MODELS.map((model) => ({ id: model.id, label: model.label }))}
+          defaultVoiceId={defaultVoiceId}
+          defaultModel={defaultVoiceModel}
+          narrations={narrationAssets
+            .filter((asset) => asset.url)
+            .map((asset) => ({
+              id: asset.id,
+              url: asset.url!,
+              voiceName: String(asset.meta.voiceName ?? "알 수 없음"),
+              voiceModel: asset.model ?? "",
+              credits: asset.credits,
+              createdAt: formatDateTime(asset.createdAt),
+            }))}
+          canRun={narrationBlocked === null}
+          blockedReason={narrationBlocked}
+          creditsPerRun={NARRATION_CREDITS}
+        />
+      ) : null}
 
       {script ? <ScriptReview script={script} reviewing={episode.status === "script_review" && !busy} /> : null}
     </>

@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { findVoice, isVoiceModel } from "@/pipeline/voices";
 
 export interface Settings {
   voice: string | null;
@@ -61,6 +62,10 @@ export async function updateSettings(input: SettingsInput): Promise<Settings> {
     if (trimmed.length > TEXT_MAX) throw new RangeError(`${label}은(는) ${TEXT_MAX}자 이내로 입력하세요.`);
     return trimmed || null;
   };
+  const voice = text(input.voice, "목소리");
+  if (voice && !findVoice(voice)) throw new RangeError("목록에 없는 목소리입니다.");
+  const voiceModel = text(input.voiceModel, "음성 모델");
+  if (voiceModel && !isVoiceModel(voiceModel)) throw new RangeError("목록에 없는 음성 모델입니다.");
   const limit = Number(input.monthlyCreditLimit);
   if (!Number.isInteger(limit) || limit <= 0 || limit > CREDIT_LIMIT_MAX) {
     throw new RangeError(`월 크레딧 한도는 1 ~ ${CREDIT_LIMIT_MAX.toLocaleString("ko-KR")} 사이의 정수로 입력하세요.`);
@@ -72,8 +77,8 @@ export async function updateSettings(input: SettingsInput): Promise<Settings> {
     [
       text(input.videoModel, "영상 모델"),
       text(input.imageModel, "이미지 모델"),
-      text(input.voiceModel, "음성 모델"),
-      text(input.voice, "목소리"),
+      voiceModel,
+      voice,
       limit,
       text(input.scriptModel, "대본 모델"),
     ],

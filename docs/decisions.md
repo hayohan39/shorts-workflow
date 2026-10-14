@@ -15,11 +15,22 @@
 
 ## 미결
 
-- 고정 내레이션 목소리 (ManyMotions `probe` 결과를 보고 결정)
 - PDRN 첫 편 실측 크레딧에 따른 장면 구성(영상/이미지 비율) 조정
 - 대본 생성에 Grok·Gemini 추가 여부 (아래 2026-10-12 "대본 모델 기본값" 참고. Haiku 5.5 결과를 본 뒤 결정)
 
 ---
+
+## 2026-10-14 내레이션: ManyMotions 영상 편집 에이전트(ElevenLabs), 목소리는 편마다 선택
+
+- 결정: 내레이션은 ManyMotions 영상 편집 에이전트(`video_editor_instruct`)에 ElevenLabs 목소리·모델(eleven_v3 /
+  eleven_multilingual_v2)을 지정해 만든다. 목소리는 고정하지 않고 에피소드마다 대시보드에서 고르며, 다시 만들 수 있다.
+  받은 음성은 바로 Vercel Blob(공개 스토어)으로 옮긴다(생성 서비스 주소는 임시).
+- 근거(2026-10-14 시험): MCP 모델 목록(`list_models`)에는 음성이 없고, 에이전트로는 한국어 목소리 12개(이름·ID)를 받을 수 있고
+  음성 생성이 된다. 1회 실측 80크레딧(지시 5 + 생성 75). API 로는 미리 듣기 주소가 없다(`preview_url` 전부 null).
+  대시보드에 미리 듣기는 두지 않는다(샘플을 만들려면 크레딧이 들어서). 목소리는 ManyMotions·ElevenLabs 웹에서 들어 보고 고른다.
+  목소리 목록 조회도 지시라 약 20크레딧이 들어 `src/pipeline/voices.ts` 에 고정했다.
+- 검토한 대안: Google Cloud TTS(Chirp 3 HD, 사실상 무료, 결과가 일정하지만 새 GCP 키), ElevenLabs 직접(무료 플랜은 수익 채널 불가, 월 $5~6).
+- 영향: GitHub 시크릿 `BLOB_READ_WRITE_TOKEN`. 내레이션은 편당 약 80크레딧, 다시 만들 때마다 같은 만큼.
 
 ## 2026-10-13 ManyMotions 잔여 크레딧 조회
 

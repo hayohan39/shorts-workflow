@@ -14,7 +14,7 @@ on:
         description: 실행할 단계
         type: choice
         required: true
-        options: [script, render, compose, upload, probe]
+        options: [script, voice, render, compose, upload, probe]
       episode_id:
         description: 에피소드 번호 (probe 는 비워 둠)
         type: string
@@ -67,6 +67,8 @@ jobs:
         env:
           MANYMOTIONS_API_KEY: ${{ secrets.MANYMOTIONS_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 생성물(내레이션·장면) 저장용 Vercel Blob 토큰.
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           # 실제 청구 비용 조회용 Admin 키는 조직 관리 권한까지 있어서 probe 실행에만 넘긴다(선택, 없으면 건너뜀).
           ANTHROPIC_ADMIN_KEY: ${{ (inputs.step || 'probe') == 'probe' && secrets.ANTHROPIC_ADMIN_KEY || '' }}
           # 선택: 이 워크스페이스의 비용만 센다(Console 의 wrkspc_… ID, 기본 워크스페이스는 default).

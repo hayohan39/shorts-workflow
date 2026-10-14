@@ -13,7 +13,7 @@ export function isStale(episode: Episode, now = Date.now()): boolean {
 }
 
 /** 지금 구현된 단계. 아직 없는 단계는 버튼을 보여 주지 않는다(docs/mvp-plan.md 의 PR 순서). */
-export const IMPLEMENTED_STEPS: readonly Step[] = ["script"];
+export const IMPLEMENTED_STEPS: readonly Step[] = ["script", "voice"];
 
 /** 사람의 결정 없이 바로 이어서 돌릴 수 있는 다음 단계. */
 const NEXT_STEP: Partial<Record<Status, Step>> = {
