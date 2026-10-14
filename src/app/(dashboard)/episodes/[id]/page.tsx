@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatElapsed } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
-import { listAssets, voiceSamples } from "@/pipeline/assets";
+import { listAssets } from "@/pipeline/assets";
 import { getEpisode } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
@@ -41,12 +41,11 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const [episode, script, scriptCosts, narrationAssets, samples, settings] = await Promise.all([
+  const [episode, script, scriptCosts, narrationAssets, settings] = await Promise.all([
     getEpisode(id),
     latestScript(id),
     scriptCostTotal(id),
     listAssets(id, "voice"),
-    voiceSamples(),
     getSettings(),
   ]);
   if (!episode) notFound();
@@ -165,7 +164,6 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           models={VOICE_MODELS.map((model) => ({ id: model.id, label: model.label }))}
           defaultVoiceId={defaultVoiceId}
           defaultModel={defaultVoiceModel}
-          samples={samples}
           narrations={narrationAssets
             .filter((asset) => asset.url)
             .map((asset) => ({

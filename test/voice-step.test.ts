@@ -74,7 +74,7 @@ describe.skipIf(!testDatabaseUrl)("내레이션 생성 (실제 DB, 가짜 ManyMo
   it("고른 목소리로 만들고 Blob 에 옮긴 뒤 실제 차감액과 함께 저장한다", async () => {
     const { setVoiceSelection, getEpisode } = await import("@/pipeline/episodes");
     const { runVoiceStep } = await import("@/pipeline/steps/voice");
-    const { listAssets, voiceSamples } = await import("@/pipeline/assets");
+    const { listAssets } = await import("@/pipeline/assets");
     const episode = await approvedEpisode("내레이션");
     const voice = VOICES[4];
     await setVoiceSelection(episode.id, voice.id, "eleven_multilingual_v2");
@@ -102,7 +102,6 @@ describe.skipIf(!testDatabaseUrl)("내레이션 생성 (실제 DB, 가짜 ManyMo
       url: `https://blob.example/episodes/${episode.id}/narration-${voice.id}.mp3`,
     });
     expect(asset.meta).toMatchObject({ voiceId: voice.id, voiceName: voice.name, creditsEstimated: false, projectId: "vp_test" });
-    expect((await voiceSamples())[voice.id]?.url).toBe(asset.url);
 
     // 이번 달 사용 크레딧에 반영된다.
     const { monthlyCredits } = await import("@/pipeline/credits");

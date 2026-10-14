@@ -87,14 +87,3 @@ export async function listAssets(episodeId: number, kind?: AssetKind): Promise<A
   );
   return rows.map(toAsset);
 }
-
-/** 목소리별 가장 최근 내레이션(모든 에피소드). 목소리를 고를 때 미리 듣기 샘플로 쓴다. */
-export async function voiceSamples(): Promise<Record<string, { url: string; text: string }>> {
-  const rows = await query<{ voice_id: string; url: string; text: string | null }>(
-    `select distinct on (meta->>'voiceId') meta->>'voiceId' as voice_id, url, meta->>'text' as text
-       from assets
-      where kind = 'voice' and status = 'done' and url is not null and meta ? 'voiceId'
-      order by meta->>'voiceId', created_at desc`,
-  );
-  return Object.fromEntries(rows.map((row) => [row.voice_id, { url: row.url, text: row.text ?? "" }]));
-}

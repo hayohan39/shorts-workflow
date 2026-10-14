@@ -1,6 +1,6 @@
 // 내레이션 목소리. ManyMotions 영상 편집 에이전트가 쓰는 ElevenLabs 한국어 목소리 목록(2026-10-14 조회).
 // 목록 조회도 에이전트 지시라 크레딧(약 20)이 들어서 매번 가져오지 않고 여기에 둔다. 목록이 바뀌면 여기를 고친다.
-// 공식 미리 듣기 주소는 없다(조회 결과 preview_url 이 모두 null). 그래서 한 번 만든 내레이션을 그 목소리의 샘플로 쓴다.
+// API 로는 미리 듣기 주소가 없다(조회 결과 preview_url 이 모두 null). 목소리는 ManyMotions·ElevenLabs 웹에서 들어 보고 고른다.
 
 export interface Voice {
   id: string;
