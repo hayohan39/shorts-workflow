@@ -54,6 +54,8 @@ describe("단계 규칙", () => {
     expect(statusForDone({ status: "approved", step: "voice", stepState: "running" }, "voice")).toBe("approved");
     expect(statusForRequest(idle("rendering", "render"), "voice")).toBe("rendering");
     expect(statusForDone({ status: "rendering", step: "voice", stepState: "running" }, "voice")).toBe("rendering");
+    expect(statusForRequest(idle("video_review", "compose"), "voice")).toBe("video_review");
+    expect(() => statusForRequest(idle("ready"), "voice")).toThrow(TransitionError);
     expect(statusForRequest(idle("approved", "voice"), "voice")).toBe("approved");
     expect(() => statusForRequest(idle("script_review", "script"), "voice")).toThrow(TransitionError);
     expect(statusForRequest({ status: "failed", step: "voice", stepState: "failed" }, "voice")).toBe("approved");

@@ -415,3 +415,12 @@ audio {
   border-radius: 0.4rem;
   background: #000;
 }
+
+.final-video {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  aspect-ratio: 9 / 16;
+  background: #000;
+  border-radius: 0.5rem;
+}

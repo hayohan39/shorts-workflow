@@ -14,6 +14,7 @@ import { getPool, hasDatabase } from "@/lib/db";
 import { redact } from "@/lib/health";
 import { failStep } from "@/pipeline/episodes";
 import { refreshManyMotionsAccount } from "@/pipeline/accounts";
+import { listAssets } from "@/pipeline/assets";
 import { refreshActualCosts } from "@/pipeline/costs";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
 import { listClaudeModels, readAnthropicKey } from "@/pipeline/providers/anthropic";
@@ -91,9 +92,20 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === "run") {
     try {
-      const result = await runStep(id, step, { handlers, runUrl: process.env.RUN_URL || null });
+      const runUrl = process.env.RUN_URL || null;
+      const result = await runStep(id, step, { handlers, runUrl });
       if (result.ok) {
         await summary([title, "", `✅ 완료 → ${STATUS_LABELS[result.episode.status]}`]);
+        // 장면 생성이 끝났고 내레이션이 있으면 같은 실행에서 바로 합성까지 한다(크레딧 없음).
+        if (step === "render" && (await listAssets(id, "voice")).length) {
+          const composed = await runStep(id, "compose", { handlers, runUrl });
+          await summary([
+            `### 에피소드 #${id} · ${STEP_LABELS.compose}`,
+            "",
+            composed.ok ? `✅ 완료 → ${STATUS_LABELS[composed.episode.status]}` : `❌ 실패: ${composed.error}`,
+          ]);
+          return composed.ok ? 0 : 1;
+        }
         return 0;
       }
       await summary([title, "", `❌ 실패: ${result.error}`]);

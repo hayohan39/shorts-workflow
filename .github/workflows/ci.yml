@@ -58,6 +58,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # 영상 합성 테스트가 실제 ffmpeg 로 시험 패턴 영상을 합성한다(없으면 그 테스트만 건너뜀).
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Test
         run: npm test
 
