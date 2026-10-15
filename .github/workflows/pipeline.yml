@@ -61,6 +61,13 @@ jobs:
       - name: Install
         run: npm ci
 
+      # 영상 합성(compose, 그리고 장면 생성 뒤 이어지는 합성)에는 ffmpeg 와 한글 폰트(Noto Sans CJK, OFL)가 필요하다.
+      - name: Install ffmpeg and Korean font
+        if: ${{ env.STEP == 'render' || env.STEP == 'compose' }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
+
       - name: Run
         id: run
         # 외부 API 키는 이 단계에만 넘긴다(npm ci 같은 다른 단계에는 노출하지 않음).

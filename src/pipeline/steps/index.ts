@@ -1,6 +1,7 @@
 import type { StepHandlers } from "@/pipeline/runner";
 import { refreshManyMotionsAccount } from "@/pipeline/accounts";
 import { readManyMotionsKey } from "@/pipeline/providers/manymotions";
+import { runComposeStep } from "@/pipeline/steps/compose";
 import { runRenderStep } from "@/pipeline/steps/render";
 import { runScriptStep } from "@/pipeline/steps/script";
 import { runVoiceStep } from "@/pipeline/steps/voice";
@@ -22,4 +23,7 @@ export const handlers: StepHandlers = {
   script: (episode, context) => runScriptStep(episode, { progress: context.progress }),
   voice: (episode, context) => withBalanceRefresh(() => runVoiceStep(episode, { progress: context.progress })),
   render: (episode, context) => withBalanceRefresh(() => runRenderStep(episode, { progress: context.progress })),
+  compose: async (episode, context) => {
+    await runComposeStep(episode, { progress: context.progress });
+  },
 };

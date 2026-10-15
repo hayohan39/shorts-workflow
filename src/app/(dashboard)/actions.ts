@@ -206,3 +206,19 @@ export async function narrationAction(_prev: RunStepState, formData: FormData): 
   refresh();
   return {};
 }
+
+/** 합성된 영상을 승인한다(영상 검토 → 업로드 대기). */
+export async function approveVideoAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const id = episodeId(formData);
+  if (!id) return { error: "잘못된 요청입니다." };
+  try {
+    await decide(id, "approve-video");
+  } catch (error) {
+    refresh();
+    if (error instanceof TransitionError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return {};
+}

@@ -26,6 +26,7 @@ import {
 import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
 import { ScenesPanel } from "./scenes-panel";
+import { VideoReview } from "./video-review";
 import { ScriptReview } from "./script-review";
 
 export const dynamic = "force-dynamic";
@@ -34,8 +35,8 @@ export const dynamic = "force-dynamic";
 const WAITING_FOR_PERSON: Partial<Record<Status, string>> = {
   script_review: "아래 대본을 검토하고 승인하거나 반려하세요.",
   approved: "목소리를 골라 내레이션을 만들고 장면 생성을 시작하세요.",
-  rendering: "장면이 준비됐습니다. 영상 합성은 다음 업데이트에서 추가됩니다.",
-  video_review: "영상 검토 화면은 다음 업데이트에서 추가됩니다.",
+  rendering: "장면이 준비됐습니다. 내레이션을 확인하고 영상 합성을 시작하세요.",
+  video_review: "아래 완성 영상을 확인하고 승인하세요. 내레이션을 바꿨으면 다시 합성하세요.",
   ready: "유튜브 업로드 버튼은 다음 업데이트에서 추가됩니다.",
   uploaded: "업로드가 끝났습니다.",
 };
@@ -55,6 +56,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   const narrationAssets = assets.filter((asset) => asset.kind === "voice");
   const scenes = script ? scenesDone(assets, script.version) : new Map();
   const renderEstimate = script ? estimateSceneCredits(script.scenes.filter((scene) => !scenes.has(scene.no))) : 0;
+  const finalVideo = assets.find((asset) => asset.kind === "final" && asset.url);
 
   const busy = isBusy(episode);
   const stale = isStale(episode);
@@ -64,13 +66,16 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   const buttonLabel = step
     ? episode.status === "failed" || stale
       ? `${STEP_LABELS[step]} 다시 시도`
-      : `${STEP_LABELS[step]} 시작`
+      : step === "compose" && episode.status === "video_review"
+        ? "다시 합성 (크레딧 없음)"
+        : `${STEP_LABELS[step]} 시작${step === "compose" ? " (크레딧 없음)" : ""}`
     : null;
 
   // 내레이션: 대본 승인 뒤·장면 생성 뒤(또는 내레이션 생성이 실패한 뒤) 만들 수 있다.
   const narrationOpen =
     episode.status === "approved" ||
     episode.status === "rendering" ||
+    episode.status === "video_review" ||
     (episode.status === "failed" && episode.step === "voice");
   const showNarration = !!script && (narrationOpen || narrationAssets.length > 0);
   const lastVoiceId = typeof narrationAssets[0]?.meta.voiceId === "string" ? narrationAssets[0].meta.voiceId : null;
@@ -82,7 +87,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
     : busy
       ? "진행 중인 단계가 끝난 뒤에 만들 수 있습니다."
       : !narrationOpen
-        ? "대본 승인 뒤, 영상 합성 전까지만 만들 수 있습니다."
+        ? "대본 승인 뒤, 영상 승인 전까지만 만들 수 있습니다."
         : null;
 
   const elapsed = busy && episode.stepStartedAt ? formatElapsed(episode.stepStartedAt) : null;
@@ -155,6 +160,9 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
         {step && buttonLabel ? (
           <RunStepButton id={episode.id} step={step} label={buttonLabel} disabled={!canDispatch} />
         ) : null}
+        {step === "compose" && !narrationAssets.length ? (
+          <p className="warn small">내레이션이 없습니다. 아래에서 내레이션을 먼저 만드세요.</p>
+        ) : null}
         {step === "render" ? (
           <p className="muted small">
             남은 장면 {script ? script.scenes.length - scenes.size : 0}개 · 약 {renderEstimate}크레딧(추천 모델 기준) · 이미 만든 장면은
@@ -170,6 +178,15 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           <p className="muted">{WAITING_FOR_PERSON[episode.status]}</p>
         ) : null}
       </section>
+
+      {finalVideo?.url ? (
+        <VideoReview
+          episodeId={episode.id}
+          url={finalVideo.url}
+          caption={`${Number(finalVideo.meta.seconds ?? 0).toFixed(1)}초 · 목소리 ${String(finalVideo.meta.voiceName ?? "알 수 없음")} · ${formatDateTime(finalVideo.createdAt)} 합성`}
+          reviewing={episode.status === "video_review" && !busy}
+        />
+      ) : null}
 
       {showNarration ? (
         <NarrationPanel

@@ -1,7 +1,7 @@
 // 에피소드 상태와 허용되는 전이. DB 를 모르는 순수 규칙이라 대시보드와 Actions 가 같이 쓴다.
 //
 //   queued ─script─► script_review ─approve-script─► approved ─render─► rendering
-//   (voice 는 approved·rendering 에서 여러 번 돌릴 수 있고 상태를 바꾸지 않는다)
+//   (voice 는 approved·rendering·video_review 에서 여러 번 돌릴 수 있고 상태를 바꾸지 않는다)
 //          ─compose─► video_review ─approve-video─► ready ─upload─► uploaded
 //   어느 단계든 실패 ─► failed (step 에 실패한 단계) ─다시 시도─► 그 단계부터
 
@@ -42,7 +42,7 @@ interface StepRule {
 export const STEP_RULES: Record<Step, StepRule> = {
   script: { from: ["queued"], done: "script_review" },
   // 내레이션은 승인된 대본으로 만든다. 장면을 만든 뒤에도 목소리를 바꿔 다시 만들 수 있어 상태는 그대로 둔다.
-  voice: { from: ["approved", "rendering"] },
+  voice: { from: ["approved", "rendering", "video_review"] },
   render: { from: ["approved", "rendering"], during: "rendering", done: "rendering" },
   // video_review 에서도 허용: 크레딧 없이 자막·모션만 다시 합성.
   compose: { from: ["rendering", "video_review"], done: "video_review" },
@@ -120,7 +120,7 @@ export const STEP_TYPICAL_DURATION: Record<Step, string> = {
   script: "2~4분",
   voice: "1분 안팎",
   render: "5~15분",
-  compose: "1~3분",
+  compose: "1~2분",
   upload: "1분 안팎",
 };
 

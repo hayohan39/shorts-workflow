@@ -14,7 +14,7 @@ ManyMotions 모델 조회·설정(#5) · 대본 생성·검토(#6) · 설정 드
   - ManyMotions 작업은 서버 메모리에만 있어 재배포 때 사라질 수 있다(job_not_found) → 바로바로 폴링하고 사라지면 다시 요청
   - 영상 모델은 `t2v_id`(텍스트→영상) 를 그대로 쓴다
   - 생성 응답의 `credits_consumed` 를 assets.credits 에, `credits_remaining` 으로 잔액도 갱신 (REST 문서 기준, MCP 응답은 첫 실행 때 확인)
-- [ ] ⑥ ffmpeg 합성·영상 검토: 자막·고지·이미지 모션·음량 정규화, 영상 재생, 영상 승인
+- [x] ⑥ ffmpeg 합성·영상 검토: 자막(숫자 강조)·하단 고지·이미지 확대·이동·음량 -14 LUFS, 영상 재생, 영상 승인, 다시 합성
 - [ ] ⑦ 유튜브 비공개 업로드: 업로드 버튼, AI 합성 공개 표시, 리프레시 토큰 발급 도우미
 - [ ] ⑧ 운영 가이드·MVP 완료: PDRN 실측 크레딧·품질 반영
 - [ ] 정리: 쓰지 않는 `provider_probes.models` 컬럼을 지우는 마이그레이션
@@ -24,8 +24,8 @@ ManyMotions 모델 조회·설정(#5) · 대본 생성·검토(#6) · 설정 드
 - [ ] Haiku 5.5 기본값으로 대본 생성해 보고 품질 확인 → 부족하면 Sonnet 5.5 로, 그래도 부족하면 Gemini 비교 검토
 - [ ] Claude 실제 비용 연결: 조직 계정 → Admin 키 → GitHub Secrets `ANTHROPIC_ADMIN_KEY` (설정 화면에 안내)
 - [x] Vercel Blob 스토어 연결 → `BLOB_READ_WRITE_TOKEN` GitHub Secrets 등록
-- [ ] 내레이션 실제 생성해 보고 목소리 고르기 (편당 약 80크레딧)
-- [ ] 장면 생성 실제 실행 (편당 약 256크레딧)
+- [x] 내레이션·장면 생성 실제 실행 확인
+- [ ] 첫 영상 합성 결과를 휴대폰으로 확인 (자막 크기·위치, 고지, 음량)
 - [ ] ⑦ 전: Google Cloud OAuth(동의 화면 게시 상태 "프로덕션") → YouTube 시크릿 3종
 
 ## 미결 결정
