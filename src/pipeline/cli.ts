@@ -4,10 +4,13 @@
 //   npm run pipeline -- fail <step> <episodeId> <message>  러너가 중간에 죽었을 때 실패 기록
 //   npm run pipeline -- run  probe                         ManyMotions 모델 조회 (에피소드 없음)
 //   npm run pipeline -- fail probe "" <message>
+//   npm run pipeline -- run  clips|clips-adopt <collectionId>   영상 클립 수집 / 채택(다운로드·변환·Blob)
+//   npm run pipeline -- fail clips|clips-adopt <collectionId> <message>
 //
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
 //           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe),
-//           ANTHROPIC_ADMIN_KEY(probe, 선택: 실제 청구 비용 조회), ANTHROPIC_COST_WORKSPACE_ID(선택: 그 워크스페이스만)
+//           ANTHROPIC_ADMIN_KEY(probe, 선택: 실제 청구 비용 조회), ANTHROPIC_COST_WORKSPACE_ID(선택: 그 워크스페이스만),
+//           PIXABAY_API_KEY(clips), BLOB_READ_WRITE_TOKEN(clips-adopt)
 import { appendFile } from "node:fs/promises";
 import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";
@@ -15,9 +18,15 @@ import { redact } from "@/lib/health";
 import { failStep } from "@/pipeline/episodes";
 import { refreshManyMotionsAccount } from "@/pipeline/accounts";
 import { listAssets } from "@/pipeline/assets";
+import { adoptClips } from "@/pipeline/clips/adopt";
+import { collectClips } from "@/pipeline/clips/collect";
+import { createAdapters } from "@/pipeline/clips/sources";
+import { failAdopt, failCollection, finishAdopt, startAdopt, startCollection } from "@/pipeline/clips/store";
+import { SOURCE_LABELS, type ClipSourceId } from "@/pipeline/clips/types";
 import { refreshActualCosts } from "@/pipeline/costs";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
 import { listClaudeModels, readAnthropicKey } from "@/pipeline/providers/anthropic";
+import { createBlobPut, readBlobToken } from "@/pipeline/providers/blob";
 import { createManyMotionsClient, readManyMotionsKey } from "@/pipeline/providers/manymotions";
 import { runStep } from "@/pipeline/runner";
 import { isStep, STATUS_LABELS, STEP_LABELS, TransitionError, type Step } from "@/pipeline/status";
@@ -84,9 +93,64 @@ async function probe(command: string | undefined, message: string): Promise<numb
   }
 }
 
+/** 영상 클립 수집(clips)·채택(clips-adopt). 대상은 clip_collections 의 ID. */
+async function clips(command: string | undefined, step: "clips" | "clips-adopt", idArg: string | undefined, message: string) {
+  const id = Number(idArg);
+  if (!Number.isInteger(id) || id <= 0) throw new Error(`수집 ID 가 올바르지 않습니다: ${idArg ?? "(없음)"}`);
+  const adopt = step === "clips-adopt";
+  const title = `### 영상 클립 ${adopt ? "채택" : "수집"} #${id}`;
+  if (command === "fail") {
+    const reason = message || "Actions 실행이 중간에 중단되었습니다.";
+    await (adopt ? failAdopt(id, reason) : failCollection(id, reason));
+    await summary([title, "", "중단 기록"]);
+    return 0;
+  }
+  if (command !== "run") throw new Error(USAGE);
+
+  const runUrl = process.env.RUN_URL || null;
+  const started = await (adopt ? startAdopt(id, runUrl) : startCollection(id, runUrl));
+  if (!started) {
+    await summary([title, "", `⏭️ 시작하지 않음: ${adopt ? "수집이 끝나지 않았거나 없는 수집입니다." : "없거나 이미 끝난 수집입니다."}`]);
+    return 1;
+  }
+  try {
+    if (adopt) {
+      const count = await adoptClips(id, {
+        put: createBlobPut(readBlobToken()),
+        progress: async (text) => console.log(`채택 ${text}`),
+      });
+      await finishAdopt(id);
+      await summary([title, "", `✅ ${count}개 채택`]);
+    } else {
+      const done = await collectClips(started, {
+        adapters: createAdapters(),
+        send: (params) => new Anthropic({ apiKey: readAnthropicKey() }).messages.create(params),
+      });
+      const sources = Object.entries(done.sourceResults).map(
+        ([source, result]) =>
+          `- ${SOURCE_LABELS[source as ClipSourceId]}: ${result.found}개 중 ${result.kept}개 선택${result.error ? ` (⚠️ ${result.error})` : ""}`,
+      );
+      await summary([
+        title,
+        "",
+        `✅ 키워드 ${done.keywords.join(", ")} · 합계 ${done.totalSeconds ?? 0}초${done.shortfall ? ` · ${done.shortfall}` : ""}`,
+        "",
+        ...sources,
+      ]);
+    }
+    return 0;
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    await (adopt ? failAdopt(id, text) : failCollection(id, text));
+    await summary([title, "", `❌ 실패: ${text}`]);
+    return 1;
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, stepArg, idArg, ...rest] = argv;
   if (stepArg === "probe") return probe(command, rest.join(" "));
+  if (stepArg === "clips" || stepArg === "clips-adopt") return clips(command, stepArg, idArg, rest.join(" "));
   const { step, id } = parseTarget(stepArg, idArg);
   const title = `### 에피소드 #${id} · ${STEP_LABELS[step]}`;
 

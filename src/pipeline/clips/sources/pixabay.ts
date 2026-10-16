@@ -1,5 +1,5 @@
 import { fetchSourceJson } from "@/pipeline/clips/http";
-import type { ClipCandidate, SearchOptions, SourceAdapter } from "@/pipeline/clips/types";
+import { SOURCE_LABELS, type ClipCandidate, type SearchOptions, type SourceAdapter } from "@/pipeline/clips/types";
 
 // Pixabay 영상 검색 API (https://pixabay.com/api/docs/#api_search_videos).
 //   GET https://pixabay.com/api/videos/?key=…&q=…&per_page=3~200
@@ -41,7 +41,7 @@ export function createPixabayAdapter(env: Record<string, string | undefined> = p
   const key = env.PIXABAY_API_KEY || null;
   return {
     id: "pixabay",
-    label: "Pixabay",
+    label: SOURCE_LABELS.pixabay,
     availability: () => (key ? { ok: true } : { ok: false, reason: MISSING_KEY }),
     search: async (query, options) => {
       if (!key) throw new Error(MISSING_KEY);

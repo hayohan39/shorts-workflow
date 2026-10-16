@@ -19,6 +19,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
         </Link>
         <nav>
           <Link href="/episodes/new">새 에피소드</Link>
+          <Link href="/clips">영상 소스</Link>
           <Link href="/settings">설정</Link>
           <form action={logoutAction}>
             <button type="submit" className="link">

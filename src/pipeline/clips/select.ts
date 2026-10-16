@@ -21,14 +21,15 @@ export interface Selection {
   shortfall: string | null;
 }
 
-function clipScore(clip: ClipCandidate): number {
+/** 방향·해상도 점수. 높을수록 먼저 고른다(교체 후보 순서에도 쓴다). */
+export function clipScore(clip: ClipCandidate): number {
   const orientation = orientationOf(clip.width, clip.height);
   const shortSide = Math.min(clip.width ?? 0, clip.height ?? 0);
   const resolution = shortSide >= 1080 ? 0.5 : shortSide >= 720 ? 0.25 : 0;
   return (orientation ? ORIENTATION_SCORE[orientation] : 0) + resolution;
 }
 
-function isSelectable(clip: ClipCandidate): boolean {
+export function isSelectable(clip: ClipCandidate): boolean {
   const seconds = clip.durationSec;
   return (
     clip.downloadUrl !== null &&

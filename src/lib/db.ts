@@ -1,5 +1,5 @@
 import { attachDatabasePool } from "@vercel/functions";
-import { Pool, type QueryResultRow } from "pg";
+import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 // Neon 의 pooled 연결 문자열(호스트에 -pooler)을 쓰는 것을 전제로 한다.
 // 배포 환경에서는 Vercel 환경변수 DATABASE_URL 이 그 값을 갖고 있다.
@@ -36,4 +36,20 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 ): Promise<T[]> {
   const result = await getPool().query<T>(text, params);
   return result.rows;
+}
+
+/** 한 트랜잭션 안에서 실행한다. work 가 throw 하면 되돌린다. */
+export async function transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const result = await work(client);
+    await client.query("commit");
+    return result;
+  } catch (error) {
+    await client.query("rollback").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
