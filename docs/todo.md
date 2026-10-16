@@ -16,6 +16,9 @@ ManyMotions 모델 조회·설정(#5) · 대본 생성·검토(#6) · 설정 드
   - 영상 모델은 `t2v_id`(텍스트→영상) 를 그대로 쓴다
   - 생성 응답의 `credits_consumed` 를 assets.credits 에, `credits_remaining` 으로 잔액도 갱신 (REST 문서 기준, MCP 응답은 첫 실행 때 확인)
 - [x] ⑥ ffmpeg 합성·영상 검토: 자막(숫자 강조)·하단 고지·이미지 확대·이동·음량 -14 LUFS, 영상 재생, 영상 승인, 다시 합성
+- [ ] 무료 라이선스 영상 소스 수집 ([계획](clips-plan.md))
+  - [x] 기반: 타입·라이선스 판정·선별·키워드 확장·백오프·스키마
+  - [ ] Pixabay → 기능 1(주제 검색·채택) → NASA → Wikimedia → Internet Archive → 기능 2(매일 수집·태그) → 장면 연동 → 공유마당
 - [ ] 정리: 쓰지 않는 `provider_probes.models` 컬럼을 지우는 마이그레이션
 
 ## 사용자
@@ -24,6 +27,8 @@ ManyMotions 모델 조회·설정(#5) · 대본 생성·검토(#6) · 설정 드
 - [x] Claude 실제 비용 연결 (조직 전환 + Admin 키)
 - [x] Vercel Blob 스토어 연결 → `BLOB_READ_WRITE_TOKEN` GitHub Secrets 등록
 - [x] 내레이션·장면 생성 실제 실행 확인
+- [ ] Pixabay API 키 → GitHub Secrets `PIXABAY_API_KEY` (https://pixabay.com/api/docs/ 로그인 후 확인)
+- [ ] (공유마당 PR 전) 공유마당 API 키 → `GONGU_API_KEY`
 - [ ] 첫 영상 합성 결과를 휴대폰으로 확인 (자막 크기·위치, 고지, 음량)
 
 ## 보류: 유튜브 업로드 (새 기능을 더 넣은 뒤 진행 — 2026-10-16 사용자 결정)
