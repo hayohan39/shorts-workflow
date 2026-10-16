@@ -4,6 +4,15 @@
 
 export type ClipSourceId = "pixabay" | "nasa" | "wikimedia" | "archive" | "gongu";
 
+/** 화면·출처 표기용 소스 이름 */
+export const SOURCE_LABELS: Record<ClipSourceId, string> = {
+  pixabay: "Pixabay",
+  nasa: "NASA Image and Video Library",
+  wikimedia: "Wikimedia Commons",
+  archive: "Internet Archive",
+  gongu: "공유마당",
+};
+
 export type Orientation = "vertical" | "square" | "horizontal";
 
 /** 허용하는 라이선스만 코드가 있다. 비영리(NC)·변경금지(ND)·불명확한 것은 어댑터 단계에서 버린다. */

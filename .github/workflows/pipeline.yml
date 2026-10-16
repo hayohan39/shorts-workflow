@@ -3,6 +3,7 @@ name: Pipeline
 # 쇼츠 파이프라인의 자동 단계(대본·장면·합성·업로드)를 에피소드 하나에 대해 실행한다.
 # probe 는 에피소드 없이 ManyMotions·Claude 모델 목록과 Claude 실제 청구 비용을 조회한다(설정·목록 화면).
 # probe 는 매일 한 번 자동으로도 돈다(schedule). 그때는 입력이 없으므로 probe 로 본다.
+# clips 는 무료 라이선스 영상 클립 수집, clips-adopt 는 선택된 클립의 다운로드·mp4 변환·Blob 저장(대상: collection_id).
 # 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
 # 직접 실행해도 된다: Actions → Pipeline → Run workflow.
 #
@@ -14,19 +15,23 @@ on:
         description: 실행할 단계
         type: choice
         required: true
-        options: [script, voice, render, compose, upload, probe]
+        options: [script, voice, render, compose, upload, probe, clips, clips-adopt]
       episode_id:
-        description: 에피소드 번호 (probe 는 비워 둠)
+        description: 에피소드 번호 (probe·clips 는 비워 둠)
+        type: string
+        required: false
+      collection_id:
+        description: 클립 수집 번호 (clips·clips-adopt 만)
         type: string
         required: false
   schedule:
     - cron: "17 18 * * *" # 매일 03:17 KST
 
-run-name: "${{ inputs.episode_id && format('#{0} ', inputs.episode_id) || '' }}${{ inputs.step || 'probe' }}"
+run-name: "${{ inputs.episode_id && format('#{0} ', inputs.episode_id) || '' }}${{ inputs.collection_id && format('clip collection {0} ', inputs.collection_id) || '' }}${{ inputs.step || 'probe' }}"
 
-# 같은 에피소드는 한 번에 하나씩. 다른 에피소드는 동시에 돌 수 있다. probe 끼리도 하나씩.
+# 같은 에피소드(수집)는 한 번에 하나씩. 다른 에피소드는 동시에 돌 수 있다. probe 끼리도 하나씩.
 concurrency:
-  group: pipeline-${{ (inputs.step || 'probe') == 'probe' && 'probe' || format('episode-{0}', inputs.episode_id) }}
+  group: pipeline-${{ (inputs.step || 'probe') == 'probe' && 'probe' || (inputs.collection_id && format('clips-{0}', inputs.collection_id) || format('episode-{0}', inputs.episode_id)) }}
   cancel-in-progress: false
 
 defaults:
@@ -47,7 +52,8 @@ jobs:
     env:
       # 입력값은 스크립트에 직접 끼우지 않고 환경변수로만 넘긴다.
       STEP: ${{ inputs.step || 'probe' }}
-      EPISODE_ID: ${{ inputs.episode_id }}
+      # 대상 번호: 에피소드, 또는 clips·clips-adopt 면 수집 번호.
+      TARGET_ID: ${{ inputs.collection_id || inputs.episode_id }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -62,8 +68,9 @@ jobs:
         run: npm ci
 
       # 영상 합성(compose, 그리고 장면 생성 뒤 이어지는 합성)에는 ffmpeg 와 한글 폰트(Noto Sans CJK, OFL)가 필요하다.
+      # 클립 채택(clips-adopt)은 mp4 변환에 ffmpeg 를 쓴다.
       - name: Install ffmpeg and Korean font
-        if: ${{ env.STEP == 'render' || env.STEP == 'compose' }}
+        if: ${{ env.STEP == 'render' || env.STEP == 'compose' || env.STEP == 'clips-adopt' }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
@@ -80,10 +87,12 @@ jobs:
           ANTHROPIC_ADMIN_KEY: ${{ (inputs.step || 'probe') == 'probe' && secrets.ANTHROPIC_ADMIN_KEY || '' }}
           # 선택: 이 워크스페이스의 비용만 센다(Console 의 wrkspc_… ID, 기본 워크스페이스는 default).
           ANTHROPIC_COST_WORKSPACE_ID: ${{ vars.ANTHROPIC_COST_WORKSPACE_ID }}
-        run: npm run pipeline -- run "$STEP" "$EPISODE_ID"
+          # 영상 클립 검색(clips)에만 넘긴다. 없으면 Pixabay 만 꺼지고 수집 결과에 이유가 남는다.
+          PIXABAY_API_KEY: ${{ inputs.step == 'clips' && secrets.PIXABAY_API_KEY || '' }}
+        run: npm run pipeline -- run "$STEP" "$TARGET_ID"
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.
       # 이미 기록됐거나 실행 중이 아니면 아무것도 바꾸지 않는다.
       - name: Record interruption
         if: ${{ (failure() || cancelled()) && steps.run.outcome != 'failure' }}
-        run: npm run pipeline -- fail "$STEP" "$EPISODE_ID" "Actions 실행이 중간에 중단되었습니다. 다시 시도하세요."
+        run: npm run pipeline -- fail "$STEP" "$TARGET_ID" "Actions 실행이 중간에 중단되었습니다. 다시 시도하세요."
