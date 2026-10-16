@@ -20,6 +20,20 @@
 
 ---
 
+## 2026-10-16 무료 라이선스 영상 소스 수집
+
+- 결정: 주제 → 영어 키워드(Claude Haiku 5.5) → 공식 API 검색(Pixabay·NASA·Wikimedia Commons·Internet Archive,
+  공유마당은 링크만) → 라이선스 필터 → 60~120초 분량 선별. 수집·채택은 GitHub Actions(pipeline.yml)에서 하고
+  키는 GitHub Secrets 에만 둔다. 채택한 클립만 Blob 에 저장한다. 매일 07:00 KST 에 태그 하나로 자동 수집한다.
+  허용 라이선스: 퍼블릭 도메인·CC0·CC BY·CC BY-SA·공공누리 제1유형·소스 자체 라이선스. NC·ND·불명확은 제외.
+  계획: [clips-plan.md](clips-plan.md).
+- 이유: 사용자 요청. 장면을 AI 생성 대신 실사 클립으로 채우면 크레딧이 줄고, 출처·라이선스를 수집 시점에 남겨 두면
+  업로드 설명의 출처 표기를 자동으로 만들 수 있다.
+- 검토한 대안: 수집을 Vercel 에서(빠르지만 키를 Vercel 에도 넣어야 하고 변환은 어차피 Actions), Coverr(운영 사용은
+  유료 구독이라 보류), 공유마당 data.go.kr 데이터셋(태그 목록뿐이라 공유마당 자체 API 를 쓴다).
+- 영향: GitHub 시크릿 `PIXABAY_API_KEY`(Pixabay PR 부터), `GONGU_API_KEY`(공유마당 PR). 매일 수집의 Claude 비용 월 약 $0.03.
+  CC BY-SA 클립을 쓰면 영상도 같은 조건으로 공개해야 한다는 해석이 있어 화면에 표시한다.
+
 ## 2026-10-14 내레이션: ManyMotions 영상 편집 에이전트(ElevenLabs), 목소리는 편마다 선택
 
 - 결정: 내레이션은 ManyMotions 영상 편집 에이전트(`video_editor_instruct`)에 ElevenLabs 목소리·모델(eleven_v3 /
