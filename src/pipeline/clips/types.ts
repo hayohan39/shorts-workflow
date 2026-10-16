@@ -51,7 +51,7 @@ export interface SourceAdapter {
   /** 화면 표시 이름 */
   label: string;
   /** 키가 필요한 소스는 키가 없으면 꺼진다. 꺼진 이유를 설정 화면에 보여 준다. */
-  availability(env: Record<string, string | undefined>): { ok: true } | { ok: false; reason: string };
+  availability(): { ok: true } | { ok: false; reason: string };
   search(query: string, options: SearchOptions): Promise<ClipCandidate[]>;
 }
 
