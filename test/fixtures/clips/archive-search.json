@@ -1,0 +1,26 @@
+{
+ "response": {
+  "numFound": 3,
+  "start": 0,
+  "docs": [
+   {
+    "creator": "C.W. Carter",
+    "identifier": "losing_myself_in_hawaii_2006",
+    "licenseurl": "http://creativecommons.org/licenses/by-sa/2.5/",
+    "title": "Oahu 2006"
+   },
+   {
+    "creator": "Mother Nature",
+    "identifier": "CoastalTown1080",
+    "licenseurl": "http://creativecommons.org/licenses/by/3.0/",
+    "title": "Coastal Town 1080"
+   },
+   {
+    "creator": "RFART419",
+    "identifier": "vid-20690524-192720-000",
+    "licenseurl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "title": "Ocean Waves - 2020 animation demo reel by RFART419 - Instagram Import"
+   }
+  ]
+ }
+}

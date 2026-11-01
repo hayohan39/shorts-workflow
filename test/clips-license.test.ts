@@ -12,6 +12,7 @@ describe("라이선스 판정", () => {
     });
     expect(cc(null, "https://creativecommons.org/publicdomain/zero/1.0/")).toMatchObject({ code: "cc0" });
     expect(cc(null, "http://creativecommons.org/publicdomain/mark/1.0/")).toMatchObject({ code: "pd" });
+    expect(cc(null, "http://creativecommons.org/licenses/publicdomain/")).toMatchObject({ code: "pd" });
   });
 
   it("비영리·변경금지는 제외한다", () => {
