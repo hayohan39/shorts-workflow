@@ -197,4 +197,35 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     expect(clips.filter((c) => c.rank !== null).every((c) => c.blobUrl && c.adoptedAt)).toBe(true);
     expect(await store.getCollection(created.id)).toMatchObject({ adoptStatus: "done", adoptError: null });
   });
+
+  it("매일 수집: 기본 꺼짐, 켜진 태그 중 최근 7일 안에 쓰지 않은 것만 고른다", async () => {
+    const store = await import("@/pipeline/clips/store");
+    const { query } = await import("@/lib/db");
+    expect(await store.isDailyEnabled()).toBe(false);
+    await store.setDailyEnabled(true);
+    expect(await store.isDailyEnabled()).toBe(true);
+
+    await expect(store.addTag(" ")).rejects.toThrow(RangeError);
+    const space = await store.addTag("  우주   탐사 ");
+    const sea = await store.addTag("바다");
+    expect(space.name).toBe("우주 탐사");
+    await store.setTagActive(sea.id, false);
+    expect((await store.addTag("바다")).active).toBe(true); // 다시 추가하면 켜진다
+    await store.setTagActive(sea.id, false);
+
+    // 켜진 태그는 우주 탐사뿐 → 고르면 사용 시각이 남고, 7일 동안은 다시 고르지 않는다.
+    const picked = await store.pickDailyTag();
+    expect(picked).toMatchObject({ id: space.id, name: "우주 탐사" });
+    expect(picked?.lastUsedAt).toBeInstanceOf(Date);
+    expect(await store.pickDailyTag()).toBeNull();
+    await query("update clip_tags set last_used_at = now() - interval '8 days' where id = $1", [space.id]);
+    expect((await store.pickDailyTag())?.id).toBe(space.id);
+
+    const daily = await store.createDailyCollection(picked!);
+    expect(daily).toMatchObject({ kind: "daily", topic: "우주 탐사", status: "queued" });
+    await store.deleteTag(space.id);
+    expect((await store.listTags()).map((tag) => tag.name)).toEqual(["바다"]);
+    expect(await store.getCollection(daily.id)).toMatchObject({ topic: "우주 탐사" }); // 수집은 남는다
+    await store.setDailyEnabled(false);
+  });
 });

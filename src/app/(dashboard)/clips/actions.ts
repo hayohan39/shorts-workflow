@@ -5,11 +5,15 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import {
+  addTag,
   createSearchCollection,
+  deleteTag,
   failAdopt,
   failCollection,
   requestAdopt,
   requeueCollection,
+  setDailyEnabled,
+  setTagActive,
   swapClip,
 } from "@/pipeline/clips/store";
 
@@ -96,6 +100,44 @@ export async function adoptClipsAction(_prev: ClipActionState, formData: FormDat
   }
   const failure = await dispatchClips("clips-adopt", id);
   if (failure) await failAdopt(id, failure);
+  refresh();
+  return {};
+}
+
+/** 매일 자동 수집 켜기/끄기. 켜면 매일 Claude Haiku 1회(< $0.001)가 쓰인다(2026-10-16 승인). */
+export async function setDailyAction(_prev: ClipActionState, formData: FormData): Promise<ClipActionState> {
+  await requireSession();
+  await setDailyEnabled(formData.get("enabled") === "1");
+  refresh();
+  return {};
+}
+
+export async function addTagAction(_prev: ClipActionState, formData: FormData): Promise<ClipActionState> {
+  await requireSession();
+  try {
+    await addTag(String(formData.get("name") ?? ""));
+  } catch (error) {
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return {};
+}
+
+export async function setTagActiveAction(_prev: ClipActionState, formData: FormData): Promise<ClipActionState> {
+  await requireSession();
+  const id = positiveId(formData.get("id"));
+  if (!id) return { error: "잘못된 요청입니다." };
+  await setTagActive(id, formData.get("active") === "1");
+  refresh();
+  return {};
+}
+
+export async function deleteTagAction(_prev: ClipActionState, formData: FormData): Promise<ClipActionState> {
+  await requireSession();
+  const id = positiveId(formData.get("id"));
+  if (!id) return { error: "잘못된 요청입니다." };
+  await deleteTag(id);
   refresh();
   return {};
 }
