@@ -10,20 +10,22 @@ export function attributionLine(clip: StoredClip): string {
   return `"${clip.title}"${author} / ${SOURCE_LABELS[clip.source]} / ${license} / ${clip.pageUrl}`;
 }
 
-/** 선택된 클립(순서대로)의 출처 표기. 업로드 설명란에 그대로 붙일 수 있는 형식. */
+/** 주어진 클립(순서대로)의 출처 표기. 업로드 설명란에 그대로 붙일 수 있는 형식. 클립이 없으면 빈 문자열. */
 export function attributionText(clips: StoredClip[]): string {
-  const selected = clips.filter((clip) => clip.rank !== null);
-  if (selected.length === 0) return "";
-  return ["영상 출처", ...selected.map((clip) => `- ${attributionLine(clip)}`)].join("\n");
+  if (clips.length === 0) return "";
+  return ["영상 출처", ...clips.map((clip) => `- ${attributionLine(clip)}`)].join("\n");
 }
 
 /** 같은 조건으로 공개해야 한다는 해석이 있는 라이선스(CC BY-SA)가 섞였는가. */
 export function hasShareAlike(clips: StoredClip[]): boolean {
-  return clips.some((clip) => clip.rank !== null && clip.license.code === "cc-by-sa");
+  return clips.some((clip) => clip.license.code === "cc-by-sa");
 }
 
+/** 수집에서 선택된 클립(순서대로). */
+export const selectedClips = (clips: StoredClip[]) => clips.filter((clip) => clip.rank !== null);
+
 export function buildManifest(collection: ClipCollection, clips: StoredClip[]) {
-  const selected = clips.filter((clip) => clip.rank !== null);
+  const selected = selectedClips(clips);
   return {
     collectionId: collection.id,
     topic: collection.topic,

@@ -302,6 +302,23 @@ export async function listClips(collectionId: number): Promise<StoredClip[]> {
   return rows.map(toClip);
 }
 
+/** 채택해서 Blob 에 있는 클립(최근 채택 순). 에피소드 장면에 넣을 후보. */
+export async function listAdoptedClips(limit = 24): Promise<StoredClip[]> {
+  const rows = await query<ClipRow>(
+    `select ${CLIP_COLUMNS} from clip_candidates where blob_url is not null order by adopted_at desc, id desc limit $1`,
+    [limit],
+  );
+  return rows.map(toClip);
+}
+
+/** ID 로 클립들을 가져온다(순서는 주어진 ID 순). */
+export async function getClips(ids: number[]): Promise<StoredClip[]> {
+  if (ids.length === 0) return [];
+  const rows = await query<ClipRow>(`select ${CLIP_COLUMNS} from clip_candidates where id = any($1::int[])`, [ids]);
+  const byId = new Map(rows.map((row) => [row.id, toClip(row)]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
 /**
  * 선택된 클립 하나를 교체 후보와 바꾼다(순서는 그대로). 합계 길이를 다시 센다.
  * 채택이 진행 중이거나, 두 클립이 이 수집의 선택/후보가 아니면 RangeError.

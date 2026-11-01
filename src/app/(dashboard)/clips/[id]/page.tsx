@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { clipsToAdopt } from "@/pipeline/clips/adopt";
-import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
+import { attributionText, hasShareAlike, selectedClips } from "@/pipeline/clips/attribution";
 import { clipSegment, isSelectable } from "@/pipeline/clips/select";
 import { getCollection, isJobBusy, listClips, type StoredClip } from "@/pipeline/clips/store";
 import { orientationOf, SOURCE_LABELS, type ClipSourceId, type Orientation } from "@/pipeline/clips/types";
@@ -75,10 +75,10 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
   const collecting = isJobBusy(collection.status, collection.updatedAt);
   const adopting = isJobBusy(collection.adoptStatus, collection.updatedAt);
   const canDispatch = dispatchAvailability().ok;
-  const selected = clips.filter((clip) => clip.rank !== null);
+  const selected = selectedClips(clips);
   const swapOptions = clips.filter((clip) => clip.rank === null && isSelectable(clip)).slice(0, SWAP_OPTIONS);
   const toAdopt = clipsToAdopt(clips).length;
-  const attribution = attributionText(clips);
+  const attribution = attributionText(selected);
   const runUrl = collection.adoptRunUrl ?? collection.runUrl;
 
   return (
@@ -130,7 +130,7 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
                 </li>
               ))}
             </ul>
-            {hasShareAlike(clips) ? (
+            {hasShareAlike(selected) ? (
               <p className="warn-box">
                 CC BY-SA(동일조건) 클립이 있습니다. 이 클립을 넣은 영상도 같은 조건으로 공개해야 한다는 해석이 있으니,
                 원치 않으면 교체하세요.

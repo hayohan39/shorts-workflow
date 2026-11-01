@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import {
   adoptClipsAction,
   collectClipsAction,
+  fillSceneAction,
+  removeSceneClipAction,
   retryCollectAction,
   swapClipAction,
   type ClipActionState,
@@ -67,4 +69,12 @@ export function SwapButton({ id, selected, alternate }: { id: number; selected: 
   return (
     <ActionButton action={swapClipAction} fields={{ id, selected, alternate }} label="이걸로 교체" className="secondary" />
   );
+}
+
+export function FillSceneButton({ id, scene, clip }: { id: number; scene: number; clip: number }) {
+  return <ActionButton action={fillSceneAction} fields={{ id, scene, clip }} label="이 장면에 넣기" className="secondary" />;
+}
+
+export function RemoveSceneClipButton({ id, asset }: { id: number; asset: number }) {
+  return <ActionButton action={removeSceneClipAction} fields={{ id, asset }} label="클립 빼기" className="secondary" />;
 }
