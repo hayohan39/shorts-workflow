@@ -90,16 +90,8 @@ export class TransitionError extends Error {
   }
 }
 
-export function isStatus(value: unknown): value is Status {
-  return typeof value === "string" && (STATUSES as readonly string[]).includes(value);
-}
-
 export function isStep(value: unknown): value is Step {
   return typeof value === "string" && (STEPS as readonly string[]).includes(value);
-}
-
-export function isDecision(value: unknown): value is Decision {
-  return typeof value === "string" && Object.hasOwn(DECISIONS, value);
 }
 
 /** 대기·실행 중인 단계가 있는가. 있으면 새 단계도, 승인·반려도 받지 않는다. */
