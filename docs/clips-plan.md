@@ -40,6 +40,7 @@
 | 소스 | 키 | 한도 | 라이선스 | 주의 |
 | --- | --- | --- | --- | --- |
 | Pixabay | `PIXABAY_API_KEY`(무료) | 100회/분 | Pixabay Content License | 응답 24시간 캐시 필수, 핫링크 금지 → 채택 시 다운로드. 방향·길이 필터 없음 |
+| Pexels | `PEXELS_API_KEY`(무료) | 시간당 200회·월 20,000회 | Pexels License(상업적 이용·편집 가능) | API 를 쓰면 Pexels 링크 표시 필요 → 출처 표기에 포함. 세로(portrait)만 요청, 1080p 이하 mp4 를 받음 |
 | NASA Image Library | 없음 | 미공개(순서대로 호출) | 저작권 없음 | 로고·보증 암시 금지, 외부 촬영자(photographer 가 NASA 아님)는 제외. 길이·해상도는 항목마다 metadata.json, 파일은 collection.json → 키워드당 6개만 |
 | Wikimedia Commons | 없음 | 미공개, 순차 호출·`maxlag=5` | CC0·PD·CC BY·CC BY-SA | 연락처 있는 User-Agent 필수. 제한(Restrictions) 있는 파일 제외. ogv·webm → 채택 때 변환. 원본 100MB 초과면 서버 변환본 |
 | Internet Archive | 없음 | 미공개, 순서대로 호출 | `licenseurl` 이 PD·CC0·BY·BY-SA 인 것만(없으면 제외) | 업로더가 넣는 값이라 부정확할 수 있음. 제목·주제어 검색, 항목마다 metadata → 키워드당 8개만 |

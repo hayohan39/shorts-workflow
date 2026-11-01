@@ -18,8 +18,8 @@ function routeFetch(routes: (url: URL) => unknown) {
 }
 
 describe("소스 목록", () => {
-  it("Pixabay·NASA·Wikimedia·Internet Archive 를 쓴다", () => {
-    expect(createAdapters({}).map((adapter) => adapter.id)).toEqual(["pixabay", "nasa", "wikimedia", "archive"]);
+  it("Pixabay·Pexels·NASA·Wikimedia·Internet Archive 를 쓴다", () => {
+    expect(createAdapters({}).map((adapter) => adapter.id)).toEqual(["pixabay", "pexels", "nasa", "wikimedia", "archive"]);
   });
 });
 

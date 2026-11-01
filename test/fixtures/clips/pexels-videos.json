@@ -1,0 +1,41 @@
+{
+  "page": 1,
+  "per_page": 2,
+  "total_results": 2,
+  "url": "https://www.pexels.com/search/videos/ocean%20waves/",
+  "videos": [
+    {
+      "id": 1093662,
+      "width": 2160,
+      "height": 3840,
+      "duration": 14,
+      "full_res": null,
+      "tags": [],
+      "url": "https://www.pexels.com/video/waves-crashing-on-the-shore-1093662/",
+      "image": "https://images.pexels.com/videos/1093662/free-video-1093662.jpg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=630",
+      "user": { "id": 1583460, "name": "Pressmaster", "url": "https://www.pexels.com/@pressmaster" },
+      "video_files": [
+        { "id": 1, "quality": "hls", "file_type": "video/mp4", "width": null, "height": null, "fps": null, "link": "https://player.vimeo.com/external/1093662.m3u8" },
+        { "id": 2, "quality": "uhd", "file_type": "video/mp4", "width": 2160, "height": 3840, "fps": 25, "link": "https://videos.pexels.com/video-files/1093662/1093662-uhd_2160_3840_25fps.mp4" },
+        { "id": 3, "quality": "hd", "file_type": "video/mp4", "width": 1080, "height": 1920, "fps": 25, "link": "https://videos.pexels.com/video-files/1093662/1093662-hd_1080_1920_25fps.mp4" },
+        { "id": 4, "quality": "sd", "file_type": "video/mp4", "width": 360, "height": 640, "fps": 25, "link": "https://videos.pexels.com/video-files/1093662/1093662-sd_360_640_25fps.mp4" }
+      ],
+      "video_pictures": [{ "id": 10, "nr": 0, "picture": "https://images.pexels.com/videos/1093662/pictures/preview-0.jpg" }]
+    },
+    {
+      "id": 2048,
+      "width": 1080,
+      "height": 1920,
+      "duration": 8,
+      "full_res": null,
+      "tags": [],
+      "url": "https://www.pexels.com/video/2048/",
+      "image": "",
+      "user": { "id": 7, "name": "", "url": "" },
+      "video_files": [
+        { "id": 5, "quality": "hls", "file_type": "video/mp4", "width": null, "height": null, "fps": null, "link": "https://player.vimeo.com/external/2048.m3u8" }
+      ],
+      "video_pictures": []
+    }
+  ]
+}

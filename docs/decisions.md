@@ -20,6 +20,13 @@
 
 ---
 
+## 2026-11-01 영상 소스에 Pexels 추가
+
+- 결정: 무료 영상 소스에 Pexels Videos API 를 추가한다(키는 GitHub Secrets `PEXELS_API_KEY`, 없으면 그 소스만 꺼짐).
+- 이유: 추가 소스 리서치에서 1순위(무료 키, 세로 실사 영상 품질이 가장 좋음, Pixabay 와 같은 구조). 사용자가 키 등록을 하기로 함.
+- 검토한 대안: Europeana·Library of Congress·National Archives·DVIDS(기록 영상 위주라 B-roll 용도로는 뒤 순위), Flickr(상업적 API 사용 승인 필요).
+- 조건: API 를 쓰면 Pexels 링크를 보여야 한다 → 출처 표기에 "Pexels" 와 원본 링크가 들어간다.
+
 ## 2026-10-16 무료 라이선스 영상 소스 수집
 
 - 결정: 주제 → 영어 키워드(Claude Haiku 5.5) → 공식 API 검색(Pixabay·NASA·Wikimedia Commons·Internet Archive,

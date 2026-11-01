@@ -2,11 +2,12 @@
 // 소스(Pixabay·NASA·Wikimedia Commons·Internet Archive·공유마당)마다 어댑터가 search() 결과를 ClipCandidate 로 맞춘다.
 // 라이선스는 수집한 시점의 값을 그대로 남긴다(license.raw). 나중에 원본 페이지의 표기가 바뀌어도 근거가 남도록.
 
-export type ClipSourceId = "pixabay" | "nasa" | "wikimedia" | "archive" | "gongu";
+export type ClipSourceId = "pixabay" | "pexels" | "nasa" | "wikimedia" | "archive" | "gongu";
 
 /** 화면·출처 표기용 소스 이름 */
 export const SOURCE_LABELS: Record<ClipSourceId, string> = {
   pixabay: "Pixabay",
+  pexels: "Pexels",
   nasa: "NASA Image and Video Library",
   wikimedia: "Wikimedia Commons",
   archive: "Internet Archive",
@@ -16,7 +17,7 @@ export const SOURCE_LABELS: Record<ClipSourceId, string> = {
 export type Orientation = "vertical" | "square" | "horizontal";
 
 /** 허용하는 라이선스만 코드가 있다. 비영리(NC)·변경금지(ND)·불명확한 것은 어댑터 단계에서 버린다. */
-export type LicenseCode = "pixabay" | "nasa" | "pd" | "cc0" | "cc-by" | "cc-by-sa" | "kogl-1";
+export type LicenseCode = "pixabay" | "pexels" | "nasa" | "pd" | "cc0" | "cc-by" | "cc-by-sa" | "kogl-1";
 
 export interface ClipLicense {
   code: LicenseCode;

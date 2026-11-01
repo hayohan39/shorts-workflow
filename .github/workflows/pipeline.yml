@@ -87,8 +87,9 @@ jobs:
           ANTHROPIC_ADMIN_KEY: ${{ (inputs.step || 'probe') == 'probe' && secrets.ANTHROPIC_ADMIN_KEY || '' }}
           # 선택: 이 워크스페이스의 비용만 센다(Console 의 wrkspc_… ID, 기본 워크스페이스는 default).
           ANTHROPIC_COST_WORKSPACE_ID: ${{ vars.ANTHROPIC_COST_WORKSPACE_ID }}
-          # 영상 클립 검색(clips)에만 넘긴다. 없으면 Pixabay 만 꺼지고 수집 결과에 이유가 남는다.
+          # 영상 클립 검색(clips)에만 넘긴다. 없으면 그 소스만 꺼지고 수집 결과에 이유가 남는다.
           PIXABAY_API_KEY: ${{ inputs.step == 'clips' && secrets.PIXABAY_API_KEY || '' }}
+          PEXELS_API_KEY: ${{ inputs.step == 'clips' && secrets.PEXELS_API_KEY || '' }}
         run: npm run pipeline -- run "$STEP" "$TARGET_ID"
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.

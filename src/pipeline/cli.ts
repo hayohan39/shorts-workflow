@@ -10,7 +10,7 @@
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
 //           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe),
 //           ANTHROPIC_ADMIN_KEY(probe, 선택: 실제 청구 비용 조회), ANTHROPIC_COST_WORKSPACE_ID(선택: 그 워크스페이스만),
-//           PIXABAY_API_KEY(clips), BLOB_READ_WRITE_TOKEN(clips-adopt)
+//           PIXABAY_API_KEY·PEXELS_API_KEY(clips), BLOB_READ_WRITE_TOKEN(clips-adopt)
 import { appendFile } from "node:fs/promises";
 import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";
