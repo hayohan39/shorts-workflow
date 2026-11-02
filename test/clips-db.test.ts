@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { ConvertSource } from "@/pipeline/clips/adopt";
 import { RateLimitError } from "@/pipeline/clips/http";
 import { KEYWORD_MODEL } from "@/pipeline/clips/keywords";
 import type { ClipCandidate, SourceAdapter } from "@/pipeline/clips/types";
@@ -155,14 +156,14 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     await expect(store.swapClip(created.id, alternate.id, alternate.id)).rejects.toThrow(RangeError);
   });
 
-  it("채택: 남은 클립만 받아 변환·저장하고, 실패하면 거기서 멈춘다", async () => {
+  it("채택: 남은 클립만 쓰는 구간을 변환·저장하고, 실패하면 거기서 멈춘다", async () => {
     const store = await import("@/pipeline/clips/store");
     const { collectClips } = await import("@/pipeline/clips/collect");
     const { adoptClips } = await import("@/pipeline/clips/adopt");
     const created = await store.createSearchCollection("사막");
     expect(await store.requestAdopt(created.id)).toBeNull(); // 수집 전
     const desert = Array.from({ length: 3 }, (_, i) =>
-      clip({ sourceId: `d${i}`, keyword: "desert", durationSec: i === 2 ? null : 30, downloadUrl: `https://cdn.test/d${i}.mp4` }),
+      clip({ sourceId: `d${i}`, keyword: "desert", durationSec: [30, 120, null][i], downloadUrl: `https://cdn.test/d${i}.mp4` }),
     );
     const started = await store.startCollection(created.id, null);
     await collectClips(started!, { adapters: [fakeAdapter({ desert })], send: async () => keywordMessage(["desert"]), fetchImpl: fetchOk });
@@ -172,15 +173,18 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     expect(await store.startAdopt(created.id, "https://example.test/run/2")).toMatchObject({ adoptStatus: "running" });
 
     const put = vi.fn(async (pathname: string) => ({ url: `https://blob.test/${pathname}` }));
-    const download = vi.fn<typeof fetch>(async (url) =>
-      String(url).endsWith("d1.mp4") ? new Response("nope", { status: 404 }) : new Response("video"),
-    );
-    const convert = vi.fn(async (_input: string, output: string) => {
+    let broken = true;
+    const convert = vi.fn(async (source: ConvertSource, output: string) => {
+      if (broken && source.url.endsWith("d1.mp4")) throw new Error("ffmpeg 실패: 404 Not Found");
       await writeFile(output, "mp4");
-      return 29.9;
     });
-    const error = await adoptClips(created.id, { put, fetchImpl: download, convert }).catch((e: Error) => e);
-    expect(String(error)).toContain("채택 실패: 원본을 내려받지 못했습니다(HTTP 404)");
+    const error = await adoptClips(created.id, { put, convert }).catch((e: Error) => e);
+    expect(String(error)).toContain("채택 실패: ffmpeg 실패: 404 Not Found");
+    // 30초 이하는 전부, 긴 클립은 1/4 지점부터 15초.
+    expect(convert.mock.calls.map(([source]) => source)).toEqual([
+      { url: "https://cdn.test/d0.mp4", start: 0, length: 30 },
+      { url: "https://cdn.test/d1.mp4", start: 30, length: 15 },
+    ]);
     await store.failAdopt(created.id, String(error));
 
     let clips = await store.listClips(created.id);
@@ -190,8 +194,8 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     // 다시 채택하면 남은 것만.
     await store.requestAdopt(created.id);
     await store.startAdopt(created.id, null);
-    download.mockImplementation(async () => new Response("video"));
-    expect(await adoptClips(created.id, { put, fetchImpl: download, convert })).toBe(1);
+    broken = false;
+    expect(await adoptClips(created.id, { put, convert })).toBe(1);
     await store.finishAdopt(created.id);
     clips = await store.listClips(created.id);
     expect(clips.filter((c) => c.rank !== null).every((c) => c.blobUrl && c.adoptedAt)).toBe(true);

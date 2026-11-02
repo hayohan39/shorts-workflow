@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { query, transaction } from "@/lib/db";
 import { redact } from "@/lib/health";
-import { clipScore, type Selection } from "@/pipeline/clips/select";
+import { clipScore, totalSeconds, type Selection } from "@/pipeline/clips/select";
 import type { ClipCandidate, ClipLicense, ClipSourceId, LicenseCode } from "@/pipeline/clips/types";
 
 // 클립 수집·채택의 DB 기록. 수집과 채택은 Actions 에서 돌고, 대시보드는 요청과 [교체]만 한다.
@@ -328,12 +328,15 @@ export async function swapClip(collectionId: number, selectedId: number, alterna
     }
     await client.query("update clip_candidates set rank = null where id = $1", [selectedId]);
     await client.query("update clip_candidates set rank = $2 where id = $1", [alternateId, selected.rank]);
-    await client.query(
-      `update clip_collections set updated_at = now(), total_seconds = (
-         select coalesce(sum(duration_sec), 0) from clip_candidates where collection_id = $1 and rank is not null)
-       where id = $1`,
+    const { rows: ranked } = await client.query<{ duration_sec: string | null }>(
+      "select duration_sec from clip_candidates where collection_id = $1 and rank is not null",
       [collectionId],
     );
+    const total = totalSeconds(ranked.map((row) => ({ durationSec: numberOrNull(row.duration_sec) })));
+    await client.query("update clip_collections set updated_at = now(), total_seconds = $2 where id = $1", [
+      collectionId,
+      total,
+    ]);
   });
 }
 
@@ -373,13 +376,9 @@ export async function failAdopt(id: number, message: string): Promise<ClipCollec
   return row ? toCollection(row) : null;
 }
 
-/** 변환·업로드가 끝난 클립. 길이를 몰랐으면 실제 파일 길이로 채운다. */
-export async function saveAdoptedClip(clipId: number, blobUrl: string, durationSec: number | null): Promise<void> {
-  await query(
-    `update clip_candidates set blob_url = $2, adopted_at = now(), duration_sec = coalesce(duration_sec, $3)
-      where id = $1`,
-    [clipId, blobUrl, durationSec],
-  );
+/** 변환·업로드가 끝난 클립. */
+export async function saveAdoptedClip(clipId: number, blobUrl: string): Promise<void> {
+  await query("update clip_candidates set blob_url = $2, adopted_at = now() where id = $1", [clipId, blobUrl]);
 }
 
 // ── 소스 응답 캐시·호출 기록 ─────────────────────────────────────────

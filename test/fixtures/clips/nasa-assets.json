@@ -1,0 +1,66 @@
+{
+ "GSFC_20161212_Tidal_m12450_Magnetic": {
+  "collection": [
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/GSFC_20161212_Tidal_m12450_Magnetic~orig.mp4",
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/GSFC_20161212_Tidal_m12450_Magnetic~large.mp4",
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/GSFC_20161212_Tidal_m12450_Magnetic~medium.mp4",
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/GSFC_20161212_Tidal_m12450_Magnetic~mobile.mp4",
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/GSFC_20161212_Tidal_m12450_Magnetic~preview.mp4",
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/GSFC_20161212_Tidal_m12450_Magnetic~small.mp4",
+   "http://images-assets.nasa.gov/video/GSFC_20161212_Tidal_m12450_Magnetic/metadata.json"
+  ],
+  "metadata": {
+   "QuickTime:ImageWidth": 1920,
+   "QuickTime:Duration": "0:00:53",
+   "QuickTime:ImageHeight": 1080,
+   "AVAIL:NASAID": "GSFC_20161212_Tidal_m12450_Magnetic",
+   "AVAIL:Center": "GSFC",
+   "Composite:ImageSize": "1920x1080",
+   "AVAIL:SecondaryCreator": "Matthew R. Radcliff, Brian Monroe, Kate Ramsayer, Robert H. Tyler, Terence J. Sabaka, Michael Lentz, Mike Velle",
+   "AVAIL:Photographer": ""
+  }
+ },
+ "KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130": {
+  "collection": [
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~orig.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~large.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~medium.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~mobile.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~preview.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~small.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/metadata.json"
+  ],
+  "metadata": {
+   "AVAIL:Center": "KSC",
+   "AVAIL:NASAID": "KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130",
+   "AVAIL:Photographer": "Rocket Lab",
+   "AVAIL:SecondaryCreator": "",
+   "Composite:ImageSize": "1920x1080",
+   "QuickTime:Duration": "0:00:30",
+   "QuickTime:ImageHeight": 1080,
+   "QuickTime:ImageWidth": 1920
+  }
+ },
+ "KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988": {
+  "collection": [
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~orig.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~orig.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~large.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~medium.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~mobile.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~preview.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~small.mp4",
+   "http://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/metadata.json"
+  ],
+  "metadata": {
+   "AVAIL:Center": "KSC",
+   "AVAIL:NASAID": "KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988",
+   "AVAIL:Photographer": "Rocket Lab",
+   "AVAIL:SecondaryCreator": "",
+   "Composite:ImageSize": "1920x1080",
+   "QuickTime:Duration": "0:00:52",
+   "QuickTime:ImageHeight": 1080,
+   "QuickTime:ImageWidth": 1920
+  }
+ }
+}
