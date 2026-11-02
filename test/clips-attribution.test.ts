@@ -87,11 +87,12 @@ describe("채택 대상·변환", () => {
     expect(clipsToAdopt(clips).map((c) => c.id)).toEqual([1]);
   });
 
-  it("소리를 빼고 짝수 크기 H.264 mp4 로 바꾼다", () => {
-    const args = buildConvertArgs("in.webm", "out.mp4");
-    expect(args).toEqual(expect.arrayContaining(["-an", "libx264", "yuv420p", "+faststart"]));
-    expect(args.slice(args.indexOf("-i"), args.indexOf("-i") + 2)).toEqual(["-i", "in.webm"]);
+  it("원본 주소에서 쓰는 구간만 읽어 소리 없는 짝수 크기 H.264 mp4 로 바꾼다", () => {
+    const args = buildConvertArgs({ url: "https://cdn.test/a.webm", start: 49.8, length: 15 }, "out.mp4");
+    expect(args).toEqual(expect.arrayContaining(["-an", "libx264", "yuv420p", "+faststart", "-user_agent"]));
+    expect(args.join(" ")).toContain("-ss 49.8 -t 15 -i https://cdn.test/a.webm");
     expect(args.at(-1)).toBe("out.mp4");
+    expect(buildConvertArgs({ url: "in.mkv", start: 0, length: 5 }, "o.mp4")).not.toContain("-ss");
   });
 });
 
@@ -116,7 +117,7 @@ describe.skipIf(!hasFfmpeg)("채택 변환 (실제 ffmpeg)", () => {
         ...["-c:v", "mpeg4", "-c:a", "aac", "-shortest", input],
       ]);
       const output = path.join(dir, "out.mp4");
-      await runFfmpeg(buildConvertArgs(input, output), dir);
+      await runFfmpeg(buildConvertArgs({ url: input, start: 0, length: 1 }, output), dir);
       const info = await probeMedia(output);
       expect(info).toMatchObject({ width: 360, height: 640, hasAudio: false });
       expect(info.duration).toBeCloseTo(1, 0);

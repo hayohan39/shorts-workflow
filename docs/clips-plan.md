@@ -27,33 +27,36 @@
 | --- | --- |
 | `src/pipeline/clips/types.ts` | `ClipCandidate`, `SourceAdapter { search(query, opts) }` |
 | `src/pipeline/clips/license.ts` | CC·공공누리 판정. NC·ND·공공누리 2~4유형·불명확은 제외 |
-| `src/pipeline/clips/select.ts` | 3~30초 클립, 합계 60~120초(90초에서 멈춤), 세로>정사각>가로, 중복 제거, 소스 번갈아 |
+| `src/pipeline/clips/select.ts` | 3초 이상 클립(30초 초과는 1/4 지점부터 15초만), 합계 60~120초(90초에서 멈춤), 세로>정사각>가로, 중복 제거, 소스 번갈아 |
 | `src/pipeline/clips/keywords.ts` | 주제 → 영어 키워드(Haiku 5.5, 구조화 출력, 1회 $0.001 미만) |
 | `src/pipeline/clips/http.ts` | User-Agent, 429/503 Retry-After 백오프, 상태 기록 훅 |
-| `src/pipeline/clips/sources/*.ts` | 소스별 어댑터(PR 마다 하나) |
+| `src/pipeline/clips/sources/*.ts` | 소스별 어댑터. `sources/index.ts` 에 등록 |
 | `migrations/*_create-clip-tables.sql` | 태그·수집·후보(라이선스 스냅샷)·소스 상태·응답 캐시 |
 
 ## 소스
 
-공식 문서는 검색 발췌로만 확인했다(이 세션에서 도메인이 막혀 있음). 필드명은 첫 실제 응답으로 확인한다.
+Pixabay 는 2026-10-22 실제 수집으로 필드를 확인했다. 나머지는 각 소스 PR 에서 실제 응답으로 확인한다.
 
 | 소스 | 키 | 한도 | 라이선스 | 주의 |
 | --- | --- | --- | --- | --- |
 | Pixabay | `PIXABAY_API_KEY`(무료) | 100회/분 | Pixabay Content License | 응답 24시간 캐시 필수, 핫링크 금지 → 채택 시 다운로드. 방향·길이 필터 없음 |
-| NASA Image Library | 없음 | 미공개(초당 1회로 제한) | 저작권 없음 | 로고·보증 암시 금지, 외부 저작자 크레딧이 있으면 제외. 길이는 metadata.json 또는 ffprobe |
-| Wikimedia Commons | 없음 | 미공개, 순차 호출·`maxlag=5` | CC0·PD·CC BY·CC BY-SA | 연락처 있는 User-Agent 필수. webm → 채택 때 변환 |
-| Internet Archive | 없음 | 미공개, 지연 두고 호출 | `licenseurl` 이 PD·CC0·BY·BY-SA 인 것만(없으면 제외) | 업로더가 넣는 값이라 부정확할 수 있음 |
-| 공유마당 | `GONGU_API_KEY`(즉시 발급) | 미확인 | 공공누리 제1유형·CC BY·CC BY-SA·CC0·만료 | XML, 영상 수 적음. 링크만 제공하는 "참고" |
+| NASA Image Library | 없음 | 미공개(순서대로 호출) | 저작권 없음 | 로고·보증 암시 금지, 외부 촬영자(photographer 가 NASA 아님)는 제외. 길이·해상도는 항목마다 metadata.json, 파일은 collection.json → 키워드당 6개만 |
+| Wikimedia Commons | 없음 | 미공개, 순차 호출·`maxlag=5` | CC0·PD·CC BY·CC BY-SA | 연락처 있는 User-Agent 필수. 제한(Restrictions) 있는 파일 제외. ogv·webm → 채택 때 변환. 원본 100MB 초과면 서버 변환본 |
+| Internet Archive | 없음 | 미공개, 순서대로 호출 | `licenseurl` 이 PD·CC0·BY·BY-SA 인 것만(없으면 제외) | 업로더가 넣는 값이라 부정확할 수 있음. 제목·주제어 검색, 항목마다 metadata → 키워드당 8개만 |
+| 공유마당 | `GONGU_API_KEY`(즉시 발급) | 미확인 | 공공누리 제1유형·CC BY·CC BY-SA·CC0·만료 | **보류**: API 명세(요청 주소·XML 필드)를 확인할 수 없음(gongu.copyright.or.kr 가 세션 네트워크에서 막힘). 키 발급 후 명세 확인 필요 |
 | ~~Coverr~~ | — | 운영 사용은 유료 구독 | — | **보류**(사용자 결정) |
 
 CC BY-SA 는 허용하되, 편집한 영상도 같은 조건으로 공개해야 한다는 해석이 있어 화면에 따로 표시한다.
+
+NASA·Archive 영상은 대부분 30초가 넘는다. 30초를 넘는 클립은 앞쪽의 소개·로고 화면을 피해 1/4 지점부터 15초만 쓰고,
+채택할 때 ffmpeg 가 원본 주소에서 그 구간만 읽어 저장한다(긴 원본을 통째로 받지 않는다).
 
 ## PR 순서
 
 0. 기반(이 문서·타입·라이선스·선별·키워드·백오프·스키마)
 1. Pixabay 어댑터
 2. 기능 1: 주제 검색·결과 화면·교체·채택·출처 표기/manifest (Pixabay 만으로 먼저 써 본다)
-3. NASA → 4. Wikimedia → 5. Internet Archive
+3~5. NASA · Wikimedia · Internet Archive (한 PR, 2026-11-01)
 6. 기능 2: 매일 자동 수집·태그 관리 (기본 꺼짐, 모델 조회 실행에 붙임 — 2026-11-01)
 7. 파이프라인 연동: 채택한 클립으로 장면 채우기(render 가 그 장면은 건너뜀), 출처 표기를 영상 검토·업로드 설명에
 8. 공유마당(참고 링크)

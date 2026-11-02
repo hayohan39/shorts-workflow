@@ -61,3 +61,17 @@ export async function fetchSourceJson<T>(url: string, options: RequestOptions): 
   }
   return (await response.json()) as T;
 }
+
+/**
+ * 항목 하나의 세부 정보 요청(NASA·Internet Archive). 그 항목만 실패하면 건너뛰도록 null 을 돌려준다.
+ * 요청 한도(RateLimitError)는 그 소스 전체를 멈춰야 하므로 그대로 던진다.
+ */
+export async function skipOnError<T>(request: () => Promise<T>): Promise<T | null> {
+  try {
+    return await request();
+  } catch (error) {
+    if (error instanceof RateLimitError) throw error;
+    console.warn(error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}

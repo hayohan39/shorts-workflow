@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeClips, selectClips } from "@/pipeline/clips/select";
+import { clipSegment, dedupeClips, selectClips, totalSeconds } from "@/pipeline/clips/select";
 import { clip } from "./helpers/clips";
 
 const seconds = (clips: { durationSec: number | null }[]) => clips.reduce((sum, c) => sum + (c.durationSec ?? 0), 0);
@@ -19,16 +19,20 @@ describe("클립 선별", () => {
     expect(result.totalSec).toBeGreaterThanOrEqual(90);
   });
 
-  it("3~30초 밖, 길이를 모르는 것, 받을 파일이 없는 것은 고르지 않고 교체 후보로 남긴다", () => {
-    const outside = [
-      clip({ durationSec: 2 }),
-      clip({ durationSec: 31 }),
-      clip({ durationSec: null }),
-      clip({ source: "gongu", downloadUrl: null }),
-    ];
+  it("3초 미만, 길이를 모르는 것, 받을 파일이 없는 것은 고르지 않고 교체 후보로 남긴다", () => {
+    const outside = [clip({ durationSec: 2 }), clip({ durationSec: null }), clip({ source: "gongu", downloadUrl: null })];
     const result = selectClips([...outside, clip({ durationSec: 10 })]);
     expect(result.selected).toHaveLength(1);
-    expect(result.alternates).toHaveLength(4);
+    expect(result.alternates).toHaveLength(3);
+  });
+
+  it("30초를 넘는 클립은 1/4 지점부터 15초만 쓴다", () => {
+    expect(clipSegment(30)).toEqual({ start: 0, length: 30 });
+    expect(clipSegment(199)).toEqual({ start: 49.8, length: 15 });
+    const result = selectClips(Array.from({ length: 8 }, () => clip({ durationSec: 600 })));
+    expect(result.selected).toHaveLength(6);
+    expect(result.totalSec).toBe(90);
+    expect(totalSeconds(result.selected)).toBe(90);
   });
 
   it("세로 > 정사각 > 가로 순으로 고른다", () => {
@@ -48,7 +52,7 @@ describe("클립 선별", () => {
 
   it("60초에 못 미치면 이유를 남긴다", () => {
     expect(selectClips([]).shortfall).toContain("검색 결과가 없습니다");
-    expect(selectClips([clip({ durationSec: 60 })]).shortfall).toContain("길이 조건");
+    expect(selectClips([clip({ durationSec: 1 })]).shortfall).toContain("3초 미만");
     const short = selectClips([clip({ durationSec: 10 }), clip({ durationSec: 12 })]);
     expect(seconds(short.selected)).toBe(22);
     expect(short.shortfall).toContain("2개뿐이라 합계 22초");

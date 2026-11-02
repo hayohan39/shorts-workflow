@@ -6,7 +6,7 @@ import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { clipsToAdopt } from "@/pipeline/clips/adopt";
 import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
-import { isSelectable } from "@/pipeline/clips/select";
+import { clipSegment, isSelectable } from "@/pipeline/clips/select";
 import { getCollection, isJobBusy, listClips, type StoredClip } from "@/pipeline/clips/store";
 import { orientationOf, SOURCE_LABELS, type ClipSourceId, type Orientation } from "@/pipeline/clips/types";
 import { formatUsd } from "@/pipeline/script/pricing";
@@ -20,6 +20,13 @@ const SWAP_OPTIONS = 6;
 
 const ORIENTATION_LABELS: Record<Orientation, string> = { vertical: "세로", square: "정사각", horizontal: "가로" };
 
+/** "12초", 긴 클립은 "199초 중 49.8초부터 15초" */
+function durationLabel(seconds: number | null): string {
+  if (seconds === null) return "길이 모름";
+  const segment = clipSegment(seconds);
+  return segment.length === seconds ? `${seconds}초` : `${seconds}초 중 ${segment.start}초부터 ${segment.length}초`;
+}
+
 function ClipMeta({ clip }: { clip: StoredClip }) {
   const orientation = orientationOf(clip.width, clip.height);
   return (
@@ -28,7 +35,7 @@ function ClipMeta({ clip }: { clip: StoredClip }) {
         {clip.title}
       </a>
       <div className="muted small">
-        {clip.durationSec !== null ? `${clip.durationSec}초` : "길이 모름"}
+        {durationLabel(clip.durationSec)}
         {orientation ? ` · ${ORIENTATION_LABELS[orientation]} ${clip.width}×${clip.height}` : ""} ·{" "}
         {SOURCE_LABELS[clip.source]}
         {clip.author ? ` · ${clip.author}` : ""} · 검색어 “{clip.keyword}”

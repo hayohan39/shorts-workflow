@@ -41,7 +41,8 @@ function codeFromUrl(url: string | null): CcCode | null {
   const path = url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "");
   if (!path.startsWith("creativecommons.org/")) return null;
   if (path.includes("/publicdomain/zero/")) return "cc0";
-  if (path.includes("/publicdomain/mark/")) return "pd";
+  // publicdomain/mark/ 와 옛 표기 licenses/publicdomain/(Internet Archive 에 많다)
+  if (path.includes("/publicdomain/mark/") || path.includes("/licenses/publicdomain/")) return "pd";
   const kind = path.match(/\/licenses\/([a-z-]+)\//)?.[1];
   if (kind === "by") return "cc-by";
   if (kind === "by-sa") return "cc-by-sa";

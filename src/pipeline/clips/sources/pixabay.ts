@@ -6,7 +6,7 @@ import { SOURCE_LABELS, type ClipCandidate, type SearchOptions, type SourceAdapt
 //   한도 100회/60초(키 기준), 응답은 24시간 캐시해야 하고 파일을 계속 핫링크하면 안 된다 → 채택할 때 내려받는다.
 //   방향·길이 필터가 없어 받은 뒤 선별에서 거른다. 제목이 없어 태그를 제목으로 쓴다.
 //   라이선스: Pixabay Content License(상업적 이용·수정 가능, 원본 그대로 재배포 금지). 출처 표기는 필수는 아니지만 남긴다.
-// 필드명은 공식 문서 기준이다. 이 세션에서는 pixabay.com 이 막혀 있어 실제 응답은 첫 Actions 실행에서 확인한다.
+// 필드명은 공식 문서 기준이고, 2026-10-22 첫 실제 수집(Actions)에서 그대로 동작하는 것을 확인했다.
 
 const ENDPOINT = "https://pixabay.com/api/videos/";
 const LICENSE_URL = "https://pixabay.com/service/license-summary/";
