@@ -112,7 +112,6 @@ export async function finishProbe(
   result: { tools: McpTool[]; listings: Record<string, unknown>; claudeModels: ClaudeModelList },
 ): Promise<Probe> {
   const [row] = await query<ProbeRow>(
-    // models 컬럼(예전 형식)은 더 쓰지 않는다. 선택지는 listings 에서 매번 계산한다.
     `update provider_probes set state = 'done', tools = $2, listings = $3, claude_models = $4,
         error = null, updated_at = now()
       where id = $1 returning ${COLUMNS}`,
