@@ -1,8 +1,8 @@
 import type { ClipLicense, LicenseCode } from "@/pipeline/clips/types";
 
 // 라이선스 판정. 영상은 편집(자막·자르기)해서 수익 채널에 올리므로
-//   허용: 퍼블릭 도메인, CC0, CC BY, CC BY-SA, 공공누리 제1유형, 소스 자체 라이선스(Pixabay·NASA, 어댑터가 직접 붙인다)
-//   제외: 비영리(NC), 변경금지(ND), 공공누리 2~4유형, 판단할 수 없는 것
+//   허용: 퍼블릭 도메인, CC0, CC BY, CC BY-SA, 소스 자체 라이선스(Pixabay·NASA, 어댑터가 직접 붙인다)
+//   제외: 비영리(NC), 변경금지(ND), 판단할 수 없는 것
 // 제외는 null 로 돌려준다. 확실하지 않으면 제외하는 쪽으로 판정한다.
 
 type CcCode = Extract<LicenseCode, "pd" | "cc0" | "cc-by" | "cc-by-sa">;
@@ -26,14 +26,6 @@ export function classifyCreativeCommons(
   const code = codeFromUrl(url) ?? codeFromName(values.name);
   if (!code) return null;
   return { code, name: displayName(code, values.name, url), url, raw };
-}
-
-/** 공공누리 유형 표기("공공누리 제1유형", "KOGL Type 1", "1유형")에서 판정한다. 1유형만 허용. */
-export function classifyKogl(text: string | null | undefined, url: string | null, raw: Record<string, unknown>): ClipLicense | null {
-  const match = text?.match(/(?:제\s*)?([1-4])\s*유형|type\s*([1-4])/i);
-  const type = match?.[1] ?? match?.[2];
-  if (type !== "1") return null;
-  return { code: "kogl-1", name: "공공누리 제1유형", url, raw };
 }
 
 function codeFromUrl(url: string | null): CcCode | null {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyCreativeCommons, classifyKogl } from "@/pipeline/clips/license";
+import { classifyCreativeCommons } from "@/pipeline/clips/license";
 
 const cc = (name: string | null, url: string | null = null) => classifyCreativeCommons({ name, url }, {});
 
@@ -41,13 +41,5 @@ describe("라이선스 판정", () => {
     const raw = { LicenseShortName: "CC BY 4.0" };
     const license = classifyCreativeCommons({ name: "CC BY 4.0", url: "https://creativecommons.org/licenses/by-sa/4.0/" }, raw);
     expect(license).toEqual({ code: "cc-by-sa", name: "CC BY-SA 4.0", url: "https://creativecommons.org/licenses/by-sa/4.0/", raw });
-  });
-
-  it("공공누리는 제1유형만 허용한다", () => {
-    expect(classifyKogl("공공누리 제1유형: 출처표시", null, {})).toMatchObject({ code: "kogl-1" });
-    expect(classifyKogl("KOGL Type 1", null, {})).toMatchObject({ code: "kogl-1" });
-    expect(classifyKogl("공공누리 제2유형: 출처표시+상업적 이용금지", null, {})).toBeNull();
-    expect(classifyKogl("제4유형", null, {})).toBeNull();
-    expect(classifyKogl(null, null, {})).toBeNull();
   });
 });
