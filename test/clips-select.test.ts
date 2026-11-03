@@ -20,7 +20,7 @@ describe("클립 선별", () => {
   });
 
   it("3초 미만, 길이를 모르는 것, 받을 파일이 없는 것은 고르지 않고 교체 후보로 남긴다", () => {
-    const outside = [clip({ durationSec: 2 }), clip({ durationSec: null }), clip({ source: "gongu", downloadUrl: null })];
+    const outside = [clip({ durationSec: 2 }), clip({ durationSec: null }), clip({ downloadUrl: null })];
     const result = selectClips([...outside, clip({ durationSec: 10 })]);
     expect(result.selected).toHaveLength(1);
     expect(result.alternates).toHaveLength(3);
