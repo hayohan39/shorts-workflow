@@ -3,16 +3,29 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
-import { isJobBusy, listCollections, listSourceStates, TOPIC_MAX } from "@/pipeline/clips/store";
+import {
+  isDailyEnabled,
+  isJobBusy,
+  listCollections,
+  listSourceStates,
+  listTags,
+  TAG_MAX,
+  TOPIC_MAX,
+} from "@/pipeline/clips/store";
 import { SOURCE_LABELS } from "@/pipeline/clips/types";
-import { CollectForm } from "./clip-forms";
+import { AddTagForm, CollectForm, DailyToggle, TagButtons } from "./clip-forms";
 import { JobBadge } from "./job-badge";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClipsPage() {
   await requireSession();
-  const [collections, sources] = await Promise.all([listCollections(), listSourceStates()]);
+  const [collections, sources, tags, daily] = await Promise.all([
+    listCollections(),
+    listSourceStates(),
+    listTags(),
+    isDailyEnabled(),
+  ]);
   const busy = collections.some(
     (collection) =>
       isJobBusy(collection.status, collection.updatedAt) || isJobBusy(collection.adoptStatus, collection.updatedAt),
@@ -42,7 +55,8 @@ export default async function ClipsPage() {
                 <Link href={`/clips/${collection.id}`} className="card">
                   <div className="row between">
                     <strong>
-                      #{collection.id} {collection.topic}
+                      #{collection.id} {collection.kind === "daily" ? "[자동] " : ""}
+                      {collection.topic}
                     </strong>
                     <JobBadge status={collection.status} />
                   </div>
@@ -52,6 +66,34 @@ export default async function ClipsPage() {
                     {formatDateTime(collection.createdAt)}
                   </div>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="stack">
+        <h2>매일 자동 수집</h2>
+        <p className="muted small">
+          {daily ? "켜짐" : "꺼짐"} · 켜 두면 매일 새벽(03:17 KST, 모델 조회와 같은 실행) 켜진 태그 중 최근 7일 안에 쓰지 않은
+          것 하나로 수집합니다. 1회 Claude Haiku 비용 $0.001 미만.
+        </p>
+        <DailyToggle enabled={daily} />
+        <AddTagForm maxLength={TAG_MAX} />
+        {tags.length === 0 ? (
+          <p className="muted small">태그가 없습니다. 자동 수집은 태그가 있어야 돕니다.</p>
+        ) : (
+          <ul className="cards">
+            {tags.map((tag) => (
+              <li key={tag.id} className="card row between">
+                <span>
+                  {tag.active ? tag.name : <s>{tag.name}</s>}
+                  <span className="muted small">
+                    {" "}
+                    · {tag.lastUsedAt ? `마지막 ${formatDateTime(tag.lastUsedAt)}` : "아직 안 씀"}
+                  </span>
+                </span>
+                <TagButtons id={tag.id} active={tag.active} />
               </li>
             ))}
           </ul>
