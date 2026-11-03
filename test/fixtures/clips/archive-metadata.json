@@ -1,0 +1,90 @@
+{
+ "CoastalTown1080": {
+  "metadata": {
+   "identifier": "CoastalTown1080",
+   "title": "Coastal Town 1080",
+   "creator": "Mother Nature",
+   "licenseurl": "http://creativecommons.org/licenses/by/3.0/",
+   "mediatype": "movies"
+  },
+  "files": [
+   {
+    "name": "CoastalTown-1080.gif",
+    "format": "Animated GIF",
+    "source": "derivative",
+    "size": "95608"
+   },
+   {
+    "name": "CoastalTown-1080.mp4",
+    "format": "MPEG4",
+    "source": "original",
+    "length": "198.87",
+    "width": "1920",
+    "height": "1080",
+    "size": "383646543"
+   },
+   {
+    "name": "CoastalTown-1080.ogv",
+    "format": "Ogg Video",
+    "source": "derivative",
+    "length": "198.87",
+    "width": "534",
+    "height": "300",
+    "size": "12832464"
+   }
+  ]
+ },
+ "vid-20690524-192720-000": {
+  "metadata": {
+   "identifier": "vid-20690524-192720-000",
+   "title": "Ocean Waves - 2020 animation demo reel by RFART419 - Instagram Import",
+   "creator": "RFART419",
+   "licenseurl": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "mediatype": "movies"
+  },
+  "files": [
+   {
+    "name": "Ocean Waves original animation 2020 #1.ia.mp4",
+    "format": "h.264 IA",
+    "source": "derivative",
+    "length": "3.42",
+    "width": "864",
+    "height": "480",
+    "size": "773202"
+   },
+   {
+    "name": "Ocean Waves original animation 2020 #1.mp4",
+    "format": "MPEG4",
+    "source": "original",
+    "length": "3.42",
+    "width": "864",
+    "height": "480",
+    "size": "773280"
+   },
+   {
+    "name": "Ocean+Waves+-+original+animation.gif",
+    "format": "Animated GIF",
+    "source": "original",
+    "size": "225003"
+   },
+   {
+    "name": "VID_20690524_192720_000.ia.mp4",
+    "format": "h.264 IA",
+    "source": "derivative",
+    "length": "3.39",
+    "width": "720",
+    "height": "400",
+    "size": "850430"
+   },
+   {
+    "name": "VID_20690524_192720_000.mp4",
+    "format": "MPEG4",
+    "source": "original",
+    "length": "3.39",
+    "width": "720",
+    "height": "400",
+    "size": "850430"
+   }
+  ]
+ }
+}

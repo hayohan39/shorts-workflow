@@ -6,6 +6,7 @@
 //   npm run pipeline -- fail probe "" <message>
 //   npm run pipeline -- run  clips|clips-adopt <collectionId>   영상 클립 수집 / 채택(다운로드·변환·Blob)
 //   npm run pipeline -- fail clips|clips-adopt <collectionId> <message>
+//   npm run pipeline -- run  clips-daily                       매일 자동 수집(켜져 있을 때만, 태그 하나)
 //
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
 //           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe),
@@ -21,7 +22,16 @@ import { listAssets } from "@/pipeline/assets";
 import { adoptClips } from "@/pipeline/clips/adopt";
 import { collectClips } from "@/pipeline/clips/collect";
 import { createAdapters } from "@/pipeline/clips/sources";
-import { failAdopt, failCollection, finishAdopt, startAdopt, startCollection } from "@/pipeline/clips/store";
+import {
+  createDailyCollection,
+  failAdopt,
+  failCollection,
+  finishAdopt,
+  isDailyEnabled,
+  pickDailyTag,
+  startAdopt,
+  startCollection,
+} from "@/pipeline/clips/store";
 import { SOURCE_LABELS, type ClipSourceId } from "@/pipeline/clips/types";
 import { refreshActualCosts } from "@/pipeline/costs";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
@@ -147,10 +157,28 @@ async function clips(command: string | undefined, step: "clips" | "clips-adopt",
   }
 }
 
+/** 매일 자동 수집: 켜져 있으면 최근 7일 안에 쓰지 않은 태그 하나로 수집한다. */
+async function clipsDaily(command: string | undefined): Promise<number> {
+  if (command !== "run") throw new Error(USAGE);
+  const title = "### 영상 클립 매일 수집";
+  if (!(await isDailyEnabled())) {
+    await summary([title, "", "⏭️ 꺼져 있어 건너뜀 (영상 소스 화면에서 켤 수 있습니다)"]);
+    return 0;
+  }
+  const tag = await pickDailyTag();
+  if (!tag) {
+    await summary([title, "", "⏭️ 쓸 수 있는 태그가 없습니다(켜진 태그가 없거나 모두 최근 7일 안에 썼습니다)."]);
+    return 0;
+  }
+  const collection = await createDailyCollection(tag);
+  return clips("run", "clips", String(collection.id), "");
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, stepArg, idArg, ...rest] = argv;
   if (stepArg === "probe") return probe(command, rest.join(" "));
   if (stepArg === "clips" || stepArg === "clips-adopt") return clips(command, stepArg, idArg, rest.join(" "));
+  if (stepArg === "clips-daily") return clipsDaily(command);
   const { step, id } = parseTarget(stepArg, idArg);
   const title = `### 에피소드 #${id} · ${STEP_LABELS[step]}`;
 

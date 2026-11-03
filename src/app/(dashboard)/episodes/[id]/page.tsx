@@ -6,6 +6,9 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatElapsed } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { listAssets } from "@/pipeline/assets";
+import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
+import { canFillScenes, descriptionWithCredits, sceneClips } from "@/pipeline/clips/episode";
+import { listAdoptedClips } from "@/pipeline/clips/store";
 import { getEpisode } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
@@ -57,6 +60,8 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   const scenes = script ? scenesDone(assets, script.version) : new Map();
   const renderEstimate = script ? estimateSceneCredits(script.scenes.filter((scene) => !scenes.has(scene.no))) : 0;
   const finalVideo = assets.find((asset) => asset.kind === "final" && asset.url);
+  const canFill = Boolean(script) && canFillScenes(episode);
+  const clips = await sceneClips(scenes);
 
   const busy = isBusy(episode);
   const stale = isStale(episode);
@@ -211,8 +216,32 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
         />
       ) : null}
 
-      {script && (scenes.size > 0 || episode.status === "rendering") ? (
-        <ScenesPanel scenes={script.scenes} done={scenes} />
+      {clips.length > 0 && script ? (
+        <section className="stack">
+          <h2>영상 출처</h2>
+          <p className="muted small">장면에 쓴 무료 클립의 출처입니다. 업로드할 때 설명란 끝에 붙습니다.</p>
+          {hasShareAlike(clips) ? (
+            <p className="warn-box">
+              CC BY-SA(동일조건) 클립이 있습니다. 이 영상도 같은 조건으로 공개해야 한다는 해석이 있으니, 원치 않으면 장면을
+              바꾸세요.
+            </p>
+          ) : null}
+          <pre className="raw prewrap">{attributionText(clips)}</pre>
+          <details>
+            <summary>설명란 미리보기 (출처 포함)</summary>
+            <pre className="raw prewrap">{descriptionWithCredits(script.description, clips)}</pre>
+          </details>
+        </section>
+      ) : null}
+
+      {script && (scenes.size > 0 || episode.status === "rendering" || canFill) ? (
+        <ScenesPanel
+          episodeId={episode.id}
+          scenes={script.scenes}
+          done={scenes}
+          adopted={canFill ? await listAdoptedClips() : []}
+          canFill={canFill}
+        />
       ) : null}
 
       {script ? <ScriptReview script={script} reviewing={episode.status === "script_review" && !busy} /> : null}

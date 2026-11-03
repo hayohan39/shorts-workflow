@@ -5,8 +5,8 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { clipsToAdopt } from "@/pipeline/clips/adopt";
-import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
-import { isSelectable } from "@/pipeline/clips/select";
+import { attributionText, hasShareAlike, selectedClips } from "@/pipeline/clips/attribution";
+import { clipSegment, isSelectable } from "@/pipeline/clips/select";
 import { getCollection, isJobBusy, listClips, type StoredClip } from "@/pipeline/clips/store";
 import { orientationOf, SOURCE_LABELS, type ClipSourceId, type Orientation } from "@/pipeline/clips/types";
 import { formatUsd } from "@/pipeline/script/pricing";
@@ -20,6 +20,13 @@ const SWAP_OPTIONS = 6;
 
 const ORIENTATION_LABELS: Record<Orientation, string> = { vertical: "세로", square: "정사각", horizontal: "가로" };
 
+/** "12초", 긴 클립은 "199초 중 49.8초부터 15초" */
+function durationLabel(seconds: number | null): string {
+  if (seconds === null) return "길이 모름";
+  const segment = clipSegment(seconds);
+  return segment.length === seconds ? `${seconds}초` : `${seconds}초 중 ${segment.start}초부터 ${segment.length}초`;
+}
+
 function ClipMeta({ clip }: { clip: StoredClip }) {
   const orientation = orientationOf(clip.width, clip.height);
   return (
@@ -28,7 +35,7 @@ function ClipMeta({ clip }: { clip: StoredClip }) {
         {clip.title}
       </a>
       <div className="muted small">
-        {clip.durationSec !== null ? `${clip.durationSec}초` : "길이 모름"}
+        {durationLabel(clip.durationSec)}
         {orientation ? ` · ${ORIENTATION_LABELS[orientation]} ${clip.width}×${clip.height}` : ""} ·{" "}
         {SOURCE_LABELS[clip.source]}
         {clip.author ? ` · ${clip.author}` : ""} · 검색어 “{clip.keyword}”
@@ -68,10 +75,10 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
   const collecting = isJobBusy(collection.status, collection.updatedAt);
   const adopting = isJobBusy(collection.adoptStatus, collection.updatedAt);
   const canDispatch = dispatchAvailability().ok;
-  const selected = clips.filter((clip) => clip.rank !== null);
+  const selected = selectedClips(clips);
   const swapOptions = clips.filter((clip) => clip.rank === null && isSelectable(clip)).slice(0, SWAP_OPTIONS);
   const toAdopt = clipsToAdopt(clips).length;
-  const attribution = attributionText(clips);
+  const attribution = attributionText(selected);
   const runUrl = collection.adoptRunUrl ?? collection.runUrl;
 
   return (
@@ -123,7 +130,7 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
                 </li>
               ))}
             </ul>
-            {hasShareAlike(clips) ? (
+            {hasShareAlike(selected) ? (
               <p className="warn-box">
                 CC BY-SA(동일조건) 클립이 있습니다. 이 클립을 넣은 영상도 같은 조건으로 공개해야 한다는 해석이 있으니,
                 원치 않으면 교체하세요.

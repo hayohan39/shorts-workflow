@@ -3,6 +3,8 @@ name: Pipeline
 # 쇼츠 파이프라인의 자동 단계(대본·장면·합성·업로드)를 에피소드 하나에 대해 실행한다.
 # probe 는 에피소드 없이 ManyMotions·Claude 모델 목록과 Claude 실제 청구 비용을 조회한다(설정·목록 화면).
 # probe 는 매일 한 번 자동으로도 돈다(schedule). 그때는 입력이 없으므로 probe 로 본다.
+# 같은 매일 실행에서 영상 클립 자동 수집(clips-daily)도 한다. 대시보드에서 켜 둔 경우에만 실제로 수집한다(기본 꺼짐).
+# 따로 schedule 을 두지 않는 것은 꺼져 있을 때 Actions 사용 시간이 늘지 않게 하기 위해서다.
 # clips 는 무료 라이선스 영상 클립 수집, clips-adopt 는 선택된 클립의 다운로드·mp4 변환·Blob 저장(대상: collection_id).
 # 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
 # 직접 실행해도 된다: Actions → Pipeline → Run workflow.
@@ -90,6 +92,14 @@ jobs:
           # 영상 클립 검색(clips)에만 넘긴다. 없으면 Pixabay 만 꺼지고 수집 결과에 이유가 남는다.
           PIXABAY_API_KEY: ${{ inputs.step == 'clips' && secrets.PIXABAY_API_KEY || '' }}
         run: npm run pipeline -- run "$STEP" "$TARGET_ID"
+
+      # 매일 실행에서만. 꺼져 있으면 DB 만 보고 바로 끝난다. probe 가 실패해도 수집은 시도한다.
+      - name: Daily clip collection
+        if: ${{ github.event_name == 'schedule' && !cancelled() }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+        run: npm run pipeline -- run clips-daily
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.
       # 이미 기록됐거나 실행 중이 아니면 아무것도 바꾸지 않는다.

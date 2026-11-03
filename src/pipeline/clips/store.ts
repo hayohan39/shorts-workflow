@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { query, transaction } from "@/lib/db";
 import { redact } from "@/lib/health";
-import { clipScore, type Selection } from "@/pipeline/clips/select";
+import { clipScore, totalSeconds, type Selection } from "@/pipeline/clips/select";
 import type { ClipCandidate, ClipLicense, ClipSourceId, LicenseCode } from "@/pipeline/clips/types";
 
 // 클립 수집·채택의 DB 기록. 수집과 채택은 Actions 에서 돌고, 대시보드는 요청과 [교체]만 한다.
@@ -290,6 +290,16 @@ export async function failCollection(id: number, message: string): Promise<ClipC
   return row ? toCollection(row) : null;
 }
 
+/** 매일 자동 수집 하나를 만든다(Actions 가 바로 실행한다). */
+export async function createDailyCollection(tag: ClipTag): Promise<ClipCollection> {
+  const [row] = await query<CollectionRow>(
+    `insert into clip_collections (kind, topic, tag_id, status) values ('daily', $1, $2, 'queued')
+     returning ${COLLECTION_COLUMNS}`,
+    [tag.name, tag.id],
+  );
+  return toCollection(row);
+}
+
 // ── 후보·교체 ────────────────────────────────────────────────────────
 
 /** 선택된 클립(순서대로) 다음에 교체 후보(점수 순). */
@@ -300,6 +310,23 @@ export async function listClips(collectionId: number): Promise<StoredClip[]> {
     [collectionId],
   );
   return rows.map(toClip);
+}
+
+/** 채택해서 Blob 에 있는 클립(최근 채택 순). 에피소드 장면에 넣을 후보. */
+export async function listAdoptedClips(limit = 24): Promise<StoredClip[]> {
+  const rows = await query<ClipRow>(
+    `select ${CLIP_COLUMNS} from clip_candidates where blob_url is not null order by adopted_at desc, id desc limit $1`,
+    [limit],
+  );
+  return rows.map(toClip);
+}
+
+/** ID 로 클립들을 가져온다(순서는 주어진 ID 순). */
+export async function getClips(ids: number[]): Promise<StoredClip[]> {
+  if (ids.length === 0) return [];
+  const rows = await query<ClipRow>(`select ${CLIP_COLUMNS} from clip_candidates where id = any($1::int[])`, [ids]);
+  const byId = new Map(rows.map((row) => [row.id, toClip(row)]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
 /**
@@ -328,12 +355,15 @@ export async function swapClip(collectionId: number, selectedId: number, alterna
     }
     await client.query("update clip_candidates set rank = null where id = $1", [selectedId]);
     await client.query("update clip_candidates set rank = $2 where id = $1", [alternateId, selected.rank]);
-    await client.query(
-      `update clip_collections set updated_at = now(), total_seconds = (
-         select coalesce(sum(duration_sec), 0) from clip_candidates where collection_id = $1 and rank is not null)
-       where id = $1`,
+    const { rows: ranked } = await client.query<{ duration_sec: string | null }>(
+      "select duration_sec from clip_candidates where collection_id = $1 and rank is not null",
       [collectionId],
     );
+    const total = totalSeconds(ranked.map((row) => ({ durationSec: numberOrNull(row.duration_sec) })));
+    await client.query("update clip_collections set updated_at = now(), total_seconds = $2 where id = $1", [
+      collectionId,
+      total,
+    ]);
   });
 }
 
@@ -373,13 +403,81 @@ export async function failAdopt(id: number, message: string): Promise<ClipCollec
   return row ? toCollection(row) : null;
 }
 
-/** 변환·업로드가 끝난 클립. 길이를 몰랐으면 실제 파일 길이로 채운다. */
-export async function saveAdoptedClip(clipId: number, blobUrl: string, durationSec: number | null): Promise<void> {
-  await query(
-    `update clip_candidates set blob_url = $2, adopted_at = now(), duration_sec = coalesce(duration_sec, $3)
-      where id = $1`,
-    [clipId, blobUrl, durationSec],
+/** 변환·업로드가 끝난 클립. */
+export async function saveAdoptedClip(clipId: number, blobUrl: string): Promise<void> {
+  await query("update clip_candidates set blob_url = $2, adopted_at = now() where id = $1", [clipId, blobUrl]);
+}
+
+// ── 매일 자동 수집·태그 ─────────────────────────────────────────────
+
+export const TAG_MAX = 50;
+/** 이 기간 안에 쓴 태그는 매일 수집에서 건너뛴다 */
+const TAG_COOLDOWN_DAYS = 7;
+
+export interface ClipTag {
+  id: number;
+  name: string;
+  active: boolean;
+  lastUsedAt: Date | null;
+}
+
+interface TagRow {
+  id: number;
+  name: string;
+  active: boolean;
+  last_used_at: Date | null;
+}
+
+const toTag = (row: TagRow): ClipTag => ({ id: row.id, name: row.name, active: row.active, lastUsedAt: row.last_used_at });
+
+export async function isDailyEnabled(): Promise<boolean> {
+  const [row] = await query<{ clips_daily: boolean }>("select clips_daily from settings");
+  return row?.clips_daily ?? false;
+}
+
+export async function setDailyEnabled(enabled: boolean): Promise<void> {
+  await query("update settings set clips_daily = $1, updated_at = now()", [enabled]);
+}
+
+export async function listTags(): Promise<ClipTag[]> {
+  const rows = await query<TagRow>("select id, name, active, last_used_at from clip_tags order by name");
+  return rows.map(toTag);
+}
+
+/** 태그 추가. 이미 있으면 다시 켠다. 비었거나 너무 길면 RangeError. */
+export async function addTag(nameInput: string): Promise<ClipTag> {
+  const name = nameInput.replace(/\s+/g, " ").trim();
+  if (!name) throw new RangeError("태그를 입력하세요.");
+  if (name.length > TAG_MAX) throw new RangeError(`태그는 ${TAG_MAX}자 이내로 입력하세요.`);
+  const [row] = await query<TagRow>(
+    `insert into clip_tags (name) values ($1) on conflict (name) do update set active = true
+     returning id, name, active, last_used_at`,
+    [name],
   );
+  return toTag(row);
+}
+
+export async function setTagActive(id: number, active: boolean): Promise<void> {
+  await query("update clip_tags set active = $2 where id = $1", [id, active]);
+}
+
+/** 태그 삭제. 그 태그로 만든 수집은 남는다(tag_id 만 비워진다). */
+export async function deleteTag(id: number): Promise<void> {
+  await query("delete from clip_tags where id = $1", [id]);
+}
+
+/** 매일 수집에 쓸 태그: 켜져 있고 최근 7일 안에 쓰지 않은 것 중 무작위 하나. 고른 태그는 사용 시각을 남긴다. */
+export async function pickDailyTag(): Promise<ClipTag | null> {
+  const [row] = await query<TagRow>(
+    `update clip_tags set last_used_at = now()
+      where id = (
+        select id from clip_tags
+         where active and (last_used_at is null or last_used_at < now() - make_interval(days => $1))
+         order by random() limit 1)
+      returning id, name, active, last_used_at`,
+    [TAG_COOLDOWN_DAYS],
+  );
+  return row ? toTag(row) : null;
 }
 
 // ── 소스 응답 캐시·호출 기록 ─────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import type Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { ConvertSource } from "@/pipeline/clips/adopt";
 import { RateLimitError } from "@/pipeline/clips/http";
 import { KEYWORD_MODEL } from "@/pipeline/clips/keywords";
 import type { ClipCandidate, SourceAdapter } from "@/pipeline/clips/types";
@@ -155,14 +156,14 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     await expect(store.swapClip(created.id, alternate.id, alternate.id)).rejects.toThrow(RangeError);
   });
 
-  it("채택: 남은 클립만 받아 변환·저장하고, 실패하면 거기서 멈춘다", async () => {
+  it("채택: 남은 클립만 쓰는 구간을 변환·저장하고, 실패하면 거기서 멈춘다", async () => {
     const store = await import("@/pipeline/clips/store");
     const { collectClips } = await import("@/pipeline/clips/collect");
     const { adoptClips } = await import("@/pipeline/clips/adopt");
     const created = await store.createSearchCollection("사막");
     expect(await store.requestAdopt(created.id)).toBeNull(); // 수집 전
     const desert = Array.from({ length: 3 }, (_, i) =>
-      clip({ sourceId: `d${i}`, keyword: "desert", durationSec: i === 2 ? null : 30, downloadUrl: `https://cdn.test/d${i}.mp4` }),
+      clip({ sourceId: `d${i}`, keyword: "desert", durationSec: [30, 120, null][i], downloadUrl: `https://cdn.test/d${i}.mp4` }),
     );
     const started = await store.startCollection(created.id, null);
     await collectClips(started!, { adapters: [fakeAdapter({ desert })], send: async () => keywordMessage(["desert"]), fetchImpl: fetchOk });
@@ -172,15 +173,18 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     expect(await store.startAdopt(created.id, "https://example.test/run/2")).toMatchObject({ adoptStatus: "running" });
 
     const put = vi.fn(async (pathname: string) => ({ url: `https://blob.test/${pathname}` }));
-    const download = vi.fn<typeof fetch>(async (url) =>
-      String(url).endsWith("d1.mp4") ? new Response("nope", { status: 404 }) : new Response("video"),
-    );
-    const convert = vi.fn(async (_input: string, output: string) => {
+    let broken = true;
+    const convert = vi.fn(async (source: ConvertSource, output: string) => {
+      if (broken && source.url.endsWith("d1.mp4")) throw new Error("ffmpeg 실패: 404 Not Found");
       await writeFile(output, "mp4");
-      return 29.9;
     });
-    const error = await adoptClips(created.id, { put, fetchImpl: download, convert }).catch((e: Error) => e);
-    expect(String(error)).toContain("채택 실패: 원본을 내려받지 못했습니다(HTTP 404)");
+    const error = await adoptClips(created.id, { put, convert }).catch((e: Error) => e);
+    expect(String(error)).toContain("채택 실패: ffmpeg 실패: 404 Not Found");
+    // 30초 이하는 전부, 긴 클립은 1/4 지점부터 15초.
+    expect(convert.mock.calls.map(([source]) => source)).toEqual([
+      { url: "https://cdn.test/d0.mp4", start: 0, length: 30 },
+      { url: "https://cdn.test/d1.mp4", start: 30, length: 15 },
+    ]);
     await store.failAdopt(created.id, String(error));
 
     let clips = await store.listClips(created.id);
@@ -190,11 +194,42 @@ describe.skipIf(!testDatabaseUrl)("영상 클립 수집·교체·채택 (실제 
     // 다시 채택하면 남은 것만.
     await store.requestAdopt(created.id);
     await store.startAdopt(created.id, null);
-    download.mockImplementation(async () => new Response("video"));
-    expect(await adoptClips(created.id, { put, fetchImpl: download, convert })).toBe(1);
+    broken = false;
+    expect(await adoptClips(created.id, { put, convert })).toBe(1);
     await store.finishAdopt(created.id);
     clips = await store.listClips(created.id);
     expect(clips.filter((c) => c.rank !== null).every((c) => c.blobUrl && c.adoptedAt)).toBe(true);
     expect(await store.getCollection(created.id)).toMatchObject({ adoptStatus: "done", adoptError: null });
+  });
+
+  it("매일 수집: 기본 꺼짐, 켜진 태그 중 최근 7일 안에 쓰지 않은 것만 고른다", async () => {
+    const store = await import("@/pipeline/clips/store");
+    const { query } = await import("@/lib/db");
+    expect(await store.isDailyEnabled()).toBe(false);
+    await store.setDailyEnabled(true);
+    expect(await store.isDailyEnabled()).toBe(true);
+
+    await expect(store.addTag(" ")).rejects.toThrow(RangeError);
+    const space = await store.addTag("  우주   탐사 ");
+    const sea = await store.addTag("바다");
+    expect(space.name).toBe("우주 탐사");
+    await store.setTagActive(sea.id, false);
+    expect((await store.addTag("바다")).active).toBe(true); // 다시 추가하면 켜진다
+    await store.setTagActive(sea.id, false);
+
+    // 켜진 태그는 우주 탐사뿐 → 고르면 사용 시각이 남고, 7일 동안은 다시 고르지 않는다.
+    const picked = await store.pickDailyTag();
+    expect(picked).toMatchObject({ id: space.id, name: "우주 탐사" });
+    expect(picked?.lastUsedAt).toBeInstanceOf(Date);
+    expect(await store.pickDailyTag()).toBeNull();
+    await query("update clip_tags set last_used_at = now() - interval '8 days' where id = $1", [space.id]);
+    expect((await store.pickDailyTag())?.id).toBe(space.id);
+
+    const daily = await store.createDailyCollection(picked!);
+    expect(daily).toMatchObject({ kind: "daily", topic: "우주 탐사", status: "queued" });
+    await store.deleteTag(space.id);
+    expect((await store.listTags()).map((tag) => tag.name)).toEqual(["바다"]);
+    expect(await store.getCollection(daily.id)).toMatchObject({ topic: "우주 탐사" }); // 수집은 남는다
+    await store.setDailyEnabled(false);
   });
 });

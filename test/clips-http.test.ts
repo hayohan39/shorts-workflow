@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchSourceJson, RateLimitError, retryDelayMs, USER_AGENT } from "@/pipeline/clips/http";
+import { fetchSourceJson, RateLimitError, retryDelayMs, skipOnError, USER_AGENT } from "@/pipeline/clips/http";
 
 function respond(status: number, body: unknown = {}, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), { status, headers });
@@ -51,5 +51,13 @@ describe("소스 API 요청", () => {
     expect(retryDelayMs(new Date(10_000).toUTCString(), 0, 4_000)).toBe(6_000);
     expect(retryDelayMs(null, 0)).toBe(2_000);
     expect(retryDelayMs(null, 2)).toBe(8_000);
+  });
+
+  it("항목 하나의 실패는 건너뛰고(null), 요청 한도는 그대로 던진다", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await skipOnError(async () => 1)).toBe(1);
+    expect(await skipOnError(async () => Promise.reject(new Error("404")))).toBeNull();
+    const limited = new RateLimitError("nasa", new Date());
+    await expect(skipOnError(async () => Promise.reject(limited))).rejects.toBe(limited);
   });
 });

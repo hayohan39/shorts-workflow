@@ -46,9 +46,14 @@ export async function runComposeStep(
   const dir = await mkdtemp(path.join(os.tmpdir(), `compose-${episode.id}-`));
   try {
     await progress("장면·내레이션 내려받는 중");
+    // 장면의 종류는 실제 생성물을 따른다: 이미지 장면에 무료 클립(영상)을 넣었으면 영상으로 합성한다.
+    const planned = script.scenes.map((scene) => ({
+      ...scene,
+      kind: scenes.get(scene.no)!.kind === "video" ? ("video" as const) : ("image" as const),
+    }));
     const files = new Map<number, string>();
     await Promise.all([
-      ...script.scenes.map(async (scene) => {
+      ...planned.map(async (scene) => {
         const name = `scene-${scene.no}.${scene.kind === "video" ? "mp4" : "jpg"}`;
         await download(scenes.get(scene.no)!.url!, path.join(dir, name), deps.fetchImpl);
         files.set(scene.no, name);
@@ -57,7 +62,7 @@ export async function runComposeStep(
     ]);
 
     const voice = await probeMedia(path.join(dir, "narration.mp3"));
-    const timeline = planTimeline(script.scenes, voice.duration);
+    const timeline = planTimeline(planned, voice.duration);
     await writeFile(path.join(dir, SUBTITLE_FILE), buildAss(timeline));
 
     await progress(`영상 합성 중 (${timeline.total.toFixed(1)}초 영상, 보통 1분 안팎)`);

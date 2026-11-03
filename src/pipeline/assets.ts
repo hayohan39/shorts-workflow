@@ -89,3 +89,13 @@ export async function listAssets(episodeId: number, kind?: AssetKind): Promise<A
   );
   return rows.map(toAsset);
 }
+
+/** 생성물 하나를 지운다(에피소드가 맞을 때만). 지웠으면 true. */
+export async function deleteAsset(episodeId: number, assetId: number, model: string): Promise<boolean> {
+  const rows = await query("delete from assets where id = $1 and episode_id = $2 and model = $3 returning id", [
+    assetId,
+    episodeId,
+    model,
+  ]);
+  return rows.length > 0;
+}
