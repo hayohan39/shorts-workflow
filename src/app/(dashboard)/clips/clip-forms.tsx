@@ -6,6 +6,8 @@ import {
   adoptClipsAction,
   collectClipsAction,
   deleteTagAction,
+  fillSceneAction,
+  removeSceneClipAction,
   retryCollectAction,
   setDailyAction,
   setTagActiveAction,
@@ -111,4 +113,12 @@ export function TagButtons({ id, active }: { id: number; active: boolean }) {
       <ActionButton action={deleteTagAction} fields={{ id }} label="삭제" className="secondary" />
     </div>
   );
+}
+
+export function FillSceneButton({ id, scene, clip }: { id: number; scene: number; clip: number }) {
+  return <ActionButton action={fillSceneAction} fields={{ id, scene, clip }} label="이 장면에 넣기" className="secondary" />;
+}
+
+export function RemoveSceneClipButton({ id, asset }: { id: number; asset: number }) {
+  return <ActionButton action={removeSceneClipAction} fields={{ id, asset }} label="클립 빼기" className="secondary" />;
 }

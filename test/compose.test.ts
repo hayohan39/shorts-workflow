@@ -174,5 +174,20 @@ describe.skipIf(!testDatabaseUrl || !hasFfmpeg)("영상 합성 (실제 DB·실�
     const [final] = await listAssets(episode.id, "final");
     expect(final).toMatchObject({ credits: 0, url: `https://blob.example/episodes/${episode.id}/final.mp4` });
     expect(final.meta).toMatchObject({ scriptVersion: 1, voiceName: "Sian" });
+
+    // 이미지 장면(2번)에 무료 클립(영상)을 넣으면 영상으로 합성한다.
+    const clipAsset = await saveAsset({
+      episodeId: episode.id,
+      kind: "video",
+      sceneNo: 2,
+      model: "clip",
+      credits: 0,
+      url: "https://blob.example/v.mp4",
+      meta: { scriptVersion: 1, clipId: 1 },
+    });
+    const again = await runComposeStep((await getEpisode(episode.id))!, { deps });
+    expect(again.seconds).toBeCloseTo(8 + 0.4, 0);
+    const [latest] = await listAssets(episode.id, "final");
+    expect(latest.meta.sceneAssetIds).toContain(clipAsset.id);
   }, 180_000);
 });

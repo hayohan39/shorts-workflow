@@ -4,6 +4,8 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
+import { fillSceneWithClip, removeSceneClip } from "@/pipeline/clips/episode";
+import { getEpisode } from "@/pipeline/episodes";
 import {
   addTag,
   createSearchCollection,
@@ -138,6 +140,42 @@ export async function deleteTagAction(_prev: ClipActionState, formData: FormData
   const id = positiveId(formData.get("id"));
   if (!id) return { error: "잘못된 요청입니다." };
   await deleteTag(id);
+  refresh();
+  return {};
+}
+
+/** 에피소드 장면을 채택한 클립으로 채운다(크레딧 없음). */
+export async function fillSceneAction(_prev: ClipActionState, formData: FormData): Promise<ClipActionState> {
+  await requireSession();
+  const id = positiveId(formData.get("id"));
+  const sceneNo = positiveId(formData.get("scene"));
+  const clipId = positiveId(formData.get("clip"));
+  const episode = id ? await getEpisode(id) : null;
+  if (!episode || !sceneNo || !clipId) return { error: "잘못된 요청입니다." };
+  try {
+    await fillSceneWithClip(episode, sceneNo, clipId);
+  } catch (error) {
+    refresh();
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return {};
+}
+
+export async function removeSceneClipAction(_prev: ClipActionState, formData: FormData): Promise<ClipActionState> {
+  await requireSession();
+  const id = positiveId(formData.get("id"));
+  const assetId = positiveId(formData.get("asset"));
+  const episode = id ? await getEpisode(id) : null;
+  if (!episode || !assetId) return { error: "잘못된 요청입니다." };
+  try {
+    await removeSceneClip(episode, assetId);
+  } catch (error) {
+    refresh();
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
   refresh();
   return {};
 }

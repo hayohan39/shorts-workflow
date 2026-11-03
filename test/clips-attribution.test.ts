@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { probeMedia, runFfmpeg } from "@/pipeline/compose/ffmpeg";
 import { buildConvertArgs, clipsToAdopt } from "@/pipeline/clips/adopt";
-import { attributionText, buildManifest, hasShareAlike } from "@/pipeline/clips/attribution";
+import { attributionText, buildManifest, hasShareAlike, selectedClips } from "@/pipeline/clips/attribution";
 import type { ClipCollection, StoredClip } from "@/pipeline/clips/store";
 import { clip } from "./helpers/clips";
 
@@ -31,12 +31,12 @@ const ccBySa = {
 };
 
 describe("출처 표기", () => {
-  it("선택된 클립만 순서대로, 저작자·소스·라이선스·링크를 적는다", () => {
-    const text = attributionText([
+  it("주어진 순서대로 저작자·소스·라이선스·링크를 적는다(선택된 클립만 고르는 건 selectedClips)", () => {
+    const text = attributionText(selectedClips([
       stored({ title: "ocean waves", author: "kim", pageUrl: "https://pixabay.com/videos/id-1/" }),
       stored({ id: 2, rank: 2, source: "wikimedia", title: "Sea.webm", author: null, license: ccBySa, pageUrl: "https://w/2" }),
       stored({ id: 3, rank: null, title: "교체 후보" }),
-    ]);
+    ]));
     expect(text).toBe(
       [
         "영상 출처",
@@ -44,12 +44,12 @@ describe("출처 표기", () => {
         '- "Sea.webm" / Wikimedia Commons / CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/) / https://w/2',
       ].join("\n"),
     );
-    expect(attributionText([stored({ rank: null })])).toBe("");
+    expect(attributionText([])).toBe("");
   });
 
-  it("선택된 클립에 CC BY-SA 가 있으면 표시한다(교체 후보는 세지 않는다)", () => {
-    expect(hasShareAlike([stored(), stored({ rank: null, license: ccBySa })])).toBe(false);
-    expect(hasShareAlike([stored({ license: ccBySa })])).toBe(true);
+  it("CC BY-SA 가 섞였는지 표시한다", () => {
+    expect(hasShareAlike([stored()])).toBe(false);
+    expect(hasShareAlike([stored(), stored({ license: ccBySa })])).toBe(true);
   });
 
   it("manifest 에 수집 정보·라이선스 스냅샷·파일 주소를 담는다", () => {
