@@ -22,5 +22,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // 아이콘·매니페스트는 로그인 화면과 홈 화면 추가에서도 보여야 해서 로그인 없이 연다.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|icons/).*)"],
 };
