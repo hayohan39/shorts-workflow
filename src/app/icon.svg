@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Shorts Workflow: 사진·영상 카드가 겹쳐서 오른쪽 위로 날아가는 모양 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- 속도선 -->
+  <g stroke="#fff" stroke-linecap="round" fill="none">
+    <path d="M50 318 L112 282" stroke-width="18" opacity="0.45"/>
+    <path d="M62 394 L146 346" stroke-width="18" opacity="0.6"/>
+    <path d="M128 446 L190 410" stroke-width="18" opacity="0.35"/>
+  </g>
+  <g transform="rotate(-18 256 256)">
+    <!-- 뒤 카드(사진, 흐림) -->
+    <rect x="96" y="226" width="204" height="150" rx="26" fill="#fff" opacity="0.35"/>
+    <!-- 가운데 카드(사진: 해와 산) -->
+    <rect x="150" y="186" width="204" height="150" rx="26" fill="#fff" opacity="0.7"/>
+    <circle cx="180" cy="216" r="14" fill="#EC4899" opacity="0.8"/>
+    <path d="M168 318 L226 252 L262 292 L284 270 L336 318 Z" fill="#4F46E5" opacity="0.7"/>
+    <!-- 앞 카드(영상: 재생 버튼) -->
+    <rect x="206" y="140" width="214" height="158" rx="28" fill="#fff"/>
+    <path d="M292 182 L292 256 L356 219 Z" fill="#EC4899" stroke="#EC4899" stroke-width="14" stroke-linejoin="round"/>
+  </g>
+</svg>
