@@ -15,6 +15,8 @@ import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION, type Status } from "@/pipeline/status";
 import { estimateSceneCredits, scenesDone } from "@/pipeline/steps/render";
+import { studioUrl, watchUrl } from "@/pipeline/youtube/links";
+import { buildUploadText, hasAiScenes } from "@/pipeline/youtube/metadata";
 import { isStale, runnableStep } from "@/pipeline/trigger";
 import {
   DEFAULT_VOICE_ID,
@@ -29,6 +31,7 @@ import {
 import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
 import { ScenesPanel } from "./scenes-panel";
+import { UploadKit } from "./upload-kit";
 import { VideoReview } from "./video-review";
 import { ScriptReview } from "./script-review";
 
@@ -40,7 +43,7 @@ const WAITING_FOR_PERSON: Partial<Record<Status, string>> = {
   approved: "목소리를 골라 내레이션을 만들고 장면 생성을 시작하세요.",
   rendering: "장면이 준비됐습니다. 내레이션을 확인하고 영상 합성을 시작하세요.",
   video_review: "아래 완성 영상을 확인하고 승인하세요. 내레이션을 바꿨으면 다시 합성하세요.",
-  ready: "유튜브 업로드 버튼은 다음 업데이트에서 추가됩니다.",
+  ready: "아래 \"유튜브에 올리기\" 순서대로 YouTube 앱에서 직접 올리고, 올린 뒤 \"올렸어요\" 를 누르세요.",
   uploaded: "업로드가 끝났습니다.",
 };
 
@@ -182,6 +185,17 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
         {!busy && !step && WAITING_FOR_PERSON[episode.status] ? (
           <p className="muted">{WAITING_FOR_PERSON[episode.status]}</p>
         ) : null}
+        {episode.youtubeVideoId ? (
+          <p>
+            <a href={watchUrl(episode.youtubeVideoId)} target="_blank" rel="noreferrer">
+              유튜브에서 보기
+            </a>
+            {" · "}
+            <a href={studioUrl(episode.youtubeVideoId)} target="_blank" rel="noreferrer">
+              YouTube Studio
+            </a>
+          </p>
+        ) : null}
       </section>
 
       {finalVideo?.url ? (
@@ -190,6 +204,15 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
           url={finalVideo.url}
           caption={`${Number(finalVideo.meta.seconds ?? 0).toFixed(1)}초 · 목소리 ${String(finalVideo.meta.voiceName ?? "알 수 없음")} · ${formatDateTime(finalVideo.createdAt)} 합성`}
           reviewing={episode.status === "video_review" && !busy}
+        />
+      ) : null}
+
+      {finalVideo?.url && script && (episode.status === "ready" || episode.status === "uploaded") ? (
+        <UploadKit
+          episodeId={episode.id}
+          downloadUrl={`${finalVideo.url}?download=1`}
+          {...buildUploadText(script, clips, hasAiScenes(scenes))}
+          canMark={episode.status === "ready" && !busy}
         />
       ) : null}
 

@@ -6,13 +6,14 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
-import { createEpisode, decide, getEpisode, setVoiceSelection } from "@/pipeline/episodes";
+import { createEpisode, decide, getEpisode, saveUpload, setVoiceSelection } from "@/pipeline/episodes";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
 import { updateSettings } from "@/pipeline/settings";
 import { isBusy, isStep, TransitionError } from "@/pipeline/status";
 import { triggerStep } from "@/pipeline/trigger";
 import { findVoice, isVoiceModel } from "@/pipeline/voices";
+import { parseVideoId } from "@/pipeline/youtube/links";
 
 export async function logoutAction(): Promise<void> {
   (await cookies()).delete(SESSION_COOKIE);
@@ -219,6 +220,26 @@ export async function approveVideoAction(_prev: SimpleState, formData: FormData)
     if (error instanceof TransitionError) return { error: error.message };
     throw error;
   }
+  refresh();
+  return {};
+}
+
+/** 유튜브에 직접 올린 뒤 "올렸어요": 업로드 대기 → 업로드 완료. 영상 링크를 주면 함께 기록한다. */
+export async function markUploadedAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const id = episodeId(formData);
+  if (!id) return { error: "잘못된 요청입니다." };
+  const link = String(formData.get("link") ?? "").trim();
+  const videoId = link ? parseVideoId(link) : null;
+  if (link && !videoId) return { error: "유튜브 영상 링크가 아닙니다. 비워 두거나 공유 링크(youtu.be/…)를 넣으세요." };
+  try {
+    await decide(id, "mark-uploaded");
+  } catch (error) {
+    refresh();
+    if (error instanceof TransitionError) return { error: error.message };
+    throw error;
+  }
+  if (videoId) await saveUpload(id, videoId, "public");
   refresh();
   return {};
 }
