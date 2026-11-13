@@ -54,6 +54,8 @@ export const DECISIONS = {
   "approve-script": { from: "script_review", to: "approved" },
   "reject-script": { from: "script_review", to: "queued" },
   "approve-video": { from: "video_review", to: "ready" },
+  // 유튜브에 직접 올린 뒤 대시보드에 "올렸어요" 로 표시한다(API 업로드 대신).
+  "mark-uploaded": { from: "ready", to: "uploaded" },
 } as const satisfies Record<string, { from: Status; to: Status }>;
 export type Decision = keyof typeof DECISIONS;
 
