@@ -188,4 +188,38 @@ describe.skipIf(!testDatabaseUrl)("유튜브 업로드 단계 (실제 DB, 가짜
 
     await expect(runUploadStep((await getEpisode(episode.id))!, { deps: { credentials, fetchImpl } })).rejects.toThrow("이미 업로드한");
   });
+
+  it("올린 뒤 기록이 계속 실패하면 영상 ID·Studio 링크를 남겨 다시 올리지 않게 알린다", async () => {
+    const { query } = await import("@/lib/db");
+    const { createEpisode, getEpisode } = await import("@/pipeline/episodes");
+    const { saveScript } = await import("@/pipeline/scripts");
+    const { toDraft } = await import("@/pipeline/script/schema");
+    const { saveAsset } = await import("@/pipeline/assets");
+    const { runUploadStep } = await import("@/pipeline/steps/upload");
+
+    const episode = await createEpisode({ topic: "기록 실패", outline: "" });
+    await saveScript(episode.id, toDraft(validSubmission()), { source: "generated", warnings: [], model: null, usage: null });
+    await query("update episodes set status = 'ready' where id = $1", [episode.id]);
+    await saveAsset({ episodeId: episode.id, kind: "final", model: null, credits: 0, url: "https://blob.test/final.mp4", meta: { scriptVersion: 1 } });
+
+    const save = vi.fn<(id: number, videoId: string, privacy: string) => Promise<void>>(async () => {
+      throw new Error("connection terminated");
+    });
+    const sleep = vi.fn(async () => {});
+    const error = await runUploadStep((await getEpisode(episode.id))!, {
+      deps: { credentials, fetchImpl: youtubeFetch(), save, sleep },
+    }).catch((e: Error) => e);
+    expect(save).toHaveBeenCalledTimes(3);
+    expect(String(error)).toContain("영상 ID VIDEO123");
+    expect(String(error)).toContain("https://studio.youtube.com/video/VIDEO123/edit");
+    expect(String(error)).toContain("connection terminated");
+
+    // 두 번째에 성공하면 그대로 끝난다.
+    save.mockReset();
+    save.mockRejectedValueOnce(new Error("blip")).mockResolvedValueOnce(undefined);
+    await expect(
+      runUploadStep((await getEpisode(episode.id))!, { deps: { credentials, fetchImpl: youtubeFetch(), save, sleep } }),
+    ).resolves.toEqual({ videoId: "VIDEO123" });
+    expect(save).toHaveBeenCalledTimes(2);
+  });
 });

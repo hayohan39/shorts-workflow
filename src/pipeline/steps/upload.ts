@@ -5,6 +5,7 @@ import { saveUpload, type Episode } from "@/pipeline/episodes";
 import {
   getAccessToken,
   readYoutubeCredentials,
+  studioUrl,
   uploadVideo,
   type VideoMetadata,
   type YoutubeCredentials,
@@ -80,6 +81,33 @@ export function latestFinal(assets: Asset[], scriptVersion: number): Asset | nul
 export interface UploadDeps {
   credentials?: YoutubeCredentials;
   fetchImpl?: typeof fetch;
+  /** 업로드 결과 기록. 테스트에서 실패를 흉내 낼 때만 바꾼다. */
+  save?: typeof saveUpload;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/**
+ * 업로드가 끝난 뒤의 DB 기록. 여기서 실패한 채로 "다시 시도" 하면 같은 영상이 또 올라가므로
+ * 몇 번 다시 해 보고, 그래도 안 되면 이미 올라간 영상 ID·Studio 링크를 에러에 남긴다(화면에 보인다).
+ */
+async function recordUpload(id: number, videoId: string, deps: UploadDeps): Promise<void> {
+  const save = deps.save ?? saveUpload;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await save(id, videoId, "private");
+      return;
+    } catch (error) {
+      if (attempt >= 3) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `YouTube 에는 올라갔지만(영상 ID ${videoId}, ${studioUrl(videoId)}) 기록하지 못했습니다: ${reason}. ` +
+            "다시 시도하면 한 번 더 올라가니, Studio 에서 이 영상을 확인하고 필요하면 지운 뒤 다시 시도하세요.",
+        );
+      }
+      await sleep(1000 * 2 ** attempt);
+    }
+  }
 }
 
 export async function runUploadStep(
@@ -109,6 +137,6 @@ export async function runUploadStep(
   await progress(`YouTube 에 비공개로 올리는 중 (${(video.length / 1024 / 1024).toFixed(1)}MB)`);
   const accessToken = await getAccessToken(credentials, fetchImpl);
   const videoId = await uploadVideo({ accessToken, metadata, video, fetchImpl });
-  await saveUpload(episode.id, videoId, metadata.status.privacyStatus);
+  await recordUpload(episode.id, videoId, options.deps ?? {});
   return { videoId };
 }
