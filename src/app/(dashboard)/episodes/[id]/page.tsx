@@ -14,6 +14,7 @@ import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION, type Status } from "@/pipeline/status";
+import { studioUrl, watchUrl } from "@/pipeline/providers/youtube";
 import { estimateSceneCredits, scenesDone } from "@/pipeline/steps/render";
 import { isStale, runnableStep } from "@/pipeline/trigger";
 import {
@@ -40,8 +41,9 @@ const WAITING_FOR_PERSON: Partial<Record<Status, string>> = {
   approved: "목소리를 골라 내레이션을 만들고 장면 생성을 시작하세요.",
   rendering: "장면이 준비됐습니다. 내레이션을 확인하고 영상 합성을 시작하세요.",
   video_review: "아래 완성 영상을 확인하고 승인하세요. 내레이션을 바꿨으면 다시 합성하세요.",
-  ready: "유튜브 업로드 버튼은 다음 업데이트에서 추가됩니다.",
-  uploaded: "업로드가 끝났습니다.",
+  ready:
+    "유튜브에 비공개로 올립니다. API 감사를 받기 전에는 '비공개로 잠김' 상태라 Studio 에서도 공개로 바꿀 수 없습니다(docs/youtube-setup.md).",
+  uploaded: "업로드가 끝났습니다(비공개). 공개하려면 API 감사를 통과하거나, 완성 영상을 내려받아 YouTube 앱에서 올리세요.",
 };
 
 export default async function EpisodePage({ params }: PageProps<"/episodes/[id]">) {
@@ -73,6 +75,8 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
       ? `${STEP_LABELS[step]} 다시 시도`
       : step === "compose" && episode.status === "video_review"
         ? "다시 합성 (크레딧 없음)"
+        : step === "upload"
+          ? "유튜브에 업로드 (비공개)"
         : `${STEP_LABELS[step]} 시작${step === "compose" ? " (크레딧 없음)" : ""}`
     : null;
 
@@ -179,8 +183,21 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
             {STEP_LABELS[step]} 단계는 시작되지 않았습니다. {availability.reason}
           </p>
         ) : null}
+        {step === "upload" ? <p className="muted small">{WAITING_FOR_PERSON.ready}</p> : null}
         {!busy && !step && WAITING_FOR_PERSON[episode.status] ? (
           <p className="muted">{WAITING_FOR_PERSON[episode.status]}</p>
+        ) : null}
+        {episode.youtubeVideoId ? (
+          <p>
+            <a href={studioUrl(episode.youtubeVideoId)} target="_blank" rel="noreferrer">
+              YouTube Studio 에서 열기
+            </a>
+            {" · "}
+            <a href={watchUrl(episode.youtubeVideoId)} target="_blank" rel="noreferrer">
+              영상 링크
+            </a>
+            <span className="muted small"> (비공개라 로그인한 본인만 볼 수 있습니다)</span>
+          </p>
         ) : null}
       </section>
 

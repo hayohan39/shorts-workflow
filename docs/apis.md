@@ -37,7 +37,10 @@
 | **Vercel 배포 · Claude 리뷰** | merge 후 배포, PR 리뷰·자동 수정 | `VERCEL_TOKEN` 등, `CLAUDE_CODE_OAUTH_TOKEN` (GitHub) |
 | 대시보드 로그인 | 비밀번호 1개 + 서명 쿠키 | `DASHBOARD_PASSWORD`, `SESSION_SECRET` (Vercel) |
 
-## 아직 없는 것
+## 4. 유튜브 업로드
 
-- **유튜브 업로드**(보류된 ⑦): Google Cloud OAuth → `YOUTUBE_CLIENT_ID` · `YOUTUBE_CLIENT_SECRET` · `YOUTUBE_REFRESH_TOKEN`.
-  그동안은 완성 영상을 내려받아 직접 올린다(설명란 미리보기에 출처 표기 포함).
+| 서비스 | 앱에서 하는 일 | 비용 | 키 |
+| --- | --- | --- | --- |
+| **YouTube Data API v3** | 승인된 영상을 [유튜브에 업로드 (비공개)] 버튼으로 올림. 제목·설명(출처 표기·해시태그)·AI 합성 표시 포함 | 무료(하루 업로드 약 100회 한도) | `YOUTUBE_CLIENT_ID` · `YOUTUBE_CLIENT_SECRET` · `YOUTUBE_REFRESH_TOKEN` (GitHub) |
+
+- 설정 방법: [youtube-setup.md](youtube-setup.md). API 감사 전에는 올린 영상이 "비공개로 잠김"(공개로 바꿀 수 없음).

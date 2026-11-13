@@ -91,6 +91,10 @@ jobs:
           ANTHROPIC_COST_WORKSPACE_ID: ${{ vars.ANTHROPIC_COST_WORKSPACE_ID }}
           # 영상 클립 검색(clips)에만 넘긴다. 없으면 Pixabay 만 꺼지고 수집 결과에 이유가 남는다.
           PIXABAY_API_KEY: ${{ inputs.step == 'clips' && secrets.PIXABAY_API_KEY || '' }}
+          # 유튜브 업로드(upload)에만 넘긴다. 발급 방법: docs/youtube-setup.md
+          YOUTUBE_CLIENT_ID: ${{ inputs.step == 'upload' && secrets.YOUTUBE_CLIENT_ID || '' }}
+          YOUTUBE_CLIENT_SECRET: ${{ inputs.step == 'upload' && secrets.YOUTUBE_CLIENT_SECRET || '' }}
+          YOUTUBE_REFRESH_TOKEN: ${{ inputs.step == 'upload' && secrets.YOUTUBE_REFRESH_TOKEN || '' }}
         run: npm run pipeline -- run "$STEP" "$TARGET_ID"
 
       # 매일 실행에서만. 꺼져 있으면 DB 만 보고 바로 끝난다. probe 가 실패해도 수집은 시도한다.

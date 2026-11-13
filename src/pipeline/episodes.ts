@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
-import { getPool, query } from "@/lib/db";
+import { getPool, query, transaction } from "@/lib/db";
+import { watchUrl } from "@/pipeline/providers/youtube";
 import { redact } from "@/lib/health";
 import {
   statusForDecision,
@@ -226,6 +227,18 @@ export async function setVoiceSelection(id: number, voiceId: string, voiceModel:
     voiceId,
     voiceModel,
   ]);
+}
+
+/** 유튜브 업로드 결과: 에피소드에 영상 ID 를, uploads 에 기록 한 줄을 남긴다. */
+export async function saveUpload(id: number, videoId: string, privacy: "private" | "unlisted" | "public"): Promise<void> {
+  await transaction(async (client) => {
+    await client.query("update episodes set youtube_video_id = $2, updated_at = now() where id = $1", [id, videoId]);
+    await client.query("insert into uploads (episode_id, privacy, youtube_url, published_at) values ($1, $2, $3, now())", [
+      id,
+      privacy,
+      watchUrl(videoId),
+    ]);
+  });
 }
 
 /** 사람의 승인·반려. */
