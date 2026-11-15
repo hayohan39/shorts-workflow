@@ -1,4 +1,4 @@
--- 대시보드 로그인 실패 기록(비밀번호 대입 막기). IP 당·전체 실패 횟수로 잠시 로그인을 막는다.
+-- 대시보드 로그인 실패 기록(비밀번호 대입 막기). 같은 IP 의 실패 횟수로 잠시 로그인을 막는다.
 -- 하루 지난 기록은 새 실패를 적을 때 지운다.
 create table login_failures (
   id bigint generated always as identity primary key,
