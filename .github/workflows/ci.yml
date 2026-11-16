@@ -304,7 +304,7 @@ jobs:
         timeout-minutes: 25
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 구독 토큰만 쓴다(API 키를 같이 넘기면 API 키가 우선해 사용량만큼 청구된다). test/workflow-secrets.test.ts 가 지킨다.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.BOT_PAT || '' }}
           # Claude 가 App 토큰으로 push 한 커밋의 실행은 claude[bot] 이 시작한다. action 은 bot 이 시작한 실행을 기본으로

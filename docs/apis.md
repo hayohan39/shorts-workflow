@@ -34,7 +34,7 @@
 | **Neon Postgres** | DB | `DATABASE_URL` (Vercel·GitHub), `NEON_API_KEY` (프리뷰 DB 복제, GitHub) |
 | **GitHub Actions** | 대시보드 버튼 → 작업 실행(workflow_dispatch) | `GITHUB_DISPATCH_TOKEN` (Vercel) |
 | **Anthropic Admin API** | 이번 달 Claude 실제 청구 비용(선택) | `ANTHROPIC_ADMIN_KEY` (GitHub) |
-| **Vercel 배포 · Claude 리뷰** | merge 후 배포, PR 리뷰·자동 수정 | `VERCEL_TOKEN` 등, `CLAUDE_CODE_OAUTH_TOKEN` (GitHub) |
+| **Vercel 배포 · Claude 리뷰** | merge 후 배포, PR 리뷰·자동 수정·`@claude` (Claude 구독 사용, API 요금 없음) | `VERCEL_TOKEN` 등, `CLAUDE_CODE_OAUTH_TOKEN` (GitHub) |
 | 대시보드 로그인 | 비밀번호 1개 + 서명 쿠키 | `DASHBOARD_PASSWORD`, `SESSION_SECRET` (Vercel) |
 
 ## 아직 없는 것

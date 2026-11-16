@@ -13,6 +13,15 @@
 - 영향: (새 환경변수, 비용, 되돌리는 법)
 ```
 
+## 2026-11-16 Claude 리뷰·자동 수정·@claude 는 구독 토큰만
+
+- 결정: GitHub Actions 의 Claude 작업(PR 리뷰, CI 자동 수정, `@claude`)은 `CLAUDE_CODE_OAUTH_TOKEN`(Claude 구독)만 쓴다.
+  `ANTHROPIC_API_KEY` 는 쇼츠 파이프라인(`pipeline.yml`: 대본 생성, 클립 키워드, 매일 자동 수집)에만 넘긴다.
+- 이유: 두 값을 함께 넘기면 claude-code-action 이 API 키를 먼저 써서 리뷰 1회에 약 $0.6 이 API 로 청구됐다(2026-11 확인).
+- 검토한 대안: 리뷰용 API 키를 따로 두고 지출 한도 설정(여전히 요금 발생).
+- 영향: 구독 토큰이 없거나 만료되면 리뷰·자동 수정이 실패한다(API 키로 넘어가지 않음).
+  `test/workflow-secrets.test.ts` 가 다른 워크플로에 API 키가 들어가면 CI 를 실패시킨다.
+
 ## 미결
 
 - PDRN 첫 편 실측 크레딧에 따른 장면 구성(영상/이미지 비율) 조정
