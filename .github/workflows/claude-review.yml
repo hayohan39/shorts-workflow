@@ -89,7 +89,7 @@ jobs:
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 구독 토큰만 쓴다(API 키를 같이 넘기면 API 키가 우선해 사용량만큼 청구된다). test/workflow-secrets.test.ts 가 지킨다.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           # Claude(auto-fix·@claude)가 push 한 커밋의 CI 는 claude[bot] 이 시작한다. 그 커밋도 리뷰를 받게 허용한다.
