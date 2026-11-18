@@ -6,10 +6,11 @@ import { formatDateTime } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { clipsToAdopt } from "@/pipeline/clips/adopt";
 import { attributionText, hasShareAlike, selectedClips } from "@/pipeline/clips/attribution";
-import { clipSegment, isSelectable } from "@/pipeline/clips/select";
-import { getCollection, isJobBusy, listClips, type StoredClip } from "@/pipeline/clips/store";
-import { orientationOf, SOURCE_LABELS, type ClipSourceId, type Orientation } from "@/pipeline/clips/types";
+import { isSelectable } from "@/pipeline/clips/select";
+import { getCollection, isJobBusy, listClips } from "@/pipeline/clips/store";
+import { SOURCE_LABELS, type ClipSourceId } from "@/pipeline/clips/types";
 import { formatUsd } from "@/pipeline/script/pricing";
+import { ClipMeta, ClipMedia } from "../clip-card";
 import { AdoptButton, RetryCollectButton, SwapButton } from "../clip-forms";
 import { JobBadge } from "../job-badge";
 
@@ -17,53 +18,6 @@ export const dynamic = "force-dynamic";
 
 /** [교체] 목록에 보여 줄 후보 수 */
 const SWAP_OPTIONS = 6;
-
-const ORIENTATION_LABELS: Record<Orientation, string> = { vertical: "세로", square: "정사각", horizontal: "가로" };
-
-/** "12초", 긴 클립은 "199초 중 49.8초부터 15초" */
-function durationLabel(seconds: number | null): string {
-  if (seconds === null) return "길이 모름";
-  const segment = clipSegment(seconds);
-  return segment.length === seconds ? `${seconds}초` : `${seconds}초 중 ${segment.start}초부터 ${segment.length}초`;
-}
-
-function ClipMeta({ clip }: { clip: StoredClip }) {
-  const orientation = orientationOf(clip.width, clip.height);
-  return (
-    <div className="stack">
-      <a href={clip.pageUrl} target="_blank" rel="noreferrer">
-        {clip.title}
-      </a>
-      <div className="muted small">
-        {durationLabel(clip.durationSec)}
-        {orientation ? ` · ${ORIENTATION_LABELS[orientation]} ${clip.width}×${clip.height}` : ""} ·{" "}
-        {SOURCE_LABELS[clip.source]}
-        {clip.author ? ` · ${clip.author}` : ""} · 검색어 “{clip.keyword}”
-      </div>
-      <div className="row">
-        <span className="badge">{clip.license.name}</span>
-        {clip.license.code === "cc-by-sa" ? <span className="badge badge-failed">동일조건(SA)</span> : null}
-        {clip.blobUrl ? <span className="badge badge-ready">채택됨</span> : null}
-      </div>
-    </div>
-  );
-}
-
-function ClipMedia({ clip }: { clip: StoredClip }) {
-  const src = clip.blobUrl ?? clip.previewUrl;
-  if (!src) return null;
-  return (
-    <video
-      className="scene-media"
-      src={src}
-      poster={clip.thumbnailUrl ?? undefined}
-      controls
-      muted
-      playsInline
-      preload="none"
-    />
-  );
-}
 
 export default async function ClipCollectionPage({ params }: PageProps<"/clips/[id]">) {
   await requireSession();
@@ -84,8 +38,8 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
   return (
     <>
       <AutoRefresh active={collecting || adopting} />
-      <Link href="/clips" className="back">
-        ← 영상 소스
+      <Link href={collection.episodeId ? `/episodes/${collection.episodeId}?tab=clips` : "/clips"} className="back">
+        {collection.episodeId ? `← 에피소드 #${collection.episodeId}` : "← 클립 보관함"}
       </Link>
       <div className="row between">
         <h1>
@@ -132,8 +86,8 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
             </ul>
             {hasShareAlike(selected) ? (
               <p className="warn-box">
-                CC BY-SA(동일조건) 클립이 있습니다. 이 클립을 넣은 영상도 같은 조건으로 공개해야 한다는 해석이 있으니,
-                원치 않으면 교체하세요.
+                CC BY-SA(동일조건) 클립이 있습니다. 이 클립을 넣은 영상도 같은 조건으로 공개해야 한다는 해석이 있으니, 원치 않으면
+                교체하세요.
               </p>
             ) : null}
           </section>
@@ -146,7 +100,7 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
                 <li key={clip.id}>
                   <ClipMeta clip={clip} />
                   <ClipMedia clip={clip} />
-                  {swapOptions.length > 0 && !adopting ? (
+                  {swapOptions.length > 0 && !adopting && !collection.episodeId ? (
                     <details>
                       <summary>교체</summary>
                       <ul className="scenes">
@@ -165,27 +119,30 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
             </ol>
           </section>
 
-          <section className="stack">
-            <h2>채택</h2>
-            <p className="muted small">
-              선택된 클립을 내려받아 mp4 로 바꾼 뒤 저장합니다(무료). 교체한 뒤 다시 누르면 새 클립만 받습니다.
+          {collection.episodeId ? (
+            <p className="callout small">
+              에피소드 <Link href={`/episodes/${collection.episodeId}?tab=clips`}>#{collection.episodeId}</Link> 에서 찾은
+              영상입니다. 장면에 고른 클립만 채택합니다(에피소드 화면에서 고르기).
             </p>
-            {collection.adoptStatus ? (
-              <p>
-                <JobBadge status={collection.adoptStatus} prefix="채택 " />
+          ) : (
+            <section className="stack">
+              <h2>채택</h2>
+              <p className="muted small">
+                선택된 클립을 내려받아 mp4 로 바꾼 뒤 저장합니다(무료). 교체한 뒤 다시 누르면 새 클립만 받습니다.
               </p>
-            ) : null}
-            {collection.adoptError && !adopting ? <p className="error prewrap">{collection.adoptError}</p> : null}
-            {toAdopt > 0 ? (
-              <AdoptButton
-                id={collection.id}
-                label={`채택 (${toAdopt}개)`}
-                disabled={!canDispatch || adopting}
-              />
-            ) : selected.length > 0 ? (
-              <p className="ok">선택된 클립을 모두 채택했습니다.</p>
-            ) : null}
-          </section>
+              {collection.adoptStatus ? (
+                <p>
+                  <JobBadge status={collection.adoptStatus} prefix="채택 " />
+                </p>
+              ) : null}
+              {collection.adoptError && !adopting ? <p className="error prewrap">{collection.adoptError}</p> : null}
+              {toAdopt > 0 ? (
+                <AdoptButton id={collection.id} label={`채택 (${toAdopt}개)`} disabled={!canDispatch || adopting} />
+              ) : selected.length > 0 ? (
+                <p className="ok">선택된 클립을 모두 채택했습니다.</p>
+              ) : null}
+            </section>
+          )}
 
           {attribution ? (
             <section className="stack">

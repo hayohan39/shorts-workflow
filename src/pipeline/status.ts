@@ -45,7 +45,8 @@ export const STEP_RULES: Record<Step, StepRule> = {
   voice: { from: ["approved", "rendering", "video_review"] },
   render: { from: ["approved", "rendering"], during: "rendering", done: "rendering" },
   // video_review 에서도 허용: 크레딧 없이 자막·모션만 다시 합성.
-  compose: { from: ["rendering", "video_review"], done: "video_review" },
+  // approved: clips 길은 장면 생성 없이 고른 클립으로 장면을 채운 뒤 바로 합성한다.
+  compose: { from: ["rendering", "video_review", "approved"], done: "video_review" },
   upload: { from: ["ready"], done: "uploaded" },
 };
 

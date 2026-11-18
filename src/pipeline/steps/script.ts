@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
 import type { Episode } from "@/pipeline/episodes";
 import { readAnthropicKey } from "@/pipeline/providers/anthropic";
 import {
@@ -18,11 +19,15 @@ export async function runScriptStep(
   options: { send?: SendMessage; progress?: (text: string) => Promise<void> } = {},
 ): Promise<void> {
   const progress = options.progress ?? (async () => {});
-  const [previous, recent, settings] = await Promise.all([
+  const [previous, recent, settings, picks] = await Promise.all([
     latestScript(episode.id),
     recentScripts(episode.id),
     getSettings(),
+    episode.route === "clips" ? listPicks(episode.id) : [],
   ]);
+  if (episode.route === "clips" && picks.length !== PICK_COUNT) {
+    throw new Error(`장면에 쓸 클립 ${PICK_COUNT}개를 먼저 고르세요(지금 ${picks.length}개).`);
+  }
   const sender = options.send ?? createSender(new Anthropic({ apiKey: readAnthropicKey() }));
   const model = settings.scriptModel || DEFAULT_SCRIPT_MODEL;
   await progress(`자료 조사·대본 작성 중 (${model})`);
@@ -37,6 +42,7 @@ export async function runScriptStep(
         hook: script.scenes[0]?.narration ?? "",
         sceneKinds: script.scenes.map((scene) => scene.kind).join("·"),
       })),
+      clips: picks.map((clip) => ({ title: clip.title, keyword: clip.keyword, seconds: clip.durationSec })),
     },
     { model, send: sender, onProgress: progress },
   ).catch((error: unknown) => {

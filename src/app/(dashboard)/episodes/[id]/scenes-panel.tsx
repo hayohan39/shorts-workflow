@@ -30,7 +30,7 @@ export function ScenesPanel({
       <h2>장면</h2>
       {canFill ? (
         <p className="muted small">
-          장면을 <Link href="/clips">영상 소스</Link>에서 채택한 무료 클립으로 채우면 그 장면은 크레딧 없이 건너뜁니다. 이미 합성했으면
+          장면을 <Link href="/clips">클립 보관함</Link>에서 채택한 무료 클립으로 채우면 그 장면은 크레딧 없이 건너뜁니다. 이미 합성했으면
           다시 합성하세요.
         </p>
       ) : null}
@@ -98,7 +98,7 @@ export function ScenesPanel({
       </ol>
       {canFill && adopted.length === 0 ? (
         <p className="muted small">
-          채택한 무료 클립이 없습니다. <Link href="/clips">영상 소스</Link>에서 수집·채택하면 여기서 장면에 넣을 수 있습니다.
+          채택한 무료 클립이 없습니다. <Link href="/clips">클립 보관함</Link>에서 채택하면 여기서 장면에 넣을 수 있습니다.
         </p>
       ) : null}
     </section>

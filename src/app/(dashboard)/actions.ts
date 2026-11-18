@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
+import { fillScenesFromPicks } from "@/pipeline/clips/picks";
 import { createEpisode, decide, getEpisode, saveUpload, setVoiceSelection } from "@/pipeline/episodes";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
@@ -122,14 +123,19 @@ export async function approveScriptAction(_prev: SimpleState, formData: FormData
   const id = episodeId(formData);
   const script = id ? await latestScript(id) : null;
   if (!id || !script) return { error: "대본을 찾을 수 없습니다." };
+  let approved;
   try {
-    await decide(id, "approve-script");
+    approved = await decide(id, "approve-script");
   } catch (error) {
     refresh();
     if (error instanceof TransitionError) return { error: error.message };
     throw error;
   }
   await setReviewerNote(script.id, note(formData) || null);
+  // 영상 먼저 찾기(clips 길): 고른 클립으로 장면을 채운다. 채택이 아직이면 채택이 끝날 때 채운다.
+  await fillScenesFromPicks(approved).catch((error: unknown) => {
+    console.warn(`장면 채우기 실패: ${error instanceof Error ? error.message : String(error)}`);
+  });
   refresh();
   return {};
 }

@@ -11,7 +11,7 @@ const LINKS = [
   },
   {
     href: "/clips",
-    label: "영상 소스",
+    label: "클립 보관함",
     match: (path: string) => path.startsWith("/clips"),
   },
   {
