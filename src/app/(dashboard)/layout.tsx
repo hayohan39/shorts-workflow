@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import { NavLinks } from "@/components/nav-links";
 import { requireSession } from "@/lib/auth";
 import { dispatchAvailability } from "@/lib/github";
 import { project } from "@/lib/project";
@@ -14,19 +16,18 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <header className="topbar">
-        <Link href="/" className="brand">
-          {project.name}
-        </Link>
-        <nav>
-          <Link href="/episodes/new">새 에피소드</Link>
-          <Link href="/clips">영상 소스</Link>
-          <Link href="/settings">설정</Link>
+        <div className="topbar-inner">
+          <Link href="/" className="brand">
+            <Image src="/icon.svg" alt="" width={28} height={28} className="brand-icon" unoptimized />
+            <span>{project.name}</span>
+          </Link>
           <form action={logoutAction}>
-            <button type="submit" className="link">
+            <button type="submit" className="link small">
               로그아웃
             </button>
           </form>
-        </nav>
+        </div>
+        <NavLinks />
       </header>
       {availability.ok ? null : <p className="banner">{availability.reason}</p>}
       <main>{children}</main>

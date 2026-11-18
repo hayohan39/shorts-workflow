@@ -24,7 +24,7 @@ export function VideoReview({
       {reviewing ? (
         <form action={approve} className="stack">
           <input type="hidden" name="id" value={episodeId} />
-          <p className="small">휴대폰에서 자막·고지·음량을 확인하고 승인하세요. 제목·설명·태그는 아래 대본에서 확인합니다.</p>
+          <p className="small">휴대폰에서 자막·고지·음량을 확인하고 승인하세요. 제목·설명·태그는 대본 탭에서 확인합니다.</p>
           <button type="submit" disabled={approving}>
             {approving ? "승인 중…" : "영상 승인"}
           </button>
