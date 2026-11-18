@@ -1,6 +1,7 @@
 import type { Dispatcher } from "@/lib/github";
 import { failStep, getEpisode, requestStep, type Episode } from "@/pipeline/episodes";
-import { isBusy, STEP_LABELS, type Status, type Step } from "@/pipeline/status";
+import { listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
+import { isBusy, STEP_LABELS, TransitionError, type Status, type Step } from "@/pipeline/status";
 
 // 대시보드에서 단계를 시작시키는 쪽. DB 에 "대기" 를 적고 Actions 실행을 요청한다.
 
@@ -30,6 +31,8 @@ export function runnableStep(episode: Episode, now = Date.now()): Step | null {
   if (isBusy(episode)) step = isStale(episode, now) ? episode.step : null;
   else if (episode.status === "failed") step = episode.step;
   else step = NEXT_STEP[episode.status] ?? null;
+  // clips 길은 장면을 AI 로 만들지 않는다(고른 클립으로 채운 뒤 바로 합성).
+  if (step === "render" && episode.route === "clips") step = "compose";
   return step && IMPLEMENTED_STEPS.includes(step) ? step : null;
 }
 
@@ -41,6 +44,12 @@ export function runnableStep(episode: Episode, now = Date.now()): Step | null {
 export async function triggerStep(id: number, step: Step, dispatch: Dispatcher, now = Date.now()): Promise<Episode> {
   const current = await getEpisode(id);
   if (!current) throw new Error(`에피소드 #${id} 를 찾을 수 없습니다.`);
+  if (current.route === "clips") {
+    if (step === "render") throw new TransitionError("이 에피소드는 고른 클립으로 장면을 채웁니다(장면 생성 없음).");
+    if (step === "script" && (await listPicks(id)).length !== PICK_COUNT) {
+      throw new TransitionError(`장면에 쓸 클립 ${PICK_COUNT}개를 먼저 고르세요.`);
+    }
+  }
   if (isStale(current, now) && current.step) {
     await failStep(id, current.step, `${STEP_LABELS[current.step]}이(가) 응답 없이 멈춰 중단 처리했습니다.`);
   }

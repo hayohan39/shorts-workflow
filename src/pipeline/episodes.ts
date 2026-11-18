@@ -13,8 +13,12 @@ import {
   type StepState,
 } from "@/pipeline/status";
 
+/** 만드는 길: ai(주제·목차 → AI 장면 생성) · clips(무료 영상을 먼저 찾아 고른 뒤 대본). */
+export type Route = "ai" | "clips";
+
 export interface Episode {
   id: number;
+  route: Route;
   topic: string;
   outline: string;
   status: Status;
@@ -38,6 +42,7 @@ export interface Episode {
 
 interface EpisodeRow {
   id: number;
+  route: Route;
   topic: string;
   outline: string;
   status: Status;
@@ -56,7 +61,7 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at,
+const COLUMNS = `id, route, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
@@ -74,6 +79,7 @@ export class EpisodeNotFoundError extends Error {
 function toEpisode(row: EpisodeRow): Episode {
   return {
     id: row.id,
+    route: row.route,
     topic: row.topic,
     outline: row.outline,
     status: row.status,
@@ -93,15 +99,15 @@ function toEpisode(row: EpisodeRow): Episode {
   };
 }
 
-export async function createEpisode(input: { topic: string; outline: string }): Promise<Episode> {
+export async function createEpisode(input: { topic: string; outline: string; route?: Route }): Promise<Episode> {
   const topic = input.topic.trim();
   const outline = input.outline.trim();
   if (!topic) throw new RangeError("주제를 입력하세요.");
   if (topic.length > TOPIC_MAX) throw new RangeError(`주제는 ${TOPIC_MAX}자 이내로 입력하세요.`);
   if (outline.length > OUTLINE_MAX) throw new RangeError(`목차는 ${OUTLINE_MAX}자 이내로 입력하세요.`);
   const [row] = await query<EpisodeRow>(
-    `insert into episodes (topic, outline) values ($1, $2) returning ${COLUMNS}`,
-    [topic, outline],
+    `insert into episodes (topic, outline, route) values ($1, $2, $3) returning ${COLUMNS}`,
+    [topic, outline, input.route ?? "ai"],
   );
   return toEpisode(row);
 }
@@ -218,6 +224,18 @@ export async function reportProgress(id: number, step: Step, text: string): Prom
     [id, step, redact(text).slice(0, PROGRESS_MAX)],
   );
   return rows.length > 0;
+}
+
+/** 목차를 바꾼다(clips 길: 클립을 고른 뒤 컨셉·목차를 적을 때). 대본을 만들기 전(대본 대기)에만. */
+export async function setOutline(id: number, outlineInput: string): Promise<void> {
+  const outline = outlineInput.trim();
+  if (outline.length > OUTLINE_MAX) throw new RangeError(`컨셉·목차는 ${OUTLINE_MAX}자 이내로 입력하세요.`);
+  const rows = await query<{ id: number }>(
+    `update episodes set outline = $2, updated_at = now()
+      where id = $1 and status = 'queued' and (step_state is null or step_state not in ('pending', 'running')) returning id`,
+    [id, outline],
+  );
+  if (!rows.length) throw new RangeError("대본을 만들기 전에만 바꿀 수 있습니다.");
 }
 
 /** 다음 내레이션에 쓸 목소리를 정한다. 값 검증은 부르는 쪽(voices.ts 목록)이 한다. */

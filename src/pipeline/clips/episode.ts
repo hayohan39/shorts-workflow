@@ -29,7 +29,7 @@ export async function fillSceneWithClip(episode: Episode, sceneNo: number, clipI
   const script = await latestScript(episode.id);
   if (!script?.scenes.some((scene) => scene.no === sceneNo)) throw new RangeError("없는 장면입니다.");
   const [clip] = await getClips([clipId]);
-  if (!clip?.blobUrl) throw new RangeError("채택한 클립만 넣을 수 있습니다. 영상 소스에서 먼저 채택하세요.");
+  if (!clip?.blobUrl) throw new RangeError("채택한 클립만 넣을 수 있습니다. 클립 보관함에서 먼저 채택하세요.");
   return saveAsset({
     episodeId: episode.id,
     kind: "video",

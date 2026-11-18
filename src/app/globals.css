@@ -798,3 +798,141 @@ div.empty p {
     animation: none;
   }
 }
+
+/* 새 에피소드: 만드는 길 고르기 */
+.route-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.route-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.9rem;
+  color: inherit;
+  text-decoration: none;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 0.9rem;
+  box-shadow: var(--shadow);
+}
+
+.route-active {
+  border-color: var(--accent-strong);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--card);
+}
+
+.route-steps {
+  color: var(--accent);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.route-label {
+  margin: -0.25rem 0 0;
+}
+
+/* 영상 찾기: 장면에 쓸 클립 고르기 */
+.pick-slots {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pick-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  color: var(--muted);
+  border: 1.5px dashed var(--border);
+  border-radius: 0.6rem;
+}
+
+.pick-filled {
+  color: var(--foreground);
+  border-style: solid;
+  border-color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.pick-no {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  border-radius: 50%;
+  color: var(--accent-text);
+  background: var(--border);
+}
+
+.pick-filled .pick-no {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent-2));
+}
+
+.pick-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.pick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 0.7rem;
+}
+
+.pick-chosen {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 완성 영상(세로)에서 보이는 모양에 가깝게 세로로 잘라 보여 준다. */
+.pick-media {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 15rem;
+  object-fit: cover;
+  background: #000;
+  border-radius: 0.45rem;
+}
+
+.pick-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pick-info {
+  font-size: 0.75rem;
+}
+
+.pick-select select {
+  padding: 0.45rem 0.5rem;
+  font-size: 0.9rem;
+}

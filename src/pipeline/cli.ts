@@ -16,10 +16,11 @@ import { appendFile } from "node:fs/promises";
 import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";
 import { redact } from "@/lib/health";
-import { failStep } from "@/pipeline/episodes";
+import { failStep, getEpisode } from "@/pipeline/episodes";
 import { refreshManyMotionsAccount } from "@/pipeline/accounts";
 import { listAssets } from "@/pipeline/assets";
 import { adoptClips } from "@/pipeline/clips/adopt";
+import { fillScenesFromPicks } from "@/pipeline/clips/picks";
 import { collectClips } from "@/pipeline/clips/collect";
 import { createAdapters } from "@/pipeline/clips/sources";
 import {
@@ -130,7 +131,16 @@ async function clips(command: string | undefined, step: "clips" | "clips-adopt",
         progress: async (text) => console.log(`채택 ${text}`),
       });
       await finishAdopt(id);
-      await summary([title, "", `✅ ${count}개 채택`]);
+      // 에피소드에서 고른 클립이면, 대본이 이미 승인됐을 때 바로 장면을 채운다(아니면 승인할 때 채운다).
+      const episode = started.episodeId ? await getEpisode(started.episodeId) : null;
+      // 채우기가 실패해도 채택은 끝났다. 대본을 승인할 때 다시 채운다.
+      const filled = episode
+        ? await fillScenesFromPicks(episode).catch((error: unknown) => {
+            console.warn(`장면 채우기 실패: ${error instanceof Error ? error.message : String(error)}`);
+            return 0;
+          })
+        : 0;
+      await summary([title, "", `✅ ${count}개 채택${filled ? ` · 에피소드 #${episode!.id} 장면 ${filled}개 채움` : ""}`]);
     } else {
       const done = await collectClips(started, {
         adapters: createAdapters(),
@@ -162,7 +172,7 @@ async function clipsDaily(command: string | undefined): Promise<number> {
   if (command !== "run") throw new Error(USAGE);
   const title = "### 영상 클립 매일 수집";
   if (!(await isDailyEnabled())) {
-    await summary([title, "", "⏭️ 꺼져 있어 건너뜀 (영상 소스 화면에서 켤 수 있습니다)"]);
+    await summary([title, "", "⏭️ 꺼져 있어 건너뜀 (클립 보관함 화면에서 켤 수 있습니다)"]);
     return 0;
   }
   const tag = await pickDailyTag();

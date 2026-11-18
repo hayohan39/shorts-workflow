@@ -9,7 +9,9 @@ import { dispatchAvailability } from "@/lib/github";
 import { listAssets } from "@/pipeline/assets";
 import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
 import { canFillScenes, descriptionWithCredits, sceneClips } from "@/pipeline/clips/episode";
-import { listAdoptedClips } from "@/pipeline/clips/store";
+import { canPick, listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
+import { isSelectable } from "@/pipeline/clips/select";
+import { episodeCollection, isJobBusy, listAdoptedClips, listClips } from "@/pipeline/clips/store";
 import { getEpisode } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
@@ -19,7 +21,7 @@ import { estimateSceneCredits, scenesDone } from "@/pipeline/steps/render";
 import { studioUrl, watchUrl } from "@/pipeline/youtube/links";
 import { buildUploadText, hasAiScenes } from "@/pipeline/youtube/metadata";
 import { isStale, runnableStep } from "@/pipeline/trigger";
-import { isStage, STAGE_LABELS, STEP_STAGE, workflow, type Stage } from "@/pipeline/workflow";
+import { isStage, ROUTE_LABELS, ROUTE_STAGES, STAGE_LABELS, STEP_STAGE, workflow, type Stage } from "@/pipeline/workflow";
 import {
   DEFAULT_VOICE_ID,
   DEFAULT_VOICE_MODEL,
@@ -30,6 +32,9 @@ import {
   VOICES,
   voiceLabel,
 } from "@/pipeline/voices";
+import { ClipMedia, ClipMeta } from "../../clips/clip-card";
+import { AdoptButton, RetryCollectButton } from "../../clips/clip-forms";
+import { PickForm } from "./pick-form";
 import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
 import { ScenesPanel } from "./scenes-panel";
@@ -41,6 +46,7 @@ export const dynamic = "force-dynamic";
 
 // 지금 단계에서 사람이 할 일. 단계가 도는 중이거나 실패했으면 그 안내가 대신 나온다.
 const NEXT_ACTION: Record<Stage, string> = {
+  clips: "찾은 영상에서 장면 4개를 고르고 영상 컨셉·목차를 적으세요.",
   script: "대본을 검토하고 승인하거나 반려하세요.",
   voice: "목소리를 골라 내레이션을 만드세요.",
   scenes: "장면을 만들거나 무료 클립으로 채우세요.",
@@ -68,9 +74,24 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   const canFill = Boolean(script) && canFillScenes(episode);
   const clips = await sceneClips(scenes);
 
+  // 영상 먼저 찾기(clips 길): 이 에피소드에서 찾은 영상과 장면에 고른 클립.
+  const byClips = episode.route === "clips";
+  const collection = byClips ? await episodeCollection(episode.id) : null;
+  const [found, picks] = collection
+    ? await Promise.all([listClips(collection.id), listPicks(episode.id)])
+    : [[], []];
+  const searching = collection ? isJobBusy(collection.status, collection.updatedAt) : false;
+  const adopting = collection ? isJobBusy(collection.adoptStatus, collection.updatedAt) : false;
+  const picked = picks.length === PICK_COUNT;
+
   const busy = isBusy(episode);
   const stale = isStale(episode);
-  const step = runnableStep(episode);
+  // clips 길: 클립을 고르기 전에는 대본을, 장면이 다 채워지기 전에는 합성을 시작할 수 없다.
+  const nextStep = runnableStep(episode);
+  const step =
+    byClips && ((nextStep === "script" && !picked) || (nextStep === "compose" && missingScenes.length > 0))
+      ? null
+      : nextStep;
   const availability = dispatchAvailability();
   const canDispatch = availability.ok;
   const buttonLabel = step
@@ -105,9 +126,11 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   const flow = workflow(episode, {
     hasNarration: narrationAssets.some((asset) => asset.url),
     scenesLeft: missingScenes.length,
+    picked,
+    search: searching ? "busy" : collection && collection.status !== "done" ? "failed" : null,
   });
   const tabParam = (await searchParams).tab;
-  const tab: Stage = isStage(tabParam) ? tabParam : flow.current;
+  const tab: Stage = isStage(tabParam) && ROUTE_STAGES[episode.route].includes(tabParam) ? tabParam : flow.current;
   const stepTab = step ? STEP_STAGE[step] : null;
   const tabHref = (stage: Stage) => `/episodes/${episode.id}?tab=${stage}`;
 
@@ -126,7 +149,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
 
   return (
     <>
-      <AutoRefresh active={busy && !stale} />
+      <AutoRefresh active={(busy && !stale) || searching || adopting} />
       <Link href="/" className="back">
         ← 에피소드 목록
       </Link>
@@ -136,6 +159,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
         </h1>
         <StatusBadge episode={episode} />
       </div>
+      <p className="muted small route-label">{byClips ? "🎬" : "✍️"} {ROUTE_LABELS[episode.route]}</p>
 
       <WorkflowTabs episodeId={episode.id} flow={flow} active={tab} />
 
@@ -154,6 +178,16 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             <p className="muted small">
               보통 {STEP_TYPICAL_DURATION[episode.step]} 걸립니다. 이 화면은 5초마다 자동으로 새로 고칩니다.
             </p>
+          </>
+        ) : flow.current === "clips" && searching ? (
+          <>
+            <p className="now-title">영상을 찾는 중입니다</p>
+            <p className="muted small">보통 1분 안에 끝납니다. 이 화면은 5초마다 자동으로 새로 고칩니다.</p>
+          </>
+        ) : flow.current === "clips" && flow.activity === "failed" ? (
+          <>
+            <p className="now-title">영상 찾기가 끝나지 않았습니다. 다시 시도하세요.</p>
+            {collection?.error ? <p className="error prewrap small">{collection.error}</p> : null}
           </>
         ) : stale ? (
           <p className="error">응답이 없습니다. Actions 가 멈췄을 수 있습니다. 다시 시도하세요.</p>
@@ -174,6 +208,49 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
       </div>
 
       <div className="tab-panel">
+        {tab === "clips" ? (
+          !collection ? (
+            <Empty>영상 찾기 기록이 없습니다.</Empty>
+          ) : collection.status !== "done" ? (
+            searching ? (
+              <Empty>무료 영상 소스에서 찾는 중입니다…</Empty>
+            ) : (
+              <section className="stack">
+                <RetryCollectButton id={collection.id} />
+              </section>
+            )
+          ) : canPick(episode) ? (
+            <>
+              <p className="muted small">
+                검색어: {collection.keywords.join(", ")} · <Link href={`/clips/${collection.id}`}>찾은 결과 자세히</Link>
+              </p>
+              {collection.shortfall ? <p className="warn small">{collection.shortfall}</p> : null}
+              <PickForm
+                episodeId={episode.id}
+                clips={found.filter(isSelectable)}
+                picked={picks.map((clip) => clip.id)}
+                sceneCount={PICK_COUNT}
+                {...splitOutline(episode.outline)}
+                disabled={!canDispatch}
+              />
+            </>
+          ) : (
+            <section>
+              <h2>고른 클립</h2>
+              <ol className="scenes">
+                {picks.map((clip, index) => (
+                  <li key={clip.id}>
+                    <strong className="small">장면 {index + 1}</strong>
+                    <ClipMeta clip={clip} />
+                    <ClipMedia clip={clip} />
+                  </li>
+                ))}
+              </ol>
+              <p className="muted small">대본을 반려하면 클립을 다시 고를 수 있습니다.</p>
+            </section>
+          )
+        ) : null}
+
         {tab === "script" ? (
           <>
             {episode.outline ? (
@@ -185,6 +262,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             {stepTab === "script" ? runButton : null}
             {script ? (
               <ScriptReview script={script} reviewing={episode.status === "script_review" && !busy} />
+            ) : byClips && !picked ? (
+              <Empty>영상 찾기에서 장면 클립을 고르면 대본을 만듭니다.</Empty>
             ) : (
               <Empty>대본을 만들면 여기에 나옵니다.</Empty>
             )}
@@ -278,11 +357,31 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
 
         {tab === "video" ? (
           <>
+            {byClips && script && missingScenes.length > 0 && canFill ? (
+              <section className="stack">
+                <p className="small">
+                  고른 클립을 저장하는 중입니다. 저장이 끝나면 장면에 들어가고 합성할 수 있습니다(남은 장면 {missingScenes.length}개).
+                </p>
+                {collection?.adoptError && !adopting ? <p className="error prewrap small">{collection.adoptError}</p> : null}
+                {collection && !adopting ? (
+                  <AdoptButton id={collection.id} label="클립 저장 다시 시도" disabled={!canDispatch} />
+                ) : null}
+              </section>
+            ) : null}
             {stepTab === "video" ? runButton : null}
             {step === "compose" && !narrationAssets.length ? (
               <p className="warn small">
                 내레이션이 없습니다. <Link href={tabHref("voice")}>내레이션</Link>을 먼저 만드세요.
               </p>
+            ) : null}
+            {byClips && script && (scenes.size > 0 || canFill) ? (
+              <ScenesPanel
+                episodeId={episode.id}
+                scenes={script.scenes}
+                done={scenes}
+                adopted={canFill ? await listAdoptedClips() : []}
+                canFill={canFill}
+              />
             ) : null}
             {finalVideo?.url ? (
               <VideoReview
@@ -339,6 +438,12 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
       </p>
     </>
   );
+}
+
+/** clips 길에서 적은 "컨셉: …" 과 목차를 나눈다(다시 고를 때 채워 두기 위해). */
+function splitOutline(outline: string): { concept: string; outline: string } {
+  const match = /^컨셉: (.*)(?:\n\n([\s\S]*))?$/.exec(outline);
+  return match ? { concept: match[1], outline: match[2] ?? "" } : { concept: "", outline };
 }
 
 function Empty({ children }: { children: React.ReactNode }) {

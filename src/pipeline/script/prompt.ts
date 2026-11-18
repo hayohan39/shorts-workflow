@@ -31,10 +31,23 @@ export interface PromptInput {
   previousNarration: string | null;
   /** 최근 다른 편의 훅과 장면 구성(겹치지 않게). */
   recentEpisodes: { title: string; hook: string; sceneKinds: string }[];
+  /** 무료 영상 클립을 먼저 고른 편(clips 길)이면 장면 순서대로의 클립. 없으면 AI 로 장면을 만든다. */
+  clips?: { title: string; keyword: string; seconds: number | null }[];
 }
 
 export function buildUserPrompt(input: PromptInput): string {
   const lines = [`주제: ${input.topic}`, "", "목차:", input.outline || "(목차 없음 — 주제에 맞게 구성)"];
+  if (input.clips?.length) {
+    lines.push(
+      "",
+      "이 편은 미리 고른 무료 영상 클립을 장면 순서대로 화면에 쓴다(AI 로 영상·이미지를 만들지 않는다).",
+      "각 장면의 narration 은 그 장면 클립의 화면과 어울리게 쓰고, prompt 에는 그 클립 화면을 짧게 묘사한다.",
+      "클립은 실제 촬영 영상이라 realistic_person 은 모두 false 로 한다. 장면 kind 규칙(영상·이미지 개수)은 형식대로 지킨다.",
+    );
+    input.clips.forEach((clip, index) => {
+      lines.push(`- 장면 ${index + 1}: ${clip.title} (검색어 "${clip.keyword}"${clip.seconds ? `, 원본 ${clip.seconds}초` : ""})`);
+    });
+  }
   if (input.recentEpisodes.length) {
     lines.push("", "최근 편(훅·장면 구성을 겹치지 말 것):");
     for (const episode of input.recentEpisodes) {

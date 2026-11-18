@@ -4,13 +4,15 @@ import path from "node:path";
 import { probeMedia, runFfmpeg } from "@/pipeline/compose/ffmpeg";
 import { USER_AGENT } from "@/pipeline/clips/http";
 import { clipSegment } from "@/pipeline/clips/select";
-import { listClips, saveAdoptedClip, type StoredClip } from "@/pipeline/clips/store";
+import { listPicks } from "@/pipeline/clips/picks";
+import { getCollection, listClips, saveAdoptedClip, type StoredClip } from "@/pipeline/clips/store";
 import type { BlobPut } from "@/pipeline/providers/blob";
 
 // [채택]: 선택된 클립 중 아직 Blob 에 없는 것을 mp4(H.264, 소리 없음)로 바꿔 Blob 에 올린다.
 // 소스 파일은 webm·ogv 등 형식이 제각각이고 핫링크가 금지된 곳(Pixabay)도 있어 우리 저장소로 옮긴다.
 // ffmpeg 가 원본 주소에서 쓰는 구간(30초 초과는 15초, clipSegment)만 읽는다. 긴 원본을 통째로 받지 않는다.
 // 원본 소리는 쓰지 않는다(합성 때 내레이션만 쓴다). 클립 하나가 실패하면 거기서 멈추고, 다시 채택하면 남은 것부터 한다.
+// 에피소드(clips 길)에서 찾은 수집은 그 에피소드가 장면에 고른 클립만 채택한다(나머지는 받지 않는다).
 
 export interface ConvertSource {
   url: string;
@@ -63,15 +65,20 @@ async function convertWithFfmpeg(source: ConvertSource, output: string): Promise
   if (!((await probeMedia(output)).duration > 0)) throw new Error("변환한 영상이 비어 있습니다.");
 }
 
+const needsAdopt = (clip: StoredClip) => Boolean(clip.downloadUrl) && clip.durationSec !== null && !clip.blobUrl;
+
 /** 채택할 클립: 선택됐고, 받을 파일과 길이가 있고, 아직 Blob 에 없는 것. */
 export function clipsToAdopt(clips: StoredClip[]): StoredClip[] {
-  return clips.filter((clip) => clip.rank !== null && clip.downloadUrl && clip.durationSec !== null && !clip.blobUrl);
+  return clips.filter((clip) => clip.rank !== null && needsAdopt(clip));
 }
 
 /** 채택한 클립 수를 돌려준다. */
 export async function adoptClips(collectionId: number, deps: AdoptDeps): Promise<number> {
   const convert = deps.convert ?? convertWithFfmpeg;
-  const pending = clipsToAdopt(await listClips(collectionId));
+  const collection = await getCollection(collectionId);
+  const pending = collection?.episodeId
+    ? (await listPicks(collection.episodeId)).filter((clip) => clip.collectionId === collectionId && needsAdopt(clip))
+    : clipsToAdopt(await listClips(collectionId));
   const dir = await mkdtemp(path.join(os.tmpdir(), `clips-${collectionId}-`));
   try {
     for (const [index, clip] of pending.entries()) {
@@ -84,7 +91,7 @@ export async function adoptClips(collectionId: number, deps: AdoptDeps): Promise
         await saveAdoptedClip(clip.id, url);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`#${clip.rank} "${clip.title}" (${clip.pageUrl}) 채택 실패: ${reason}`);
+        throw new Error(`${clip.rank ? `#${clip.rank} ` : ""}"${clip.title}" (${clip.pageUrl}) 채택 실패: ${reason}`);
       }
     }
     return pending.length;

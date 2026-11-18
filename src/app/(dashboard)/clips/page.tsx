@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import { dispatchAvailability } from "@/lib/github";
 import {
   isDailyEnabled,
   isJobBusy,
@@ -10,10 +9,9 @@ import {
   listSourceStates,
   listTags,
   TAG_MAX,
-  TOPIC_MAX,
 } from "@/pipeline/clips/store";
 import { SOURCE_LABELS } from "@/pipeline/clips/types";
-import { AddTagForm, CollectForm, DailyToggle, TagButtons } from "./clip-forms";
+import { AddTagForm, DailyToggle, TagButtons } from "./clip-forms";
 import { JobBadge } from "./job-badge";
 
 export const dynamic = "force-dynamic";
@@ -34,20 +32,16 @@ export default async function ClipsPage() {
   return (
     <>
       <AutoRefresh active={busy} />
-      <h1>영상 소스</h1>
+      <h1>클립 보관함</h1>
       <p className="muted">
-        주제를 넣으면 무료 라이선스 영상 클립을 찾아 쇼츠 한 편 분량(60~120초)을 추천합니다. 마음에 들지 않는 클립은
-        교체하고, 채택하면 파일을 저장하고 출처 표기를 만들어 둡니다.
+        지금까지 찾은 무료 라이선스 영상입니다. 채택한 클립은 에피소드 장면에 넣을 수 있습니다. 새로 찾으려면{" "}
+        <Link href="/episodes/new?route=clips">영상 먼저 찾기</Link>로 에피소드를 만드세요.
       </p>
 
       <section>
-        <CollectForm disabled={!dispatchAvailability().ok} maxLength={TOPIC_MAX} />
-      </section>
-
-      <section>
-        <h2>최근 수집</h2>
+        <h2>최근 찾은 영상</h2>
         {collections.length === 0 ? (
-          <p className="muted">아직 수집한 적이 없습니다.</p>
+          <p className="muted">아직 찾은 적이 없습니다.</p>
         ) : (
           <ul className="cards">
             {collections.map((collection) => (
@@ -56,6 +50,7 @@ export default async function ClipsPage() {
                   <div className="row between">
                     <strong>
                       #{collection.id} {collection.kind === "daily" ? "[자동] " : ""}
+                      {collection.episodeId ? `[에피소드 #${collection.episodeId}] ` : ""}
                       {collection.topic}
                     </strong>
                     <JobBadge status={collection.status} />

@@ -22,6 +22,8 @@ export interface ClipCollection {
   id: number;
   kind: "search" | "daily";
   topic: string;
+  /** 에피소드(clips 길)에서 찾은 것이면 그 에피소드. 채택은 그 에피소드가 고른 클립만 한다. */
+  episodeId: number | null;
   status: JobStatus;
   keywords: string[];
   sourceResults: Partial<Record<ClipSourceId, SourceResult>>;
@@ -53,6 +55,7 @@ interface CollectionRow {
   id: number;
   kind: ClipCollection["kind"];
   topic: string;
+  episode_id: number | null;
   status: JobStatus;
   keywords: string[];
   source_results: ClipCollection["sourceResults"];
@@ -96,7 +99,7 @@ interface ClipRow {
   adopted_at: Date | null;
 }
 
-const COLLECTION_COLUMNS = `id, kind, topic, status, keywords, source_results, total_seconds, shortfall, keyword_cost_usd,
+const COLLECTION_COLUMNS = `id, kind, topic, episode_id, status, keywords, source_results, total_seconds, shortfall, keyword_cost_usd,
   run_url, error, adopt_status, adopt_error, adopt_run_url, created_at, updated_at, finished_at`;
 
 const CLIP_COLUMNS = `id, collection_id, source, source_id, keyword, title, page_url, thumbnail_url, preview_url, download_url,
@@ -110,6 +113,7 @@ function toCollection(row: CollectionRow): ClipCollection {
     id: row.id,
     kind: row.kind,
     topic: row.topic,
+    episodeId: row.episode_id,
     status: row.status,
     keywords: row.keywords,
     sourceResults: row.source_results,
@@ -163,16 +167,33 @@ const cleanError = (message: string) => redact(message).slice(0, 2000);
 
 // ── 수집 ────────────────────────────────────────────────────────────
 
-/** 주제 검색을 대기열에 넣는다. 주제가 비었거나 너무 길면 RangeError. */
-export async function createSearchCollection(topicInput: string): Promise<ClipCollection> {
+/**
+ * 주제 검색을 대기열에 넣는다. 주제가 비었거나 너무 길면 RangeError.
+ * 연관 단어는 주제 뒤에 붙여 키워드를 만들 때 함께 본다. 에피소드에서 찾으면 그 에피소드에 묶는다.
+ */
+export async function createSearchCollection(
+  topicInput: string,
+  options: { related?: string; episodeId?: number } = {},
+): Promise<ClipCollection> {
   const topic = topicInput.replace(/\s+/g, " ").trim();
+  const related = (options.related ?? "").replace(/\s+/g, " ").trim();
   if (!topic) throw new RangeError("주제를 입력하세요.");
   if (topic.length > TOPIC_MAX) throw new RangeError(`주제는 ${TOPIC_MAX}자 이내로 입력하세요.`);
+  if (related.length > TOPIC_MAX) throw new RangeError(`연관 단어는 ${TOPIC_MAX}자 이내로 입력하세요.`);
   const [row] = await query<CollectionRow>(
-    `insert into clip_collections (kind, topic) values ('search', $1) returning ${COLLECTION_COLUMNS}`,
-    [topic],
+    `insert into clip_collections (kind, topic, episode_id) values ('search', $1, $2) returning ${COLLECTION_COLUMNS}`,
+    [related ? `${topic} (연관 단어: ${related})` : topic, options.episodeId ?? null],
   );
   return toCollection(row);
+}
+
+/** 에피소드에서 찾은 가장 최근 수집. */
+export async function episodeCollection(episodeId: number): Promise<ClipCollection | null> {
+  const [row] = await query<CollectionRow>(
+    `select ${COLLECTION_COLUMNS} from clip_collections where episode_id = $1 order by id desc limit 1`,
+    [episodeId],
+  );
+  return row ? toCollection(row) : null;
 }
 
 export async function getCollection(id: number): Promise<ClipCollection | null> {

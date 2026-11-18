@@ -70,6 +70,30 @@ describe("에피소드 단계 탭", () => {
     });
   });
 
+  it("영상 먼저 찾기(clips): 영상 찾기 → 대본 → 내레이션 → 영상 → 업로드, 장면 단계는 없다", () => {
+    const clips = (status: EpisodeState["status"], step: EpisodeState["step"] = null, stepState: EpisodeState["stepState"] = null) => ({
+      ...at(status, step, stepState),
+      route: "clips" as const,
+    });
+    const facts = (extra: Partial<Parameters<typeof workflow>[1]> = {}) => ({ hasNarration: false, scenesLeft: 4, picked: false, ...extra });
+    expect(states(clips("queued"), facts())).toBe("clips:current script:todo voice:todo video:todo upload:todo");
+    expect(workflow(clips("queued"), facts({ search: "busy" })).activity).toBe("busy");
+    expect(workflow(clips("queued"), facts({ search: "failed" })).activity).toBe("failed");
+    // 고르고 대본을 만드는 중
+    expect(states(clips("queued", "script", "running"), facts({ picked: true }))).toBe(
+      "clips:done script:current voice:todo video:todo upload:todo",
+    );
+    // 반려되어 다시 대본 대기: 고른 클립은 그대로, 대본 단계
+    expect(currentStage(clips("queued", "script", "done"), facts({ picked: true }))).toBe("script");
+    // 승인 뒤: 내레이션 → (클립 채택이 끝나지 않았어도) 영상
+    expect(currentStage(clips("approved"), facts({ picked: true }))).toBe("voice");
+    expect(currentStage(clips("approved"), facts({ picked: true, hasNarration: true, scenesLeft: 2 }))).toBe("video");
+    // 목록(모를 때): 대본을 요청한 적이 없으면 영상 찾기
+    expect(currentStage(clips("queued"))).toBe("clips");
+    expect(currentStage(clips("queued", "script", "pending"))).toBe("script");
+    expect(states(clips("uploaded"))).toBe("clips:done script:done voice:done video:done upload:done");
+  });
+
   it("탭 이름 확인", () => {
     expect(isStage("scenes")).toBe(true);
     expect(isStage("render")).toBe(false);
