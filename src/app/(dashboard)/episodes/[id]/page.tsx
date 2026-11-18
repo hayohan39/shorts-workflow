@@ -77,19 +77,19 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   // 영상 먼저 찾기(clips 길): 이 에피소드에서 찾은 영상과 장면에 고른 클립.
   const byClips = episode.route === "clips";
   const collection = byClips ? await episodeCollection(episode.id) : null;
-  const [found, picks] = collection
-    ? await Promise.all([listClips(collection.id), listPicks(episode.id)])
-    : [[], []];
+  const [found, picks] = collection ? await Promise.all([listClips(collection.id), listPicks(episode.id)]) : [[], []];
   const searching = collection ? isJobBusy(collection.status, collection.updatedAt) : false;
   const adopting = collection ? isJobBusy(collection.adoptStatus, collection.updatedAt) : false;
   const picked = picks.length === PICK_COUNT;
 
   const busy = isBusy(episode);
   const stale = isStale(episode);
-  // clips 길: 클립을 고르기 전에는 대본을, 장면이 다 채워지기 전에는 합성을 시작할 수 없다.
+  // clips 길은 클립을 고르기 전에 대본을, 장면이 다 채워지기 전에 합성을 시작할 수 없다.
   const nextStep = runnableStep(episode);
   const step =
-    byClips && ((nextStep === "script" && !picked) || (nextStep === "compose" && missingScenes.length > 0))
+    (byClips && ((nextStep === "script" && !picked) || (nextStep === "compose" && missingScenes.length > 0))) ||
+    // 내레이션 없이 합성하면 바로 실패한다. 내레이션을 먼저 만들게 한다(아래 안내).
+    (nextStep === "compose" && !narrationAssets.length)
       ? null
       : nextStep;
   const availability = dispatchAvailability();
@@ -159,7 +159,9 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
         </h1>
         <StatusBadge episode={episode} />
       </div>
-      <p className="muted small route-label">{byClips ? "🎬" : "✍️"} {ROUTE_LABELS[episode.route]}</p>
+      <p className="muted small route-label">
+        {byClips ? "🎬" : "✍️"} {ROUTE_LABELS[episode.route]}
+      </p>
 
       <WorkflowTabs episodeId={episode.id} flow={flow} active={tab} />
 
@@ -319,8 +321,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
               <>
                 {runButton}
                 <p className="muted small">
-                  남은 장면 {missingScenes.length}개 · 약 {renderEstimate}크레딧(추천 모델 기준) · 이미
-                  만든 장면은 다시 만들지 않습니다.
+                  남은 장면 {missingScenes.length}개 · 약 {renderEstimate}크레딧(추천 모델 기준) · 이미 만든 장면은 다시 만들지
+                  않습니다.
                 </p>
               </>
             ) : null}
@@ -360,7 +362,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             {byClips && script && missingScenes.length > 0 && canFill ? (
               <section className="stack">
                 <p className="small">
-                  고른 클립을 저장하는 중입니다. 저장이 끝나면 장면에 들어가고 합성할 수 있습니다(남은 장면 {missingScenes.length}개).
+                  고른 클립을 저장하는 중입니다. 저장이 끝나면 장면에 들어가고 합성할 수 있습니다(남은 장면 {missingScenes.length}
+                  개).
                 </p>
                 {collection?.adoptError && !adopting ? <p className="error prewrap small">{collection.adoptError}</p> : null}
                 {collection && !adopting ? (
@@ -369,7 +372,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
               </section>
             ) : null}
             {stepTab === "video" ? runButton : null}
-            {step === "compose" && !narrationAssets.length ? (
+            {nextStep === "compose" && !narrationAssets.length ? (
               <p className="warn small">
                 내레이션이 없습니다. <Link href={tabHref("voice")}>내레이션</Link>을 먼저 만드세요.
               </p>
