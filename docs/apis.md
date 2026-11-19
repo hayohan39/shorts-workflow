@@ -36,8 +36,4 @@
 | **Anthropic Admin API** | 이번 달 Claude 실제 청구 비용(선택) | `ANTHROPIC_ADMIN_KEY` (GitHub) |
 | **Vercel 배포 · Claude 리뷰** | merge 후 배포, PR 리뷰·자동 수정·`@claude` (Claude 구독 사용, API 요금 없음) | `VERCEL_TOKEN` 등, `CLAUDE_CODE_OAUTH_TOKEN` (GitHub) |
 | 대시보드 로그인 | 비밀번호 1개 + 서명 쿠키 | `DASHBOARD_PASSWORD`, `SESSION_SECRET` (Vercel) |
-
-## 아직 없는 것
-
-- **유튜브 업로드**(보류된 ⑦): Google Cloud OAuth → `YOUTUBE_CLIENT_ID` · `YOUTUBE_CLIENT_SECRET` · `YOUTUBE_REFRESH_TOKEN`.
-  그동안은 완성 영상을 내려받아 직접 올린다(설명란 미리보기에 출처 표기 포함).
+| **YouTube Data API** | 자동 업로드(공개·일부 공개·비공개·예약), 무료 | `YOUTUBE_CLIENT_ID` · `YOUTUBE_CLIENT_SECRET` · `YOUTUBE_REFRESH_TOKEN` (GitHub, [설정](youtube-setup.md)) |

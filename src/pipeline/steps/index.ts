@@ -4,6 +4,7 @@ import { readManyMotionsKey } from "@/pipeline/providers/manymotions";
 import { runComposeStep } from "@/pipeline/steps/compose";
 import { runRenderStep } from "@/pipeline/steps/render";
 import { runScriptStep } from "@/pipeline/steps/script";
+import { runUploadStep } from "@/pipeline/steps/upload";
 import { runVoiceStep } from "@/pipeline/steps/voice";
 
 // 단계별 작업. 각 단계는 해당 PR 에서 채운다:
@@ -25,5 +26,8 @@ export const handlers: StepHandlers = {
   render: (episode, context) => withBalanceRefresh(() => runRenderStep(episode, { progress: context.progress })),
   compose: async (episode, context) => {
     await runComposeStep(episode, { progress: context.progress });
+  },
+  upload: async (episode, context) => {
+    await runUploadStep(episode, { progress: context.progress });
   },
 };

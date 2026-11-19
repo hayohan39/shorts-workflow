@@ -936,3 +936,37 @@ div.empty p {
   padding: 0.45rem 0.5rem;
   font-size: 0.9rem;
 }
+
+/* 자동 업로드: 공개 상태 고르기 */
+.choices {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 0.65rem;
+  cursor: pointer;
+}
+
+.choice input {
+  width: auto;
+  margin-top: 0.2rem;
+  accent-color: var(--accent-strong);
+}
+
+.choice-active {
+  border-color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+details.manual > summary {
+  font-weight: 700;
+}

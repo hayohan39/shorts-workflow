@@ -7,7 +7,7 @@ import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
 import { fillScenesFromPicks } from "@/pipeline/clips/picks";
-import { createEpisode, decide, getEpisode, saveUpload, setVoiceSelection } from "@/pipeline/episodes";
+import { createEpisode, decide, getEpisode, saveUpload, setUploadPlan, setVoiceSelection } from "@/pipeline/episodes";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
 import { updateSettings } from "@/pipeline/settings";
@@ -246,6 +246,36 @@ export async function markUploadedAction(_prev: SimpleState, formData: FormData)
     throw error;
   }
   if (videoId) await saveUpload(id, videoId, "public");
+  refresh();
+  return {};
+}
+
+const UPLOAD_CHOICES = { public: "public", unlisted: "unlisted", private: "private", scheduled: "private" } as const;
+
+/**
+ * 유튜브 자동 업로드: 공개 상태(공개·일부 공개·비공개·예약 공개)를 정하고 업로드를 시작한다(무료, 누르는 것이 확인).
+ * 예약 시각은 한국 시간(datetime-local)으로 받는다.
+ */
+export async function uploadAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const id = episodeId(formData);
+  const choice = String(formData.get("privacy") ?? "");
+  if (!id || !(choice in UPLOAD_CHOICES)) return { error: "공개 상태를 고르세요." };
+  const privacy = UPLOAD_CHOICES[choice as keyof typeof UPLOAD_CHOICES];
+  const when = String(formData.get("publishAt") ?? "");
+  const scheduledAt = choice === "scheduled" ? new Date(`${when}:00+09:00`) : null;
+  if (scheduledAt && Number.isNaN(scheduledAt.getTime())) return { error: "예약 공개 시각을 고르세요." };
+
+  const availability = dispatchAvailability();
+  if (!availability.ok) return { error: availability.reason };
+  try {
+    await setUploadPlan(id, privacy, scheduledAt);
+    await triggerStep(id, "upload", createDispatcher());
+  } catch (error) {
+    refresh();
+    if (error instanceof RangeError || error instanceof TransitionError) return { error: error.message };
+    throw error;
+  }
   refresh();
   return {};
 }
