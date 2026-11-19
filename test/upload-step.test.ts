@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Asset } from "@/pipeline/assets";
 import {
+  checkChannel,
   getAccessToken,
   readYoutubeCredentials,
   uploadVideo,
@@ -17,12 +18,17 @@ const metadata: VideoMetadata = {
 };
 
 /** 토큰 → 업로드 시작 → 파일 PUT 을 흉내 내는 가짜 fetch. */
-function youtubeFetch(overrides: { token?: Response; start?: Response; put?: Response; video?: Response } = {}) {
+function youtubeFetch(
+  overrides: { token?: Response; start?: Response; put?: Response; video?: Response; channel?: Response } = {},
+) {
   let started: RequestInit | undefined;
   return vi.fn<typeof fetch>(async (input, init) => {
     const url = String(input);
     if (url.startsWith("https://oauth2.googleapis.com/token")) {
       return overrides.token ?? Response.json({ access_token: "atoken", expires_in: 3599 });
+    }
+    if (url.startsWith("https://www.googleapis.com/youtube/v3/channels")) {
+      return overrides.channel ?? Response.json({ items: [{ id: "UCmine", snippet: { title: "내 채널" } }] });
     }
     if (url.startsWith("https://www.googleapis.com/upload/youtube/v3/videos")) {
       started = init;
@@ -86,6 +92,33 @@ describe("YouTube API", () => {
     const [putUrl, put] = fetchImpl.mock.calls[1];
     expect(String(putUrl)).toBe("https://upload.test/session-1");
     expect(put?.method).toBe("PUT");
+  });
+
+  it("채널 확인: 설정한 채널 ID 가 없으면 건너뛰고, 같으면 통과, 다르면 올리지 않는다", async () => {
+    expect(
+      readYoutubeCredentials({ YOUTUBE_CLIENT_ID: "a", YOUTUBE_CLIENT_SECRET: "b", YOUTUBE_REFRESH_TOKEN: "c", YOUTUBE_CHANNEL_ID: " UCmine " }),
+    ).toMatchObject({ channelId: "UCmine" });
+    const fetchImpl = youtubeFetch();
+    expect(await checkChannel(credentials, "atoken", fetchImpl)).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    expect(await checkChannel({ ...credentials, channelId: "UCmine" }, "atoken", fetchImpl)).toEqual({ id: "UCmine", title: "내 채널" });
+    expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({ authorization: "Bearer atoken" });
+    await expect(checkChannel({ ...credentials, channelId: "UCother" }, "atoken", fetchImpl)).rejects.toThrow(
+      /올리지 않았습니다: 토큰은 "내 채널" 채널\(UCmine\)인데, 설정한 채널은 UCother/,
+    );
+
+    // 채널 조회 권한이 없는 토큰(업로드 범위만)
+    const noScope = youtubeFetch({
+      channel: Response.json(
+        { error: { message: "Request had insufficient authentication scopes.", errors: [{ reason: "insufficientPermissions" }] } },
+        { status: 403 },
+      ),
+    });
+    await expect(checkChannel({ ...credentials, channelId: "UCmine" }, "atoken", noScope)).rejects.toThrow(/youtube\.readonly/);
+    // 채널이 없는 계정
+    const noChannel = youtubeFetch({ channel: Response.json({ items: [] }) });
+    await expect(checkChannel({ ...credentials, channelId: "UCmine" }, "atoken", noChannel)).rejects.toThrow("채널이 없습니다");
   });
 
   it("한도 초과는 이유와 함께 알려 준다", async () => {
@@ -251,6 +284,21 @@ describe.skipIf(!testDatabaseUrl)("유튜브 업로드 단계 (실제 DB, 가짜
     const start = fetchImpl.mock.calls.find(([url]) => String(url).includes("uploadType=resumable"));
     expect(JSON.parse(String(start?.[1]?.body)).status).toMatchObject({ privacyStatus: "private", publishAt: at.toISOString() });
     expect(await latestUpload(episode.id)).toMatchObject({ privacy: "private", publishedAt: at });
+
+    // 다른 채널 토큰이면 영상을 받거나 올리기 전에 멈추고, 업로드 기록도 남지 않는다
+    const wrong = await createEpisode({ topic: "다른 채널", outline: "" });
+    await saveScript(wrong.id, toDraft(validSubmission()), { source: "generated", warnings: [], model: null, usage: null });
+    await saveAsset({ episodeId: wrong.id, kind: "final", model: null, credits: 0, url: "https://blob.test/final.mp4", meta: { scriptVersion: 1 } });
+    await query("update episodes set status = 'ready', upload_privacy = 'public' where id = $1", [wrong.id]);
+    const guarded = youtubeFetch();
+    await expect(
+      runUploadStep((await getEpisode(wrong.id))!, { deps: { credentials: { ...credentials, channelId: "UCother" }, fetchImpl: guarded } }),
+    ).rejects.toThrow("올리지 않았습니다");
+    expect(guarded.mock.calls.map(([url]) => String(url).split("?")[0])).toEqual([
+      "https://oauth2.googleapis.com/token",
+      "https://www.googleapis.com/youtube/v3/channels",
+    ]);
+    expect(await latestUpload(wrong.id)).toBeNull();
 
     // 공개를 요청했는데 YouTube 가 비공개로 적용하면 실제 값(비공개)을 남긴다
     const other = await createEpisode({ topic: "다르게 적용", outline: "" });

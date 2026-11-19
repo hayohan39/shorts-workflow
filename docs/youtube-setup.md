@@ -44,10 +44,11 @@ node scripts/youtube-auth.mjs
    `https://developers.google.com/oauthplayground` 를 넣는다.
 2. https://developers.google.com/oauthplayground 를 열고 오른쪽 위 톱니바퀴 →
    **Use your own OAuth credentials** 체크 → 클라이언트 ID·보안 비밀번호 입력.
-3. 왼쪽 Step 1 입력칸에 `https://www.googleapis.com/auth/youtube.upload` 를 넣고 **Authorize APIs** →
+3. 왼쪽 Step 1 입력칸에 `https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly`
+   (두 범위, 공백으로 구분)를 넣고 **Authorize APIs** →
    채널 계정으로 로그인·허용(채널이 여러 개면 올릴 채널을 고른다).
 4. Step 2 에서 **Exchange authorization code for tokens** → 나오는 **Refresh token** 을 복사.
-   (이 방법은 채널 확인이 따로 나오지 않는다. 첫 업로드를 비공개로 해서 어느 채널에 올라가는지 확인하면 안전하다.)
+   (이 방법은 채널 이름이 따로 나오지 않는다. 아래 3단계의 `YOUTUBE_CHANNEL_ID` 를 넣어 두면 다른 채널이면 올리지 않는다.)
 
 ## 3. GitHub Secrets 에 넣기
 
@@ -58,6 +59,15 @@ GitHub → `shorts-workflow` → Settings → Secrets and variables → Actions 
 | `YOUTUBE_CLIENT_ID` | 클라이언트 ID |
 | `YOUTUBE_CLIENT_SECRET` | 클라이언트 보안 비밀번호 |
 | `YOUTUBE_REFRESH_TOKEN` | 2단계에서 받은 리프레시 토큰 |
+
+**채널 확인(권장)**: 같은 화면의 **Variables** 탭 → New repository variable
+
+| 이름 | 값 |
+| --- | --- |
+| `YOUTUBE_CHANNEL_ID` | 올릴 채널 ID(`UC…`). 2단계 A 도우미가 끝에 보여 준다. YouTube Studio → 설정 → 채널 → 고급 설정에서도 볼 수 있다 |
+
+넣어 두면 업로드할 때마다 토큰의 채널을 먼저 확인하고, **다른 채널이면 올리지 않고 이유를 보여 준다**(무료 조회).
+채널 ID 는 비밀이 아니라 Secrets 가 아닌 Variables 에 넣는다.
 
 ## 4. 써 보기
 
