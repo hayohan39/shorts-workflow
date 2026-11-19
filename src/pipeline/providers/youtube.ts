@@ -5,9 +5,11 @@
 // 2026-11-02 부터 감사를 받지 않은 API 프로젝트가 올린 영상도 비공개로 잠기지 않는다(YouTube Data API 변경 기록).
 // 그래도 채널 설정 등으로 다르게 적용될 수 있어, 요청한 값이 아니라 응답의 공개 상태를 기록한다.
 // 리프레시 토큰 발급: scripts/youtube-auth.mjs (docs/youtube-setup.md)
+// 채널 확인: GitHub 변수 YOUTUBE_CHANNEL_ID 가 있으면 올리기 전에 토큰의 채널과 같은지 본다(다르면 올리지 않는다).
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
+const CHANNEL_URL = "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true";
 
 export type Privacy = "private" | "unlisted" | "public";
 
@@ -15,6 +17,13 @@ export interface YoutubeCredentials {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
+  /** 올려야 하는 채널 ID(GitHub 변수 YOUTUBE_CHANNEL_ID). 없으면 확인하지 않는다. */
+  channelId?: string;
+}
+
+export interface Channel {
+  id: string;
+  title: string;
 }
 
 export interface VideoMetadata {
@@ -47,6 +56,7 @@ export function readYoutubeCredentials(env: Record<string, string | undefined> =
     clientId: env.YOUTUBE_CLIENT_ID!,
     clientSecret: env.YOUTUBE_CLIENT_SECRET!,
     refreshToken: env.YOUTUBE_REFRESH_TOKEN!,
+    ...(env.YOUTUBE_CHANNEL_ID?.trim() ? { channelId: env.YOUTUBE_CHANNEL_ID.trim() } : {}),
   };
 }
 
@@ -87,6 +97,39 @@ export async function getAccessToken(credentials: YoutubeCredentials, fetchImpl:
   const body = (await response.json()) as { access_token?: string };
   if (!body.access_token) throw new Error("YouTube 인증 응답에 액세스 토큰이 없습니다.");
   return body.access_token;
+}
+
+/** 이 토큰이 올리는 채널(youtube.readonly 범위가 필요하다). */
+export async function getChannel(accessToken: string, fetchImpl: typeof fetch = fetch): Promise<Channel> {
+  const response = await fetchImpl(CHANNEL_URL, { headers: { authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) {
+    const reason = await errorReason(response);
+    const hint = /insufficient|scope/i.test(reason)
+      ? " 토큰에 채널 확인 권한(youtube.readonly)이 없습니다. scripts/youtube-auth.mjs 로 토큰을 다시 발급하세요."
+      : "";
+    throw new Error(`YouTube 채널 확인 실패 (HTTP ${response.status}) ${reason}.${hint}`);
+  }
+  const body = (await response.json()) as { items?: { id: string; snippet?: { title?: string } }[] };
+  const channel = body.items?.[0];
+  if (!channel) throw new Error("이 토큰의 구글 계정에 YouTube 채널이 없습니다.");
+  return { id: channel.id, title: channel.snippet?.title ?? channel.id };
+}
+
+/** 올리기 전에 토큰의 채널이 설정한 채널(YOUTUBE_CHANNEL_ID)과 같은지 본다. 설정이 없으면 확인하지 않는다(null). */
+export async function checkChannel(
+  credentials: YoutubeCredentials,
+  accessToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Channel | null> {
+  if (!credentials.channelId) return null;
+  const channel = await getChannel(accessToken, fetchImpl);
+  if (channel.id !== credentials.channelId) {
+    throw new Error(
+      `올리지 않았습니다: 토큰은 "${channel.title}" 채널(${channel.id})인데, 설정한 채널은 ${credentials.channelId} 입니다. ` +
+        "YOUTUBE_REFRESH_TOKEN 을 맞는 채널로 다시 발급하거나 GitHub 변수 YOUTUBE_CHANNEL_ID 를 고치세요.",
+    );
+  }
+  return channel;
 }
 
 /** 영상을 올리고 만들어진 영상(ID·실제 공개 상태)을 돌려준다. */

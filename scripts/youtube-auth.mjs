@@ -107,3 +107,7 @@ console.log("(이 값은 비밀번호와 같습니다. 채팅·문서에 붙여 
 console.log("YOUTUBE_CLIENT_ID      =", clientId);
 console.log("YOUTUBE_CLIENT_SECRET  = (방금 입력한 클라이언트 보안 비밀번호)");
 console.log("YOUTUBE_REFRESH_TOKEN  =", body.refresh_token);
+if (channel) {
+  console.log("\n채널 확인(권장): 같은 화면의 Variables 탭에 아래 값을 넣으면, 다른 채널 토큰일 때 업로드를 막습니다.");
+  console.log("YOUTUBE_CHANNEL_ID     =", channel.id);
+}

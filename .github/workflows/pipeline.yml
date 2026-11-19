@@ -95,6 +95,8 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ inputs.step == 'upload' && secrets.YOUTUBE_CLIENT_ID || '' }}
           YOUTUBE_CLIENT_SECRET: ${{ inputs.step == 'upload' && secrets.YOUTUBE_CLIENT_SECRET || '' }}
           YOUTUBE_REFRESH_TOKEN: ${{ inputs.step == 'upload' && secrets.YOUTUBE_REFRESH_TOKEN || '' }}
+          # 선택: 올려야 하는 채널 ID(비밀 아님, Variables). 있으면 토큰의 채널이 다를 때 올리지 않는다.
+          YOUTUBE_CHANNEL_ID: ${{ inputs.step == 'upload' && vars.YOUTUBE_CHANNEL_ID || '' }}
         run: npm run pipeline -- run "$STEP" "$TARGET_ID"
 
       # 매일 실행에서만. 꺼져 있으면 DB 만 보고 바로 끝난다. probe 가 실패해도 수집은 시도한다.
