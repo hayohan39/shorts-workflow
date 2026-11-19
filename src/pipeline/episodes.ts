@@ -13,6 +13,8 @@ import {
   type StepState,
 } from "@/pipeline/status";
 
+export type UploadPrivacy = "private" | "unlisted" | "public";
+
 /** 만드는 길: ai(주제·목차 → AI 장면 생성) · clips(무료 영상을 먼저 찾아 고른 뒤 대본). */
 export type Route = "ai" | "clips";
 
@@ -32,7 +34,10 @@ export interface Episode {
   voiceId: string | null;
   voiceModel: string | null;
   runUrl: string | null;
+  /** 예약 공개 시각(자동 업로드에서 예약을 골랐을 때). */
   scheduledAt: Date | null;
+  /** 자동 업로드에서 고른 공개 상태. 예약이면 private + scheduledAt. */
+  uploadPrivacy: UploadPrivacy | null;
   youtubeVideoId: string | null;
   creditsUsed: number;
   error: string | null;
@@ -54,6 +59,7 @@ interface EpisodeRow {
   voice_model: string | null;
   run_url: string | null;
   scheduled_at: Date | null;
+  upload_privacy: UploadPrivacy | null;
   youtube_video_id: string | null;
   credits_used: number;
   error: string | null;
@@ -61,7 +67,7 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, route, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at,
+const COLUMNS = `id, route, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
@@ -91,6 +97,7 @@ function toEpisode(row: EpisodeRow): Episode {
     voiceModel: row.voice_model,
     runUrl: row.run_url,
     scheduledAt: row.scheduled_at,
+    uploadPrivacy: row.upload_privacy,
     youtubeVideoId: row.youtube_video_id,
     creditsUsed: row.credits_used,
     error: row.error,
@@ -247,16 +254,49 @@ export async function setVoiceSelection(id: number, voiceId: string, voiceModel:
   ]);
 }
 
-/** 유튜브 업로드 결과: 에피소드에 영상 ID 를, uploads 에 기록 한 줄을 남긴다. */
-export async function saveUpload(id: number, videoId: string, privacy: "private" | "unlisted" | "public"): Promise<void> {
+/**
+ * 유튜브 업로드 결과: 에피소드에 영상 ID 를, uploads 에 기록 한 줄을 남긴다.
+ * publishAt 은 예약 공개 시각(없으면 지금 올린 것으로 본다).
+ */
+export async function saveUpload(id: number, videoId: string, privacy: UploadPrivacy, publishAt: Date | null = null): Promise<void> {
   await transaction(async (client) => {
     await client.query("update episodes set youtube_video_id = $2, updated_at = now() where id = $1", [id, videoId]);
-    await client.query("insert into uploads (episode_id, privacy, youtube_url, published_at) values ($1, $2, $3, now())", [
-      id,
-      privacy,
-      watchUrl(videoId),
-    ]);
+    await client.query(
+      "insert into uploads (episode_id, privacy, youtube_url, published_at) values ($1, $2, $3, coalesce($4, now()))",
+      [id, privacy, watchUrl(videoId), publishAt],
+    );
   });
+}
+
+export interface UploadRecord {
+  privacy: UploadPrivacy;
+  youtubeUrl: string | null;
+  publishedAt: Date | null;
+}
+
+/** 가장 최근 업로드 기록(실제로 적용된 공개 상태). */
+export async function latestUpload(id: number): Promise<UploadRecord | null> {
+  const [row] = await query<{ privacy: UploadPrivacy; youtube_url: string | null; published_at: Date | null }>(
+    "select privacy, youtube_url, published_at from uploads where episode_id = $1 order by id desc limit 1",
+    [id],
+  );
+  return row ? { privacy: row.privacy, youtubeUrl: row.youtube_url, publishedAt: row.published_at } : null;
+}
+
+/** 예약은 이만큼 뒤부터 고를 수 있다(업로드·처리 시간을 둔다). */
+export const SCHEDULE_MIN_LEAD_MS = 30 * 60 * 1000;
+
+/** 자동 업로드의 공개 상태를 정한다. 예약이면 privacy=private, scheduledAt=공개 시각. 업로드 대기에서만. */
+export async function setUploadPlan(id: number, privacy: UploadPrivacy, scheduledAt: Date | null, now = Date.now()): Promise<void> {
+  if (scheduledAt && (privacy !== "private" || scheduledAt.getTime() < now + SCHEDULE_MIN_LEAD_MS)) {
+    throw new RangeError("예약 공개는 지금부터 30분 뒤 이후로 고르세요.");
+  }
+  const rows = await query<{ id: number }>(
+    `update episodes set upload_privacy = $2, scheduled_at = $3, updated_at = now()
+      where id = $1 and status in ('ready', 'failed') and (step_state is null or step_state not in ('pending', 'running')) returning id`,
+    [id, privacy, scheduledAt],
+  );
+  if (!rows.length) throw new RangeError("업로드 대기 중일 때만 고를 수 있습니다.");
 }
 
 /** 사람의 승인·반려. */

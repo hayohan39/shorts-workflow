@@ -12,7 +12,7 @@ import { canFillScenes, descriptionWithCredits, sceneClips } from "@/pipeline/cl
 import { canPick, listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, isJobBusy, listAdoptedClips, listClips } from "@/pipeline/clips/store";
-import { getEpisode } from "@/pipeline/episodes";
+import { getEpisode, latestUpload, SCHEDULE_MIN_LEAD_MS } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
@@ -34,6 +34,7 @@ import {
 } from "@/pipeline/voices";
 import { ClipMedia, ClipMeta } from "../../clips/clip-card";
 import { AdoptButton, RetryCollectButton } from "../../clips/clip-forms";
+import { AutoUpload } from "./auto-upload";
 import { PickForm } from "./pick-form";
 import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
@@ -51,19 +52,20 @@ const NEXT_ACTION: Record<Stage, string> = {
   voice: "목소리를 골라 내레이션을 만드세요.",
   scenes: "장면을 만들거나 무료 클립으로 채우세요.",
   video: "영상을 합성하고, 휴대폰으로 확인한 뒤 승인하세요.",
-  upload: 'YouTube 앱에서 직접 올리고 "올렸어요" 를 누르세요.',
+  upload: "공개 상태를 골라 유튜브에 올리세요(직접 올려도 됩니다).",
 };
 
 export default async function EpisodePage({ params, searchParams }: PageProps<"/episodes/[id]">) {
   await requireSession();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
-  const [episode, script, scriptCosts, assets, settings] = await Promise.all([
+  const [episode, script, scriptCosts, assets, settings, upload] = await Promise.all([
     getEpisode(id),
     latestScript(id),
     scriptCostTotal(id),
     listAssets(id),
     getSettings(),
+    latestUpload(id),
   ]);
   if (!episode) notFound();
   const narrationAssets = assets.filter((asset) => asset.kind === "voice");
@@ -404,6 +406,14 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             {episode.youtubeVideoId ? (
               <section>
                 <h2>올린 영상</h2>
+                {upload ? (
+                  <p className="small">
+                    공개 상태: <strong>{PRIVACY_LABELS[upload.privacy]}</strong>
+                    {upload.publishedAt && upload.privacy === "private" && isFuture(upload.publishedAt)
+                      ? ` · ${formatDateTime(upload.publishedAt)}에 공개 예약`
+                      : ""}
+                  </p>
+                ) : null}
                 <p className="row">
                   <a href={watchUrl(episode.youtubeVideoId)} target="_blank" rel="noreferrer" className="button">
                     유튜브에서 보기
@@ -414,14 +424,26 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
                 </p>
               </section>
             ) : null}
-            {finalVideo?.url && script && (episode.status === "ready" || episode.status === "uploaded") ? (
-              <UploadKit
+            {step === "upload" && finalVideo?.url ? (
+              <AutoUpload
                 episodeId={episode.id}
-                downloadUrl={`${finalVideo.url}?download=1`}
-                {...buildUploadText(script, clips, hasAiScenes(scenes))}
-                canMark={episode.status === "ready" && !busy}
+                minPublishAt={earliestSchedule()}
+                retry={episode.status === "failed" || stale}
+                disabled={!canDispatch}
+                disabledReason={canDispatch ? null : availability.reason}
               />
-            ) : (
+            ) : null}
+            {finalVideo?.url && script && (episode.status === "ready" || episode.status === "uploaded") ? (
+              <details className="manual" open={episode.status === "uploaded" && !episode.youtubeVideoId}>
+                <summary>직접 올리기 (YouTube 앱에서)</summary>
+                <UploadKit
+                  episodeId={episode.id}
+                  downloadUrl={`${finalVideo.url}?download=1`}
+                  {...buildUploadText(script, clips, hasAiScenes(scenes))}
+                  canMark={episode.status === "ready" && !busy}
+                />
+              </details>
+            ) : episode.status === "failed" && episode.step === "upload" ? null : (
               <Empty>영상을 승인하면 업로드에 필요한 영상·제목·설명·태그가 여기에 준비됩니다.</Empty>
             )}
           </>
@@ -441,6 +463,15 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
       </p>
     </>
   );
+}
+
+const PRIVACY_LABELS = { public: "공개", unlisted: "일부 공개", private: "비공개" } as const;
+
+const isFuture = (date: Date) => date.getTime() > Date.now();
+
+/** 예약으로 고를 수 있는 가장 이른 시각(한국 시간 datetime-local 값, 분 단위). 제출까지 걸리는 시간을 5분 더 둔다. */
+function earliestSchedule(): string {
+  return new Date(Date.now() + SCHEDULE_MIN_LEAD_MS + 5 * 60_000 + 9 * 60 * 60 * 1000).toISOString().slice(0, 16);
 }
 
 /** clips 길에서 적은 "컨셉: …" 과 목차를 나눈다(다시 고를 때 채워 두기 위해). */
