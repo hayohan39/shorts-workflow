@@ -18,7 +18,7 @@ export const STATUSES = [
 export type Status = (typeof STATUSES)[number];
 
 /** Actions 에서 도는 자동 단계. */
-export const STEPS = ["script", "voice", "render", "compose", "upload"] as const;
+export const STEPS = ["script", "voice", "render", "compose", "upload", "reschedule"] as const;
 export type Step = (typeof STEPS)[number];
 
 export type StepState = "pending" | "running" | "done" | "failed";
@@ -48,6 +48,8 @@ export const STEP_RULES: Record<Step, StepRule> = {
   // approved: clips 길은 장면 생성 없이 고른 클립으로 장면을 채운 뒤 바로 합성한다.
   compose: { from: ["rendering", "video_review", "approved"], done: "video_review" },
   upload: { from: ["ready"], done: "uploaded" },
+  // 예약 공개로 올린 영상의 공개 시각만 바꾼다(업로드 큐). 상태는 그대로.
+  reschedule: { from: ["uploaded"] },
 };
 
 /** 사람이 누르는 승인·반려. */
@@ -77,6 +79,7 @@ export const STEP_LABELS: Record<Step, string> = {
   render: "장면 생성",
   compose: "영상 합성",
   upload: "유튜브 업로드",
+  reschedule: "예약 시각 변경",
 };
 
 export const STEP_STATE_LABELS: Record<StepState, string> = {
@@ -117,6 +120,7 @@ export const STEP_TYPICAL_DURATION: Record<Step, string> = {
   render: "5~15분",
   compose: "1~2분",
   upload: "1분 안팎",
+  reschedule: "30초 안팎",
 };
 
 /**

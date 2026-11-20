@@ -316,6 +316,50 @@ export async function latestUpload(id: number): Promise<UploadRecord | null> {
   return row ? { privacy: row.privacy, youtubeUrl: row.youtube_url, publishedAt: row.published_at } : null;
 }
 
+/** 업로드 큐의 한 줄: 에피소드, 최근 업로드 기록, 기획안 카테고리, 완성 영상 길이. */
+export interface QueueEntry {
+  episode: Episode;
+  upload: UploadRecord | null;
+  category: string | null;
+  seconds: number | null;
+}
+
+/**
+ * 채널 업로드 큐: 업로드 대기(영상 승인됨)·업로드 실패, 그리고 유튜브에 올린 영상.
+ * 올린 영상은 예약 공개가 남았거나 최근 2주 안에 공개된 것만.
+ */
+export async function listUploadQueue(channel: string): Promise<QueueEntry[]> {
+  const rows = await query<
+    EpisodeRow & { u_privacy: UploadPrivacy | null; u_url: string | null; u_at: Date | null; category: string | null; seconds: number | null }
+  >(
+    `select q.*, u.privacy as u_privacy, u.youtube_url as u_url, u.published_at as u_at, k.name as category,
+        (select (a.meta->>'seconds')::float from assets a where a.episode_id = q.id and a.kind = 'final' order by a.id desc limit 1) as seconds
+      from (select ${COLUMNS} from episodes
+              where channel = $1 and (status = 'ready' or youtube_video_id is not null or (status = 'failed' and step = 'upload'))) q
+      left join lateral (select privacy, youtube_url, published_at from uploads where episode_id = q.id order by id desc limit 1) u on true
+      left join ideas i on i.episode_id = q.id
+      left join channel_categories k on k.id = i.category_id
+      where q.youtube_video_id is null or u.published_at is null or u.published_at > now() - interval '14 days'
+      order by coalesce(u.published_at, q.updated_at)`,
+    [channel],
+  );
+  return rows.map((row) => ({
+    episode: toEpisode(row),
+    upload: row.u_privacy ? { privacy: row.u_privacy, youtubeUrl: row.u_url, publishedAt: row.u_at } : null,
+    category: row.category,
+    seconds: row.seconds,
+  }));
+}
+
+/** 업로드 큐에서 날짜를 정해야 하는 영상 수(영상 승인됨, 아직 안 올림). */
+export async function countReadyToUpload(channel: string): Promise<number> {
+  const [row] = await query<{ count: number }>(
+    "select count(*)::int as count from episodes where channel = $1 and status = 'ready'",
+    [channel],
+  );
+  return row.count;
+}
+
 /** 예약은 이만큼 뒤부터 고를 수 있다(업로드·처리 시간을 둔다). */
 export const SCHEDULE_MIN_LEAD_MS = 30 * 60 * 1000;
 
@@ -330,6 +374,21 @@ export async function setUploadPlan(id: number, privacy: UploadPrivacy, schedule
     [id, privacy, scheduledAt],
   );
   if (!rows.length) throw new RangeError("업로드 대기 중일 때만 고를 수 있습니다.");
+}
+
+/**
+ * 예약 공개로 올린 영상의 새 공개 시각을 정한다(reschedule 단계가 YouTube 에 반영). 올린 영상이 있고 다른 단계가 돌지 않을 때만.
+ * 아직 공개 전인지는 단계가 YouTube 에서 확인한다.
+ */
+export async function setReschedule(id: number, scheduledAt: Date, now = Date.now()): Promise<void> {
+  if (scheduledAt.getTime() < now + SCHEDULE_MIN_LEAD_MS) throw new RangeError("공개 시각은 지금부터 30분 뒤 이후로 고르세요.");
+  const rows = await query<{ id: number }>(
+    `update episodes set scheduled_at = $2, updated_at = now()
+      where id = $1 and youtube_video_id is not null and status in ('uploaded', 'failed')
+        and (step_state is null or step_state not in ('pending', 'running')) returning id`,
+    [id, scheduledAt],
+  );
+  if (!rows.length) throw new RangeError("유튜브에 올린 영상만, 다른 작업이 끝난 뒤에 바꿀 수 있습니다.");
 }
 
 /** 사람의 승인·반려. */

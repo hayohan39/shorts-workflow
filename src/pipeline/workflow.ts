@@ -34,6 +34,7 @@ export const STEP_STAGE: Record<Step, Stage> = {
   render: "scenes",
   compose: "video",
   upload: "upload",
+  reschedule: "upload",
 };
 
 /** 상세 화면에서만 아는 것. 목록처럼 모를 때는 상태만으로 판단한다. */

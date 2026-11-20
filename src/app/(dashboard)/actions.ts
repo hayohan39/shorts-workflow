@@ -8,7 +8,7 @@ import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from
 import { SESSION_COOKIE } from "@/lib/session";
 import { getChannel } from "@/pipeline/channels";
 import { fillScenesFromPicks } from "@/pipeline/clips/picks";
-import { createEpisode, decide, getEpisode, saveUpload, setUploadPlan, setVoiceSelection } from "@/pipeline/episodes";
+import { createEpisode, decide, getEpisode, saveUpload, setReschedule, setUploadPlan, setVoiceSelection } from "@/pipeline/episodes";
 import { lengthRules } from "@/pipeline/script/schema";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
@@ -284,6 +284,26 @@ export async function uploadAction(_prev: SimpleState, formData: FormData): Prom
   try {
     await setUploadPlan(id, privacy, scheduledAt);
     await triggerStep(id, "upload", createDispatcher());
+  } catch (error) {
+    refresh();
+    if (error instanceof RangeError || error instanceof TransitionError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return {};
+}
+
+/** 업로드 큐: 예약 공개로 올린 영상의 공개 시각을 바꾼다(Actions 가 YouTube 에 반영, 무료). */
+export async function rescheduleAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const id = episodeId(formData);
+  const at = new Date(`${String(formData.get("publishAt") ?? "")}:00+09:00`);
+  if (!id || Number.isNaN(at.getTime())) return { error: "새 공개 시각을 고르세요." };
+  const availability = dispatchAvailability();
+  if (!availability.ok) return { error: availability.reason };
+  try {
+    await setReschedule(id, at);
+    await triggerStep(id, "reschedule", createDispatcher());
   } catch (error) {
     refresh();
     if (error instanceof RangeError || error instanceof TransitionError) return { error: error.message };

@@ -5,7 +5,9 @@ import { saveUpload, type Episode } from "@/pipeline/episodes";
 import {
   checkChannel,
   getAccessToken,
+  getVideoStatus,
   readYoutubeCredentials,
+  updatePublishAt,
   uploadVideo,
   type VideoMetadata,
   type YoutubeCredentials,
@@ -129,4 +131,35 @@ export async function runUploadStep(
   const publishAt = uploaded.publishAt ?? metadata.status.publishAt ?? null;
   await recordUpload(episode.id, [episode.id, uploaded.id, privacy, publishAt ? new Date(publishAt) : null], deps);
   return { videoId: uploaded.id, privacy };
+}
+
+/**
+ * 예약 공개 시각 바꾸기(업로드 큐): 비공개 + 예약으로 올린 영상의 publishAt 을 episodes.scheduled_at 으로 바꾼다.
+ * 이미 공개됐거나 예약이 아닌 영상은 건드리지 않는다. 바뀐 시각을 업로드 기록에 남긴다.
+ */
+export async function runRescheduleStep(
+  episode: Episode,
+  options: { progress?: (text: string) => Promise<void>; deps?: UploadDeps } = {},
+): Promise<{ videoId: string; publishAt: Date }> {
+  const progress = options.progress ?? (async () => {});
+  const deps = options.deps ?? {};
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const now = deps.now ?? Date.now;
+  const videoId = episode.youtubeVideoId;
+  if (!videoId) throw new Error("아직 유튜브에 올리지 않은 에피소드입니다.");
+  const at = episode.scheduledAt;
+  if (!at || at.getTime() <= now() + 60_000) throw new Error("새 공개 시각이 없거나 지났습니다. 업로드 큐에서 다시 고르세요.");
+
+  const credentials = deps.credentials ?? readYoutubeCredentials(await uploadTarget(episode));
+  const accessToken = await getAccessToken(credentials, fetchImpl);
+  const channel = await checkChannel(credentials, accessToken, fetchImpl);
+  const current = await getVideoStatus(accessToken, videoId, fetchImpl);
+  if (current.privacyStatus !== "private" || typeof current.publishAt !== "string" || Date.parse(current.publishAt) <= now()) {
+    throw new Error("이미 공개됐거나 예약 공개가 아닌 영상이라 바꾸지 않았습니다. YouTube Studio 에서 확인하세요.");
+  }
+  await progress(`YouTube "${channel.title}" 채널 영상의 공개 시각을 바꾸는 중`);
+  const updated = await updatePublishAt({ accessToken, videoId, current, publishAt: at, fetchImpl });
+  const publishAt = typeof updated.publishAt === "string" ? new Date(updated.publishAt) : at;
+  await recordUpload(episode.id, [episode.id, videoId, "private", publishAt], deps);
+  return { videoId, publishAt };
 }
