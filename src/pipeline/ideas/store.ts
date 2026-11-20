@@ -166,13 +166,21 @@ export async function decideIdea(id: number, status: "saved" | "discarded"): Pro
   return toIdea(row);
 }
 
-/** 에피소드로 만들었다고 표시한다. 이미 만든 기획안이면 RangeError(두 번 만들지 않게). */
-export async function markIdeaUsed(id: number, episodeId: number): Promise<void> {
-  const rows = await query(
-    "update ideas set status = 'used', episode_id = $2, decided_at = now() where id = $1 and status <> 'used' returning id",
-    [id, episodeId],
-  );
-  if (!rows.length) throw new RangeError("이미 에피소드로 만든 기획안입니다.");
+/**
+ * 기획안으로 에피소드를 만들고 만들었다고 표시한다. 기획안 행을 잠근 채로 만들어서, 같은 기획안을 두 번 눌러도
+ * 에피소드가 하나만 생긴다(두 번째는 RangeError). create 가 실패하면 기획안은 그대로 남는다.
+ */
+export async function claimIdea(id: number, create: (idea: Idea) => Promise<number>): Promise<number> {
+  return transaction(async (client) => {
+    const {
+      rows: [row],
+    } = await client.query<IdeaRow>(`select ${IDEA_COLUMNS} from ideas where id = $1 for update`, [id]);
+    if (!row) throw new RangeError("기획안을 찾을 수 없습니다.");
+    if (row.status === "used") throw new RangeError("이미 에피소드로 만든 기획안입니다.");
+    const episodeId = await create(toIdea(row));
+    await client.query("update ideas set status = 'used', episode_id = $2, decided_at = now() where id = $1", [id, episodeId]);
+    return episodeId;
+  });
 }
 
 /** 겹치지 않게 프롬프트에 넣을 최근 주제: 이 채널의 기획안(폐기 포함)과 에피소드 주제. */

@@ -195,11 +195,21 @@ describe.skipIf(!testDatabaseUrl)("추천 기획안 (실제 DB)", () => {
     expect(await store.decideIdea(second.id, "discarded")).toMatchObject({ status: "discarded" });
     expect(await store.decideIdea(second.id, "saved")).toMatchObject({ status: "saved" });
 
-    const episode = await createEpisode({ topic: first.title, outline: first.outline, channel: "raccoon", targetSeconds: 30 });
-    await store.markIdeaUsed(first.id, episode.id);
-    await expect(store.markIdeaUsed(first.id, episode.id)).rejects.toThrow("이미 에피소드로 만든");
+    const create = (idea: { title: string; outline: string }) =>
+      createEpisode({ topic: idea.title, outline: idea.outline, channel: "raccoon", targetSeconds: 30 }).then((e) => e.id);
+    // 만들다 실패하면 기획안은 그대로
+    await expect(store.claimIdea(first.id, () => createEpisode({ topic: "", outline: "" }).then((e) => e.id))).rejects.toThrow(
+      "주제를 입력하세요",
+    );
+    expect(await store.getIdea(first.id)).toMatchObject({ status: "saved", episodeId: null });
+    // 두 번 눌러도 에피소드는 하나
+    const results = await Promise.allSettled([store.claimIdea(first.id, create), store.claimIdea(first.id, create)]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    const episodeId = (results.find((r) => r.status === "fulfilled") as PromiseFulfilledResult<number>).value;
+    const { query } = await import("@/lib/db");
+    expect(await query("select id from episodes where topic = $1", [first.title])).toHaveLength(1);
     await expect(store.decideIdea(first.id, "discarded")).rejects.toThrow("이미 에피소드로 만든");
-    expect(await store.getIdea(first.id)).toMatchObject({ status: "used", episodeId: episode.id });
+    expect(await store.getIdea(first.id)).toMatchObject({ status: "used", episodeId });
   });
 
   it("자동 추천: 켠 채널만, 주기가 됐을 때만, 보지 않은 기획안이 많으면 건너뛴다. 실패한 실행은 다음 날 다시", async () => {

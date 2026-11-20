@@ -6,15 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { getChannel, updateChannel, updateIdeaSettings } from "@/pipeline/channels";
 import { createEpisode } from "@/pipeline/episodes";
-import {
-  decideIdea,
-  failIdeaRun,
-  getIdea,
-  isIdeaPromptKey,
-  listCategories,
-  markIdeaUsed,
-  requestIdeaRun,
-} from "@/pipeline/ideas/store";
+import { decideIdea, failIdeaRun, isIdeaPromptKey, listCategories, requestIdeaRun, claimIdea } from "@/pipeline/ideas/store";
 import { savePrompt } from "@/pipeline/prompts";
 import { triggerStep } from "@/pipeline/trigger";
 
@@ -97,27 +89,21 @@ export async function decideIdeaAction(_prev: IdeaActionState, formData: FormDat
 export async function createFromIdeaAction(_prev: IdeaActionState, formData: FormData): Promise<IdeaActionState> {
   await requireSession();
   const id = positiveId(formData.get("id"));
-  const idea = id ? await getIdea(id) : null;
-  if (!idea) return { error: "기획안을 찾을 수 없습니다." };
-  if (idea.status === "used") {
-    refresh();
-    return { error: "이미 에피소드로 만든 기획안입니다." };
-  }
-  const title = String(formData.get("title") ?? "");
-  const outline = String(formData.get("outline") ?? "");
+  if (!id) return { error: "잘못된 요청입니다." };
   let episodeId: number;
   try {
-    episodeId = (
-      await createEpisode({
-        topic: title,
-        outline: `훅: ${idea.hook}\n${outline.trim()}`,
+    episodeId = await claimIdea(id, async (idea) => {
+      const episode = await createEpisode({
+        topic: String(formData.get("title") ?? ""),
+        outline: `훅: ${idea.hook}\n${String(formData.get("outline") ?? "").trim()}`,
         route: "ai",
         channel: idea.channel,
         targetSeconds: Number(formData.get("targetSeconds")),
-      })
-    ).id;
-    await markIdeaUsed(idea.id, episodeId);
+      });
+      return episode.id;
+    });
   } catch (error) {
+    refresh();
     if (error instanceof RangeError) return { error: error.message };
     throw error;
   }
