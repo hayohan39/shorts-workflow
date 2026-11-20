@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChannelTabs } from "@/components/channel-tabs";
 import { requireSession } from "@/lib/auth";
 import { channelLabel, getChannel } from "@/pipeline/channels";
+import { countNewIdeas, listCategories } from "@/pipeline/ideas/store";
 import { ROUTE_ICONS, ROUTE_LABELS } from "@/pipeline/workflow";
 
 /** 채널 화면 공통: 채널 이름·기본 제작 방식·유튜브 연결 상태와 하위 탭. */
@@ -10,6 +11,7 @@ export default async function ChannelLayout({ children, params }: LayoutProps<"/
   await requireSession();
   const channel = await getChannel((await params).slug);
   if (!channel) notFound();
+  const [categories, newIdeas] = await Promise.all([listCategories(channel.slug), countNewIdeas(channel.slug)]);
   return (
     <>
       <div className="row between channel-head">
@@ -27,7 +29,7 @@ export default async function ChannelLayout({ children, params }: LayoutProps<"/
           </>
         )}
       </p>
-      <ChannelTabs slug={channel.slug} />
+      <ChannelTabs slug={channel.slug} ideas={categories.length ? newIdeas : null} />
       {children}
     </>
   );

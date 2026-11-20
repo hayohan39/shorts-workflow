@@ -7,9 +7,12 @@
 //   npm run pipeline -- run  clips|clips-adopt <collectionId>   영상 클립 수집 / 채택(다운로드·변환·Blob)
 //   npm run pipeline -- fail clips|clips-adopt <collectionId> <message>
 //   npm run pipeline -- run  clips-daily                       매일 자동 수집(켜져 있을 때만, 태그 하나)
+//   npm run pipeline -- run  ideas <ideaRunId>                 채널 추천(기획안) 만들기
+//   npm run pipeline -- fail ideas <ideaRunId> <message>
+//   npm run pipeline -- run  ideas-daily                       매일 실행: 자동 추천이 켜져 있고 주기가 된 채널만
 //
 // 환경변수: DATABASE_URL, RUN_URL(이 Actions 실행 링크), GITHUB_STEP_SUMMARY(있으면 요약을 씀),
-//           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe),
+//           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe·ideas),
 //           ANTHROPIC_ADMIN_KEY(probe, 선택: 실제 청구 비용 조회), ANTHROPIC_COST_WORKSPACE_ID(선택: 그 워크스페이스만),
 //           PIXABAY_API_KEY(clips), BLOB_READ_WRITE_TOKEN(clips-adopt),
 //           YOUTUBE_CLIENT_ID·YOUTUBE_CLIENT_SECRET·채널별 리프레시 토큰(upload, channels.youtube_token_secret 이 이름)
@@ -35,6 +38,10 @@ import {
   startCollection,
 } from "@/pipeline/clips/store";
 import { SOURCE_LABELS, type ClipSourceId } from "@/pipeline/clips/types";
+import { ideasDaily, runIdeaRun, type IdeaRunResult } from "@/pipeline/ideas/run";
+import { failIdeaRun } from "@/pipeline/ideas/store";
+import { createSender } from "@/pipeline/script/generate";
+import { formatUsd } from "@/pipeline/script/pricing";
 import { refreshActualCosts } from "@/pipeline/costs";
 import { collectCatalog, failProbe, finishProbe, startProbe } from "@/pipeline/probe";
 import { listClaudeModels, readAnthropicKey } from "@/pipeline/providers/anthropic";
@@ -185,11 +192,55 @@ async function clipsDaily(command: string | undefined): Promise<number> {
   return clips("run", "clips", String(collection.id), "");
 }
 
+function ideaLines(result: IdeaRunResult): string[] {
+  const cost = result.costUsd === null ? "" : ` · 비용 약 ${formatUsd(result.costUsd)}`;
+  return [`✅ 기획안 ${result.ideas.length}개${cost}`, "", ...result.ideas.map((idea) => `- ${idea.title} (${idea.targetSeconds}초)`)];
+}
+
+/** 채널 추천 한 번(대시보드 "지금 추천 받기"). */
+async function ideas(command: string | undefined, idArg: string | undefined, message: string): Promise<number> {
+  const id = Number(idArg);
+  if (!Number.isInteger(id) || id <= 0) throw new Error(USAGE);
+  const title = `### 채널 추천 #${id}`;
+  if (command === "fail") {
+    await failIdeaRun(id, message || "Actions 실행이 중간에 중단되었습니다.");
+    await summary([title, "", "실패로 기록했습니다."]);
+    return 0;
+  }
+  if (command !== "run") throw new Error(USAGE);
+  try {
+    const send = createSender(new Anthropic({ apiKey: readAnthropicKey() }));
+    await summary([title, "", ...ideaLines(await runIdeaRun(id, { send, runUrl: process.env.RUN_URL || null }))]);
+    return 0;
+  } catch (error) {
+    await summary([title, "", `❌ 실패: ${error instanceof Error ? error.message : String(error)}`]);
+    return 1;
+  }
+}
+
+/** 매일 실행: 자동 추천이 켜져 있고 주기가 된 채널만(기본 꺼짐). */
+async function ideasDailyCommand(command: string | undefined): Promise<number> {
+  if (command !== "run") throw new Error(USAGE);
+  const title = "### 채널 추천 매일 실행";
+  const send = createSender(new Anthropic({ apiKey: readAnthropicKey() }));
+  const outcomes = await ideasDaily({ send, runUrl: process.env.RUN_URL || null });
+  if (!outcomes.length) {
+    await summary([title, "", "⏭️ 주기가 된 채널이 없습니다(자동 추천이 꺼져 있거나, 최근에 만들었거나, 보지 않은 기획안이 많음)."]);
+    return 0;
+  }
+  for (const outcome of outcomes) {
+    await summary([`${title} · ${outcome.channel}`, "", ...(outcome.result ? ideaLines(outcome.result) : [`❌ 실패: ${outcome.error}`])]);
+  }
+  return outcomes.every((outcome) => outcome.result) ? 0 : 1;
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, stepArg, idArg, ...rest] = argv;
   if (stepArg === "probe") return probe(command, rest.join(" "));
   if (stepArg === "clips" || stepArg === "clips-adopt") return clips(command, stepArg, idArg, rest.join(" "));
   if (stepArg === "clips-daily") return clipsDaily(command);
+  if (stepArg === "ideas") return ideas(command, idArg, rest.join(" "));
+  if (stepArg === "ideas-daily") return ideasDailyCommand(command);
   const { step, id } = parseTarget(stepArg, idArg);
   const title = `### 에피소드 #${id} · ${STEP_LABELS[step]}`;
 

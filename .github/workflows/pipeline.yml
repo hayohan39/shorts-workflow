@@ -6,6 +6,7 @@ name: Pipeline
 # 같은 매일 실행에서 영상 클립 자동 수집(clips-daily)도 한다. 대시보드에서 켜 둔 경우에만 실제로 수집한다(기본 꺼짐).
 # 따로 schedule 을 두지 않는 것은 꺼져 있을 때 Actions 사용 시간이 늘지 않게 하기 위해서다.
 # clips 는 무료 라이선스 영상 클립 수집, clips-adopt 는 선택된 클립의 다운로드·mp4 변환·Blob 저장(대상: collection_id).
+# ideas 는 채널 추천(기획안) 만들기(대상: idea_run_id). 매일 실행에서는 자동 추천이 켜진 채널만 주기마다(ideas-daily, 기본 꺼짐).
 # 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
 # 직접 실행해도 된다: Actions → Pipeline → Run workflow.
 #
@@ -17,7 +18,7 @@ on:
         description: 실행할 단계
         type: choice
         required: true
-        options: [script, voice, render, compose, upload, probe, clips, clips-adopt]
+        options: [script, voice, render, compose, upload, probe, clips, clips-adopt, ideas]
       episode_id:
         description: 에피소드 번호 (probe·clips 는 비워 둠)
         type: string
@@ -26,14 +27,18 @@ on:
         description: 클립 수집 번호 (clips·clips-adopt 만)
         type: string
         required: false
+      idea_run_id:
+        description: 추천 실행 번호 (ideas 만)
+        type: string
+        required: false
   schedule:
     - cron: "17 18 * * *" # 매일 03:17 KST
 
-run-name: "${{ inputs.episode_id && format('#{0} ', inputs.episode_id) || '' }}${{ inputs.collection_id && format('clip collection {0} ', inputs.collection_id) || '' }}${{ inputs.step || 'probe' }}"
+run-name: "${{ inputs.episode_id && format('#{0} ', inputs.episode_id) || '' }}${{ inputs.collection_id && format('clip collection {0} ', inputs.collection_id) || '' }}${{ inputs.idea_run_id && format('idea run {0} ', inputs.idea_run_id) || '' }}${{ inputs.step || 'probe' }}"
 
 # 같은 에피소드(수집)는 한 번에 하나씩. 다른 에피소드는 동시에 돌 수 있다. probe 끼리도 하나씩.
 concurrency:
-  group: pipeline-${{ (inputs.step || 'probe') == 'probe' && 'probe' || (inputs.collection_id && format('clips-{0}', inputs.collection_id) || format('episode-{0}', inputs.episode_id)) }}
+  group: pipeline-${{ (inputs.step || 'probe') == 'probe' && 'probe' || (inputs.collection_id && format('clips-{0}', inputs.collection_id) || (inputs.idea_run_id && format('ideas-{0}', inputs.idea_run_id) || format('episode-{0}', inputs.episode_id))) }}
   cancel-in-progress: false
 
 defaults:
@@ -54,8 +59,8 @@ jobs:
     env:
       # 입력값은 스크립트에 직접 끼우지 않고 환경변수로만 넘긴다.
       STEP: ${{ inputs.step || 'probe' }}
-      # 대상 번호: 에피소드, 또는 clips·clips-adopt 면 수집 번호.
-      TARGET_ID: ${{ inputs.collection_id || inputs.episode_id }}
+      # 대상 번호: 에피소드, 또는 clips·clips-adopt 면 수집 번호, ideas 면 추천 실행 번호.
+      TARGET_ID: ${{ inputs.collection_id || inputs.idea_run_id || inputs.episode_id }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -106,6 +111,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         run: npm run pipeline -- run clips-daily
+
+      # 매일 실행에서만. 채널 설정에서 자동 추천을 켠 채널만 주기(기본 이틀)마다 기획안을 만든다(Claude 비용, 기본 꺼짐).
+      - name: Daily ideas
+        if: ${{ github.event_name == 'schedule' && !cancelled() }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run pipeline -- run ideas-daily
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.
       # 이미 기록됐거나 실행 중이 아니면 아무것도 바꾸지 않는다.
