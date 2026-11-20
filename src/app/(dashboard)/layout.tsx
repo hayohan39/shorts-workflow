@@ -4,6 +4,7 @@ import { NavLinks } from "@/components/nav-links";
 import { requireSession } from "@/lib/auth";
 import { dispatchAvailability } from "@/lib/github";
 import { project } from "@/lib/project";
+import { channelLabel, listChannels } from "@/pipeline/channels";
 import { logoutAction } from "./actions";
 
 // 로그인 확인이 요청마다 일어나야 한다. 이 아래 화면은 전부 동적으로 렌더한다.
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   await requireSession();
   const availability = dispatchAvailability();
+  const channels = await listChannels();
 
   return (
     <>
@@ -27,7 +29,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
             </button>
           </form>
         </div>
-        <NavLinks />
+        <NavLinks channels={channels.map((channel) => ({ slug: channel.slug, label: channelLabel(channel) }))} />
       </header>
       {availability.ok ? null : <p className="banner">{availability.reason}</p>}
       <main>{children}</main>

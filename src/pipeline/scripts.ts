@@ -101,12 +101,13 @@ export async function scriptCostSince(since: Date): Promise<{ total: number; run
   return { total: rows.reduce((sum, row) => sum + (scriptCost(row) ?? 0), 0), runs: rows.length };
 }
 
-/** 다른 에피소드의 최근 대본(훅·장면 구성을 겹치지 않게 하려고 프롬프트에 넣는다). */
-export async function recentScripts(excludeEpisodeId: number, limit = 5): Promise<Script[]> {
+/** 같은 채널의 다른 편 최신 대본(훅·장면 구성이 겹치지 않게 프롬프트에 넣는다). */
+export async function recentScripts(episode: { id: number; channel: string }, limit = 5): Promise<Script[]> {
   const rows = await query<ScriptRow>(
     `select distinct on (episode_id) ${COLUMNS} from scripts
-      where episode_id <> $1 order by episode_id desc, version desc limit $2`,
-    [excludeEpisodeId, limit],
+      where episode_id <> $1 and episode_id in (select id from episodes where channel = $2)
+      order by episode_id desc, version desc limit $3`,
+    [episode.id, episode.channel, limit],
   );
   return rows.map(toScript);
 }

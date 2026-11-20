@@ -1,4 +1,5 @@
 import { listAssets, type Asset } from "@/pipeline/assets";
+import { getChannel } from "@/pipeline/channels";
 import { sceneClips } from "@/pipeline/clips/episode";
 import { saveUpload, type Episode } from "@/pipeline/episodes";
 import {
@@ -79,6 +80,12 @@ async function recordUpload(id: number, record: Parameters<typeof saveUpload>, d
 
 const PRIVACY_LABELS = { public: "공개", unlisted: "일부 공개", private: "비공개" } as const;
 
+async function uploadTarget(episode: Pick<Episode, "channel">) {
+  const channel = await getChannel(episode.channel);
+  if (!channel) throw new Error(`채널 ${episode.channel} 을 찾을 수 없습니다.`);
+  return channel;
+}
+
 export async function runUploadStep(
   episode: Episode,
   options: { progress?: (text: string) => Promise<void>; deps?: UploadDeps } = {},
@@ -100,7 +107,7 @@ export async function runUploadStep(
 
   const scenes = scenesDone(assets, script.version);
   const metadata = buildMetadata(buildUploadText(script, await sceneClips(scenes), hasAiScenes(scenes)), episode);
-  const credentials = deps.credentials ?? readYoutubeCredentials();
+  const credentials = deps.credentials ?? readYoutubeCredentials(await uploadTarget(episode));
 
   // 인증·채널 확인을 먼저 한다(다른 채널 토큰이면 영상을 받기 전에 멈춘다).
   const accessToken = await getAccessToken(credentials, fetchImpl);
@@ -112,8 +119,7 @@ export async function runUploadStep(
   const video = Buffer.from(await response.arrayBuffer());
 
   const plan = metadata.status.publishAt ? "예약 공개" : PRIVACY_LABELS[metadata.status.privacyStatus];
-  const target = channel ? `"${channel.title}" 채널에 ` : "";
-  await progress(`YouTube ${target}${plan}로 올리는 중 (${(video.length / 1024 / 1024).toFixed(1)}MB)`);
+  await progress(`YouTube "${channel.title}" 채널에 ${plan}로 올리는 중 (${(video.length / 1024 / 1024).toFixed(1)}MB)`);
   const uploaded = await uploadVideo({ accessToken, metadata, video, fetchImpl });
   // 요청한 값이 아니라 YouTube 가 실제로 적용한 공개 상태를 남긴다(화면에 보인다).
   const privacy = uploaded.privacyStatus ?? metadata.status.privacyStatus;

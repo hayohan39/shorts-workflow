@@ -14,7 +14,9 @@ export const ROUTE_STAGES: Record<Route, readonly Stage[]> = {
   clips: ["clips", "script", "voice", "video", "upload"],
 };
 
-export const ROUTE_LABELS: Record<Route, string> = { ai: "주제로 만들기", clips: "영상 먼저 찾기" };
+/** 제작 방식. 생성형 = 대본 → AI 장면 생성, 편집형 = 무료 영상을 먼저 찾아 고른 뒤 대본. */
+export const ROUTE_LABELS: Record<Route, string> = { ai: "생성형", clips: "편집형" };
+export const ROUTE_ICONS: Record<Route, string> = { ai: "✍️", clips: "🎬" };
 
 export const STAGE_LABELS: Record<Stage, string> = {
   clips: "영상 찾기",

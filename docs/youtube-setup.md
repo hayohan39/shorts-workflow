@@ -48,26 +48,31 @@ node scripts/youtube-auth.mjs
    (두 범위, 공백으로 구분)를 넣고 **Authorize APIs** →
    채널 계정으로 로그인·허용(채널이 여러 개면 올릴 채널을 고른다).
 4. Step 2 에서 **Exchange authorization code for tokens** → 나오는 **Refresh token** 을 복사.
-   (이 방법은 채널 이름이 따로 나오지 않는다. 아래 3단계의 `YOUTUBE_CHANNEL_ID` 를 넣어 두면 다른 채널이면 올리지 않는다.)
+   (이 방법은 채널 이름이 따로 나오지 않는다. 3단계의 채널 설정에 넣은 채널 ID 와 다르면 올리지 않는다.)
 
-## 3. GitHub Secrets 에 넣기
+## 3. GitHub Secrets 와 채널 설정에 넣기
 
 GitHub → `shorts-workflow` → Settings → Secrets and variables → Actions → New repository secret
 
 | 이름 | 값 |
 | --- | --- |
-| `YOUTUBE_CLIENT_ID` | 클라이언트 ID |
-| `YOUTUBE_CLIENT_SECRET` | 클라이언트 보안 비밀번호 |
-| `YOUTUBE_REFRESH_TOKEN` | 2단계에서 받은 리프레시 토큰 |
+| `YOUTUBE_CLIENT_ID` | 클라이언트 ID (모든 채널 공통, 한 번만) |
+| `YOUTUBE_CLIENT_SECRET` | 클라이언트 보안 비밀번호 (모든 채널 공통, 한 번만) |
+| 채널별 리프레시 토큰 | 2단계에서 받은 리프레시 토큰. 이름은 대시보드 → 채널 → **채널 설정**에 나온다 |
 
-**채널 확인(권장)**: 같은 화면의 **Variables** 탭 → New repository variable
+채널별 Secret 이름:
 
-| 이름 | 값 |
+| 채널 | Secret |
 | --- | --- |
-| `YOUTUBE_CHANNEL_ID` | 올릴 채널 ID(`UC…`). 2단계 A 도우미가 끝에 보여 준다. YouTube Studio → 설정 → 채널 → 고급 설정에서도 볼 수 있다 |
+| 🦝 피부건강 라쿤씨 | `YOUTUBE_REFRESH_TOKEN` |
+| 🐦 새새 열매 | `YOUTUBE_REFRESH_TOKEN_SAESAE` |
 
-넣어 두면 업로드할 때마다 토큰의 채널을 먼저 확인하고, **다른 채널이면 올리지 않고 이유를 보여 준다**(무료 조회).
-채널 ID 는 비밀이 아니라 Secrets 가 아닌 Variables 에 넣는다.
+채널이 여럿이면 2단계를 채널마다 한 번씩 한다(구글 로그인 화면에서 그 채널을 고른다). 클라이언트는 같은 것을 쓴다.
+
+**유튜브 채널 ID**: 대시보드 → 채널 → **채널 설정** → "유튜브 채널 ID" 에 `UC…` 를 넣는다.
+2단계 A 도우미가 끝에 보여 주고, YouTube Studio → 설정 → 채널 → 고급 설정에서도 볼 수 있다.
+업로드할 때마다 토큰의 채널이 이 ID 와 같은지 먼저 확인하고, **다르면 올리지 않고 이유를 보여 준다**(무료 조회).
+채널 ID 가 비어 있으면 자동 업로드를 하지 않는다(다른 채널에 잘못 올라가지 않게).
 
 ## 4. 써 보기
 

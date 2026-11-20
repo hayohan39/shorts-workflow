@@ -20,6 +20,8 @@ export type Route = "ai" | "clips";
 
 export interface Episode {
   id: number;
+  /** 채널 slug(channels.slug). */
+  channel: string;
   route: Route;
   topic: string;
   outline: string;
@@ -47,6 +49,7 @@ export interface Episode {
 
 interface EpisodeRow {
   id: number;
+  channel: string;
   route: Route;
   topic: string;
   outline: string;
@@ -67,7 +70,7 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, route, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
+const COLUMNS = `id, channel, route, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
@@ -85,6 +88,7 @@ export class EpisodeNotFoundError extends Error {
 function toEpisode(row: EpisodeRow): Episode {
   return {
     id: row.id,
+    channel: row.channel,
     route: row.route,
     topic: row.topic,
     outline: row.outline,
@@ -106,15 +110,21 @@ function toEpisode(row: EpisodeRow): Episode {
   };
 }
 
-export async function createEpisode(input: { topic: string; outline: string; route?: Route }): Promise<Episode> {
+export async function createEpisode(input: {
+  topic: string;
+  outline: string;
+  route?: Route;
+  /** 채널 slug. 없으면 DB 기본값(raccoon). */
+  channel?: string;
+}): Promise<Episode> {
   const topic = input.topic.trim();
   const outline = input.outline.trim();
   if (!topic) throw new RangeError("주제를 입력하세요.");
   if (topic.length > TOPIC_MAX) throw new RangeError(`주제는 ${TOPIC_MAX}자 이내로 입력하세요.`);
   if (outline.length > OUTLINE_MAX) throw new RangeError(`목차는 ${OUTLINE_MAX}자 이내로 입력하세요.`);
   const [row] = await query<EpisodeRow>(
-    `insert into episodes (topic, outline, route) values ($1, $2, $3) returning ${COLUMNS}`,
-    [topic, outline, input.route ?? "ai"],
+    `insert into episodes (topic, outline, route, channel) values ($1, $2, $3, coalesce($4, 'raccoon')) returning ${COLUMNS}`,
+    [topic, outline, input.route ?? "ai", input.channel ?? null],
   );
   return toEpisode(row);
 }
@@ -124,12 +134,23 @@ export async function getEpisode(id: number): Promise<Episode | null> {
   return row ? toEpisode(row) : null;
 }
 
-export async function listEpisodes(limit = 50): Promise<Episode[]> {
+/** 최근 에피소드. channel 을 주면 그 채널 것만, active 면 아직 올리지 않은 것만. */
+export async function listEpisodes(options: { channel?: string; active?: boolean; limit?: number } = {}): Promise<Episode[]> {
   const rows = await query<EpisodeRow>(
-    `select ${COLUMNS} from episodes order by created_at desc, id desc limit $1`,
-    [limit],
+    `select ${COLUMNS} from episodes
+      where ($1::text is null or channel = $1) and (not $2 or status <> 'uploaded')
+      order by created_at desc, id desc limit $3`,
+    [options.channel ?? null, options.active ?? false, options.limit ?? 50],
   );
   return rows.map(toEpisode);
+}
+
+/** 채널별 올린 에피소드 수. */
+export async function uploadedCounts(): Promise<Map<string, number>> {
+  const rows = await query<{ channel: string; count: number }>(
+    "select channel, count(*)::int as count from episodes where status = 'uploaded' group by channel",
+  );
+  return new Map(rows.map((row) => [row.channel, row.count]));
 }
 
 /**

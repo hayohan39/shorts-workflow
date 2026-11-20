@@ -4,8 +4,8 @@
 //   3. 그 주소로 파일을 PUT → 만들어진 영상 리소스(id, 실제 공개 상태)
 // 2026-11-02 부터 감사를 받지 않은 API 프로젝트가 올린 영상도 비공개로 잠기지 않는다(YouTube Data API 변경 기록).
 // 그래도 채널 설정 등으로 다르게 적용될 수 있어, 요청한 값이 아니라 응답의 공개 상태를 기록한다.
-// 리프레시 토큰 발급: scripts/youtube-auth.mjs (docs/youtube-setup.md)
-// 채널 확인: GitHub 변수 YOUTUBE_CHANNEL_ID 가 있으면 올리기 전에 토큰의 채널과 같은지 본다(다르면 올리지 않는다).
+// 리프레시 토큰 발급: scripts/youtube-auth.mjs (docs/youtube-setup.md). 토큰은 채널마다 따로다(channels.youtube_token_secret).
+// 채널 확인: 올리기 전에 토큰의 채널이 대시보드 채널 설정의 유튜브 채널 ID 와 같은지 본다(다르면 올리지 않는다).
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
@@ -17,11 +17,13 @@ export interface YoutubeCredentials {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
-  /** 올려야 하는 채널 ID(GitHub 변수 YOUTUBE_CHANNEL_ID). 없으면 확인하지 않는다. */
-  channelId?: string;
+  /** 리프레시 토큰이 든 GitHub Secret 이름(오류 안내용). */
+  tokenSecret: string;
+  /** 올려야 하는 유튜브 채널 ID(대시보드 채널 설정). */
+  channelId: string;
 }
 
-export interface Channel {
+export interface YoutubeChannel {
   id: string;
   title: string;
 }
@@ -45,18 +47,32 @@ export interface UploadedVideo {
   publishAt: string | null;
 }
 
-const KEYS = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"] as const;
+/** 올릴 대시보드 채널: 토큰이 든 Secret 이름과 유튜브 채널 ID. */
+export interface UploadTarget {
+  name: string;
+  youtubeTokenSecret: string;
+  youtubeChannelId: string | null;
+}
 
-export function readYoutubeCredentials(env: Record<string, string | undefined> = process.env): YoutubeCredentials {
-  const missing = KEYS.filter((key) => !env[key]);
+export function readYoutubeCredentials(
+  target: UploadTarget,
+  env: Record<string, string | undefined> = process.env,
+): YoutubeCredentials {
+  // 채널이 여럿이라 채널 ID 없이 올리면 엉뚱한 채널에 올라갈 수 있다. 확인할 수 있을 때만 올린다.
+  if (!target.youtubeChannelId) {
+    throw new Error(`"${target.name}" 채널 설정에 유튜브 채널 ID 가 없습니다. 대시보드 → 채널 → 채널 설정에서 넣으세요.`);
+  }
+  const keys = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", target.youtubeTokenSecret];
+  const missing = keys.filter((key) => !env[key]);
   if (missing.length) {
     throw new Error(`${missing.join(", ")} 가 없습니다. docs/youtube-setup.md 대로 발급해 GitHub Secrets 에 넣으세요.`);
   }
   return {
     clientId: env.YOUTUBE_CLIENT_ID!,
     clientSecret: env.YOUTUBE_CLIENT_SECRET!,
-    refreshToken: env.YOUTUBE_REFRESH_TOKEN!,
-    ...(env.YOUTUBE_CHANNEL_ID?.trim() ? { channelId: env.YOUTUBE_CHANNEL_ID.trim() } : {}),
+    refreshToken: env[target.youtubeTokenSecret]!,
+    tokenSecret: target.youtubeTokenSecret,
+    channelId: target.youtubeChannelId,
   };
 }
 
@@ -100,7 +116,7 @@ export async function getAccessToken(credentials: YoutubeCredentials, fetchImpl:
 }
 
 /** 이 토큰이 올리는 채널(youtube.readonly 범위가 필요하다). */
-export async function getChannel(accessToken: string, fetchImpl: typeof fetch = fetch): Promise<Channel> {
+export async function getChannel(accessToken: string, fetchImpl: typeof fetch = fetch): Promise<YoutubeChannel> {
   const response = await fetchImpl(CHANNEL_URL, { headers: { authorization: `Bearer ${accessToken}` } });
   if (!response.ok) {
     const reason = await errorReason(response);
@@ -115,18 +131,17 @@ export async function getChannel(accessToken: string, fetchImpl: typeof fetch = 
   return { id: channel.id, title: channel.snippet?.title ?? channel.id };
 }
 
-/** 올리기 전에 토큰의 채널이 설정한 채널(YOUTUBE_CHANNEL_ID)과 같은지 본다. 설정이 없으면 확인하지 않는다(null). */
+/** 올리기 전에 토큰의 채널이 설정한 채널 ID 와 같은지 본다. 다르면 올리지 않는다. */
 export async function checkChannel(
   credentials: YoutubeCredentials,
   accessToken: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<Channel | null> {
-  if (!credentials.channelId) return null;
+): Promise<YoutubeChannel> {
   const channel = await getChannel(accessToken, fetchImpl);
   if (channel.id !== credentials.channelId) {
     throw new Error(
       `올리지 않았습니다: 토큰은 "${channel.title}" 채널(${channel.id})인데, 설정한 채널은 ${credentials.channelId} 입니다. ` +
-        "YOUTUBE_REFRESH_TOKEN 을 맞는 채널로 다시 발급하거나 GitHub 변수 YOUTUBE_CHANNEL_ID 를 고치세요.",
+        `${credentials.tokenSecret} 를 맞는 채널로 다시 발급하거나 대시보드 채널 설정의 유튜브 채널 ID 를 고치세요.`,
     );
   }
   return channel;
