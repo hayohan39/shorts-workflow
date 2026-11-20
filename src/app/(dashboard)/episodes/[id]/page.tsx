@@ -10,13 +10,14 @@ import { listAssets } from "@/pipeline/assets";
 import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
 import { canFillScenes, descriptionWithCredits, sceneClips } from "@/pipeline/clips/episode";
 import { channelLabel, getChannel } from "@/pipeline/channels";
-import { canPick, listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
+import { canPick, listPicks } from "@/pipeline/clips/picks";
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, isJobBusy, listAdoptedClips, listClips } from "@/pipeline/clips/store";
 import { getEpisode, latestUpload, SCHEDULE_MIN_LEAD_MS } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
+import { lengthRules } from "@/pipeline/script/schema";
 import { isBusy, STEP_LABELS, STEP_STATE_LABELS, STEP_TYPICAL_DURATION } from "@/pipeline/status";
 import { estimateSceneCredits, scenesDone } from "@/pipeline/steps/render";
 import { studioUrl, watchUrl } from "@/pipeline/youtube/links";
@@ -48,7 +49,7 @@ export const dynamic = "force-dynamic";
 
 // 지금 단계에서 사람이 할 일. 단계가 도는 중이거나 실패했으면 그 안내가 대신 나온다.
 const NEXT_ACTION: Record<Stage, string> = {
-  clips: "찾은 영상에서 장면 4개를 고르고 영상 컨셉·목차를 적으세요.",
+  clips: "찾은 영상에서 장면마다 쓸 클립을 고르고 영상 컨셉·목차를 적으세요.",
   script: "대본을 검토하고 승인하거나 반려하세요.",
   voice: "목소리를 골라 내레이션을 만드세요.",
   scenes: "장면을 만들거나 무료 클립으로 채우세요.",
@@ -85,7 +86,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   const [found, picks] = collection ? await Promise.all([listClips(collection.id), listPicks(episode.id)]) : [[], []];
   const searching = collection ? isJobBusy(collection.status, collection.updatedAt) : false;
   const adopting = collection ? isJobBusy(collection.adoptStatus, collection.updatedAt) : false;
-  const picked = picks.length === PICK_COUNT;
+  const rules = lengthRules(episode.targetSeconds);
+  const picked = picks.length === rules.scenes;
 
   const busy = isBusy(episode);
   const stale = isStale(episode);
@@ -171,7 +173,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
         <StatusBadge episode={episode} />
       </div>
       <p className="muted small route-label">
-        {ROUTE_ICONS[episode.route]} {ROUTE_LABELS[episode.route]}
+        {ROUTE_ICONS[episode.route]} {ROUTE_LABELS[episode.route]} · {episode.targetSeconds}초 · 장면 {rules.scenes}개
       </p>
 
       <WorkflowTabs episodeId={episode.id} flow={flow} active={tab} />
@@ -242,7 +244,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
                 episodeId={episode.id}
                 clips={found.filter(isSelectable)}
                 picked={picks.map((clip) => clip.id)}
-                sceneCount={PICK_COUNT}
+                sceneCount={rules.scenes}
                 {...splitOutline(episode.outline)}
                 disabled={!canDispatch}
               />
@@ -274,7 +276,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             ) : null}
             {stepTab === "script" ? runButton : null}
             {script ? (
-              <ScriptReview script={script} reviewing={episode.status === "script_review" && !busy} />
+              <ScriptReview script={script} rules={rules} reviewing={episode.status === "script_review" && !busy} />
             ) : byClips && !picked ? (
               <Empty>영상 찾기에서 장면 클립을 고르면 대본을 만듭니다.</Empty>
             ) : (

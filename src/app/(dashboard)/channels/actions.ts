@@ -14,6 +14,7 @@ export async function updateChannelAction(_prev: ChannelSettingsState, formData:
       name: String(formData.get("name") ?? ""),
       emoji: String(formData.get("emoji") ?? ""),
       route: formData.get("route") === "clips" ? "clips" : "ai",
+      defaultSeconds: Number(formData.get("defaultSeconds")),
       youtubeChannelId: String(formData.get("youtubeChannelId") ?? ""),
     });
   } catch (error) {

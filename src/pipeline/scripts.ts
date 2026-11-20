@@ -1,7 +1,7 @@
 import { query } from "@/lib/db";
 import { estimateCost } from "@/pipeline/script/pricing";
 import { checkGuardrails } from "@/pipeline/script/guardrails";
-import { toDraft, validateScript, type Problem, type ResearchItem, type Scene, type ScriptDraft } from "@/pipeline/script/schema";
+import { toDraft, validateScript, type LengthRules, type Problem, type ResearchItem, type Scene, type ScriptDraft } from "@/pipeline/script/schema";
 
 // scripts 테이블: 에피소드별 대본 버전. 화면은 가장 최근 버전을 보여 준다.
 
@@ -157,7 +157,7 @@ export interface ScriptEdit {
  * 사람이 고친 내용으로 새 버전을 만든다. 장면 구성·프롬프트·근거는 그대로 두고
  * 내레이션·제목·설명란·해시태그만 바꾼다. 형식 오류면 RangeError.
  */
-export async function saveEditedScript(base: Script, edit: ScriptEdit): Promise<Script> {
+export async function saveEditedScript(base: Script, edit: ScriptEdit, rules: LengthRules): Promise<Script> {
   if (edit.narrations.length !== base.scenes.length) throw new RangeError("장면 수가 맞지 않습니다.");
   const draft: ScriptDraft = {
     ...toDraft({
@@ -170,7 +170,7 @@ export async function saveEditedScript(base: Script, edit: ScriptEdit): Promise<
     // 설명란은 사람이 쓴 그대로 둔다(출처·고지 포함 여부는 경고로 알린다).
     description: edit.description.trim(),
   };
-  const { errors, warnings } = validateScript(draft);
+  const { errors, warnings } = validateScript(draft, rules);
   if (errors.length) throw new RangeError(errors.map((p) => p.message).join(" / "));
   if (!draft.description.includes("의학적 조언이 아닙니다")) {
     warnings.push({ field: "description", message: "설명란에 의학적 조언이 아니라는 고지가 없습니다." });

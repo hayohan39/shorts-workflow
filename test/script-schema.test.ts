@@ -1,14 +1,53 @@
 import { describe, expect, it } from "vitest";
 import { checkGuardrails, findForbidden } from "@/pipeline/script/guardrails";
-import { countChars, DISCLAIMER, toDraft, validateScript } from "@/pipeline/script/schema";
+import { countChars, DISCLAIMER, lengthRules, NARRATION_HARD_MAX, TARGET_SECONDS, toDraft, validateScript } from "@/pipeline/script/schema";
 import { validSubmission } from "./helpers/script";
+
+/** 예시 대본(장면 4개, 152자)은 35초 분량이다. */
+const rules35 = lengthRules(35);
+
+describe("영상 길이별 분량", () => {
+  it("길이에서 장면 수(영상·이미지)와 내레이션 글자 수가 나온다", () => {
+    const table = TARGET_SECONDS.map((seconds) => {
+      const rules = lengthRules(seconds);
+      return `${seconds}:${rules.videoScenes}+${rules.imageScenes}:${rules.narrationMin}-${rules.narrationMax}`;
+    });
+    expect(table).toEqual([
+      "20:2+2:73-86",
+      "25:2+2:92-108",
+      "30:2+2:111-130",
+      "35:2+2:129-152",
+      "40:3+2:148-174",
+      "45:3+2:167-196",
+      "50:3+3:185-218",
+      "55:3+3:204-240",
+    ]);
+    // 가장 긴 분량도 1분 상한 글자 수 안이다
+    expect(lengthRules(55).narrationMax).toBeLessThan(NARRATION_HARD_MAX);
+  });
+});
 
 describe("대본 형식", () => {
   it("예시 대본은 규칙을 지킨다", () => {
     const draft = toDraft(validSubmission());
-    expect(countChars(draft.narration)).toBeGreaterThanOrEqual(150);
-    expect(countChars(draft.narration)).toBeLessThanOrEqual(170);
-    expect(validateScript(draft)).toEqual({ errors: [], warnings: [] });
+    expect(countChars(draft.narration)).toBe(152);
+    expect(validateScript(draft, rules35)).toEqual({ errors: [], warnings: [] });
+  });
+
+  it("길이마다 장면 수가 다르고, 1분을 넘길 내레이션은 오류로 막는다", () => {
+    const draft = toDraft(validSubmission());
+    expect(validateScript(draft, lengthRules(50)).errors.map((e) => e.message)).toEqual([
+      "50초 영상은 장면이 정확히 6개여야 합니다(현재 4개).",
+      "영상 3개 + 이미지 3개여야 합니다(현재 영상 2, 이미지 2).",
+    ]);
+    // 30초면 152자는 길다(경고)
+    expect(validateScript(draft, lengthRules(30)).warnings[0].message).toBe("내레이션 152자 (30초 기준 111~130자, 공백 제외)");
+
+    const long = validSubmission();
+    long.scenes[3].narration = "가".repeat(NARRATION_HARD_MAX);
+    const { errors, warnings } = validateScript(toDraft(long), rules35);
+    expect(errors.map((e) => e.message).join()).toContain("영상이 1분을 넘습니다");
+    expect(warnings.map((w) => w.field)).not.toContain("narration");
   });
 
   it("저장 형태: 내레이션은 장면을 이어 붙이고, #shorts 를 맨 앞에, 설명란에 출처와 고지", () => {
@@ -50,21 +89,22 @@ describe("대본 형식", () => {
     const submission = validSubmission();
     submission.scenes[0].kind = "image";
     submission.scenes[2].seconds = 6;
-    const { errors } = validateScript(toDraft(submission));
+    const { errors } = validateScript(toDraft(submission), rules35);
     expect(errors.map((e) => e.message)).toEqual([
       "영상 2개 + 이미지 2개여야 합니다(현재 영상 1, 이미지 3).",
       "1번 장면(훅)은 영상이어야 합니다.",
       "3번 장면은 5초여야 합니다.",
     ]);
-    expect(validateScript(toDraft(validSubmission({ scenes: validSubmission().scenes.slice(0, 3) }))).errors[0].message).toContain(
-      "정확히 4개",
-    );
+    expect(
+      validateScript(toDraft(validSubmission({ scenes: validSubmission().scenes.slice(0, 3) })), rules35).errors[0].message,
+    ).toContain("정확히 4개");
   });
 
   it("길이·훅·제목·출처 문제는 경고", () => {
     const submission = validSubmission({ title: "가".repeat(41), research: [{ claim: "x", evidence: "none", sources: [] }] });
     submission.scenes[0].narration = "짧은 훅.";
-    const fields = validateScript(toDraft(submission)).warnings.map((w) => w.field);
+    submission.scenes[1].narration = "짧다.";
+    const fields = validateScript(toDraft(submission), rules35).warnings.map((w) => w.field);
     expect(fields).toEqual(["narration", "scenes.1", "title", "research"]);
   });
 });

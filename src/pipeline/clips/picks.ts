@@ -4,17 +4,20 @@ import { CLIP_MODEL, canFillScenes, fillSceneWithClip } from "@/pipeline/clips/e
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, getClips, type StoredClip } from "@/pipeline/clips/store";
 import type { Episode } from "@/pipeline/episodes";
-import { RULES } from "@/pipeline/script/schema";
+import { lengthRules } from "@/pipeline/script/schema";
 import { latestScript } from "@/pipeline/scripts";
 import { isBusy } from "@/pipeline/status";
 import { scenesDone } from "@/pipeline/steps/render";
 
-// clips 길: 에피소드에서 찾은 클립 중 장면 수(4)만큼 골라 순서를 정한다.
+// clips 길: 에피소드에서 찾은 클립 중 장면 수(목표 길이에서 나온다)만큼 골라 순서를 정한다.
 //   고르기 → 그 클립만 채택(내려받아 Blob 에 저장) + 대본 생성(클립 설명을 함께 넘김)
 //   대본 승인 → 고른 클립으로 장면을 채운다(채택이 늦게 끝나면 채택이 끝날 때 채운다)
 // 장면 생성(AI)은 쓰지 않는다.
 
-export const PICK_COUNT = RULES.scenes;
+/** 고를 클립 수 = 이 편의 장면 수. */
+export function pickCount(episode: Pick<Episode, "targetSeconds">): number {
+  return lengthRules(episode.targetSeconds).scenes;
+}
 
 /** 고른 클립(장면 순서). */
 export async function listPicks(episodeId: number): Promise<StoredClip[]> {
@@ -37,7 +40,8 @@ export function canPick(episode: Pick<Episode, "route" | "status" | "step" | "st
  */
 export async function savePicks(episode: Episode, clipIds: number[]): Promise<StoredClip[]> {
   if (!canPick(episode)) throw new RangeError("대본을 만들기 전에만 클립을 고를 수 있습니다.");
-  if (clipIds.length !== PICK_COUNT) throw new RangeError(`장면 1~${PICK_COUNT}에 클립을 하나씩 고르세요.`);
+  const count = pickCount(episode);
+  if (clipIds.length !== count) throw new RangeError(`장면 1~${count}에 클립을 하나씩 고르세요.`);
   if (new Set(clipIds).size !== clipIds.length) throw new RangeError("같은 클립을 두 장면에 넣을 수 없습니다.");
   const collection = await episodeCollection(episode.id);
   const clips = new Map((await getClips(clipIds)).map((clip) => [clip.id, clip]));

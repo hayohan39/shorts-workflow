@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SendMessage } from "@/pipeline/script/generate";
+import { lengthRules } from "@/pipeline/script/schema";
 import { createMigratedSchema, testDatabaseUrl } from "./helpers/db";
 import { validSubmission } from "./helpers/script";
 
@@ -89,7 +90,7 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
       title: "새 제목",
       description: "출처 없이 쓴 설명",
       tags: "#shorts PDRN",
-    });
+    }, lengthRules(episode.targetSeconds));
     expect(edited).toMatchObject({ version: 2, source: "edited", title: "새 제목", tags: ["#shorts", "#PDRN"] });
     expect(edited.scenes[1].prompt).toBe(base.scenes[1].prompt);
     const messages = edited.warnings.map((w) => w.message).join(" | ");
@@ -97,7 +98,7 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     expect(messages).toContain("피부 재생");
 
     await expect(
-      saveEditedScript(base, { narrations: ["", "", "", ""], title: "", description: "", tags: "" }),
+      saveEditedScript(base, { narrations: ["", "", "", ""], title: "", description: "", tags: "" }, lengthRules(35)),
     ).rejects.toThrow(RangeError);
   });
 });

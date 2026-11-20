@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import { generateScript, ScriptGenerationError, type SendMessage } from "@/pipeline/script/generate";
 import { modelProfile } from "@/pipeline/script/model";
-import type { ScriptSubmission } from "@/pipeline/script/schema";
+import { lengthRules, type ScriptSubmission } from "@/pipeline/script/schema";
 import { validSubmission } from "./helpers/script";
 
 type Message = Anthropic.Beta.Messages.BetaMessage;
@@ -27,7 +27,7 @@ function fake(responses: Message[]) {
   return { send, calls };
 }
 
-const input = { topic: "PDRN", outline: "소개 → 효과", reviewerNote: null, previousNarration: null, recentEpisodes: [] };
+const input = { topic: "PDRN", rules: lengthRules(35), outline: "소개 → 효과", reviewerNote: null, previousNarration: null, recentEpisodes: [] };
 
 describe("대본 생성 (가짜 API)", () => {
   it("웹 검색 도구·strict 제출 도구·effort high·서버 대체 모델로 요청하고, 제출을 받으면 끝낸다", async () => {

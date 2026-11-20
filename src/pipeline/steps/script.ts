@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
+import { listPicks, pickCount } from "@/pipeline/clips/picks";
 import type { Episode } from "@/pipeline/episodes";
 import { readAnthropicKey } from "@/pipeline/providers/anthropic";
 import {
@@ -10,6 +10,7 @@ import {
   type SendMessage,
 } from "@/pipeline/script/generate";
 import { DEFAULT_SCRIPT_MODEL } from "@/pipeline/script/model";
+import { lengthRules } from "@/pipeline/script/schema";
 import { latestScript, recentScripts, saveScript } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 
@@ -25,8 +26,8 @@ export async function runScriptStep(
     getSettings(),
     episode.route === "clips" ? listPicks(episode.id) : [],
   ]);
-  if (episode.route === "clips" && picks.length !== PICK_COUNT) {
-    throw new Error(`장면에 쓸 클립 ${PICK_COUNT}개를 먼저 고르세요(지금 ${picks.length}개).`);
+  if (episode.route === "clips" && picks.length !== pickCount(episode)) {
+    throw new Error(`장면에 쓸 클립 ${pickCount(episode)}개를 먼저 고르세요(지금 ${picks.length}개).`);
   }
   const sender = options.send ?? createSender(new Anthropic({ apiKey: readAnthropicKey() }));
   const model = settings.scriptModel || DEFAULT_SCRIPT_MODEL;
@@ -34,6 +35,7 @@ export async function runScriptStep(
   const result = await generateScript(
     {
       topic: episode.topic,
+      rules: lengthRules(episode.targetSeconds),
       outline: episode.outline,
       reviewerNote: previous?.reviewerNote ?? null,
       previousNarration: previous?.reviewerNote ? previous.narration : null,

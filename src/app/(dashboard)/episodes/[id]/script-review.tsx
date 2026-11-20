@@ -1,6 +1,6 @@
 import { scriptCost, type Script } from "@/pipeline/scripts";
 import { formatUsd } from "@/pipeline/script/pricing";
-import { countChars, RULES, type EvidenceLevel } from "@/pipeline/script/schema";
+import { countChars, RULES, type EvidenceLevel, type LengthRules } from "@/pipeline/script/schema";
 import { ScriptActions, ScriptEditForm } from "./script-forms";
 
 const EVIDENCE_LABELS: Record<EvidenceLevel, string> = {
@@ -24,10 +24,10 @@ function fieldLabel(field: string): string {
 }
 
 /** 대본 검토 화면. reviewing 이면 승인·반려·수정 버튼을 보여 준다. */
-export function ScriptReview({ script, reviewing }: { script: Script; reviewing: boolean }) {
+export function ScriptReview({ script, rules, reviewing }: { script: Script; rules: LengthRules; reviewing: boolean }) {
   const cost = script.source === "generated" ? scriptCost(script) : null;
   const length = countChars(script.narration);
-  const lengthOk = length >= RULES.narrationMin && length <= RULES.narrationMax;
+  const lengthOk = length >= rules.narrationMin && length <= rules.narrationMax;
   const titleLength = [...script.title].length;
 
   return (
@@ -54,7 +54,7 @@ export function ScriptReview({ script, reviewing }: { script: Script; reviewing:
 
       <h3>내레이션</h3>
       <p className={lengthOk ? "muted small" : "warn small"}>
-        공백 제외 {length}자 (기준 {RULES.narrationMin}~{RULES.narrationMax}자)
+        공백 제외 {length}자 ({rules.seconds}초 기준 {rules.narrationMin}~{rules.narrationMax}자)
       </p>
       <ol className="scenes">
         {script.scenes.map((scene) => (

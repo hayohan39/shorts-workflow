@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { LengthSelect } from "@/components/length-select";
 import type { Channel } from "@/pipeline/channels";
 import type { Route } from "@/pipeline/episodes";
 import { updateChannelAction, type ChannelSettingsState } from "../../actions";
@@ -48,6 +49,12 @@ export function ChannelSettingsForm({ channel, nameMax }: { channel: Channel; na
           새 에피소드를 만들 때 기본으로 고르는 방식입니다. 에피소드마다 다른 방식도 고를 수 있습니다.
         </small>
       </fieldset>
+      <LengthSelect
+        name="defaultSeconds"
+        label="기본 영상 길이"
+        defaultValue={channel.defaultSeconds}
+        hint="새 에피소드의 기본 길이입니다. 에피소드마다 바꿀 수 있습니다."
+      />
       <label className="field">
         <span>유튜브 채널 ID</span>
         <input

@@ -9,6 +9,7 @@ import { SESSION_COOKIE } from "@/lib/session";
 import { getChannel } from "@/pipeline/channels";
 import { fillScenesFromPicks } from "@/pipeline/clips/picks";
 import { createEpisode, decide, getEpisode, saveUpload, setUploadPlan, setVoiceSelection } from "@/pipeline/episodes";
+import { lengthRules } from "@/pipeline/script/schema";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
 import { updateSettings } from "@/pipeline/settings";
@@ -22,21 +23,22 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
-export type NewEpisodeState = { error?: string; topic?: string; outline?: string };
+export type NewEpisodeState = { error?: string; topic?: string; outline?: string; targetSeconds?: number };
 
 /** 새 에피소드를 만들고 바로 대본 생성을 시작한다(프로덕션에서만). */
 export async function createEpisodeAction(_prev: NewEpisodeState, formData: FormData): Promise<NewEpisodeState> {
   await requireSession();
   const topic = String(formData.get("topic") ?? "");
   const outline = String(formData.get("outline") ?? "");
+  const targetSeconds = Number(formData.get("targetSeconds"));
   const channel = await getChannel(String(formData.get("channel") ?? ""));
-  if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, outline };
+  if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, outline, targetSeconds };
 
   let id: number;
   try {
-    id = (await createEpisode({ topic, outline, channel: channel.slug })).id;
+    id = (await createEpisode({ topic, outline, channel: channel.slug, targetSeconds })).id;
   } catch (error) {
-    if (error instanceof RangeError) return { error: error.message, topic, outline };
+    if (error instanceof RangeError) return { error: error.message, topic, outline, targetSeconds };
     throw error;
   }
   if (dispatchAvailability().ok) {
@@ -175,12 +177,16 @@ export async function editScriptAction(_prev: SimpleState, formData: FormData): 
     return { error: "대본 검토 중일 때만 수정할 수 있습니다." };
   }
   try {
-    await saveEditedScript(script, {
-      narrations: script.scenes.map((scene) => String(formData.get(`narration_${scene.no}`) ?? "")),
-      title: String(formData.get("title") ?? ""),
-      description: String(formData.get("description") ?? ""),
-      tags: String(formData.get("tags") ?? ""),
-    });
+    await saveEditedScript(
+      script,
+      {
+        narrations: script.scenes.map((scene) => String(formData.get(`narration_${scene.no}`) ?? "")),
+        title: String(formData.get("title") ?? ""),
+        description: String(formData.get("description") ?? ""),
+        tags: String(formData.get("tags") ?? ""),
+      },
+      lengthRules(episode.targetSeconds),
+    );
   } catch (error) {
     if (error instanceof RangeError) return { error: error.message };
     throw error;

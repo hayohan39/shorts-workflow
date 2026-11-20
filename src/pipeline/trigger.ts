@@ -1,6 +1,6 @@
 import type { Dispatcher } from "@/lib/github";
 import { failStep, getEpisode, requestStep, type Episode } from "@/pipeline/episodes";
-import { listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
+import { listPicks, pickCount } from "@/pipeline/clips/picks";
 import { isBusy, STEP_LABELS, TransitionError, type Status, type Step } from "@/pipeline/status";
 
 // 대시보드에서 단계를 시작시키는 쪽. DB 에 "대기" 를 적고 Actions 실행을 요청한다.
@@ -48,8 +48,8 @@ export async function triggerStep(id: number, step: Step, dispatch: Dispatcher, 
   if (!current) throw new Error(`에피소드 #${id} 를 찾을 수 없습니다.`);
   if (current.route === "clips") {
     if (step === "render") throw new TransitionError("이 에피소드는 고른 클립으로 장면을 채웁니다(장면 생성 없음).");
-    if (step === "script" && (await listPicks(id)).length !== PICK_COUNT) {
-      throw new TransitionError(`장면에 쓸 클립 ${PICK_COUNT}개를 먼저 고르세요.`);
+    if (step === "script" && (await listPicks(id)).length !== pickCount(current)) {
+      throw new TransitionError(`장면에 쓸 클립 ${pickCount(current)}개를 먼저 고르세요.`);
     }
   }
   if (isStale(current, now) && current.step) {

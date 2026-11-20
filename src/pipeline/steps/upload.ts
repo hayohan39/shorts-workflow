@@ -10,6 +10,7 @@ import {
   type VideoMetadata,
   type YoutubeCredentials,
 } from "@/pipeline/providers/youtube";
+import { MAX_VIDEO_SECONDS } from "@/pipeline/script/schema";
 import { latestScript } from "@/pipeline/scripts";
 import { scenesDone } from "@/pipeline/steps/render";
 import { studioUrl } from "@/pipeline/youtube/links";
@@ -104,6 +105,8 @@ export async function runUploadStep(
   const assets = await listAssets(episode.id);
   const final = latestFinal(assets, script.version);
   if (!final?.url) throw new Error("완성 영상이 없습니다. 영상 합성을 먼저 끝내세요.");
+  const seconds = Number(final.meta.seconds);
+  if (seconds > MAX_VIDEO_SECONDS) throw new Error(`완성 영상이 ${seconds}초라 1분 미만 기준을 넘습니다. 올리지 않았습니다.`);
 
   const scenes = scenesDone(assets, script.version);
   const metadata = buildMetadata(buildUploadText(script, await sceneClips(scenes), hasAiScenes(scenes)), episode);

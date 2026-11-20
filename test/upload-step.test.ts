@@ -319,4 +319,22 @@ describe.skipIf(!testDatabaseUrl)("유튜브 업로드 단계 (실제 DB, 가짜
     });
     expect(await latestUpload(other.id)).toMatchObject({ privacy: "private" });
   });
+
+  it("완성 영상이 1분 미만 기준(59.5초)을 넘으면 올리지 않는다", async () => {
+    const { query } = await import("@/lib/db");
+    const { createEpisode, getEpisode } = await import("@/pipeline/episodes");
+    const { saveScript } = await import("@/pipeline/scripts");
+    const { toDraft } = await import("@/pipeline/script/schema");
+    const { saveAsset } = await import("@/pipeline/assets");
+    const { runUploadStep } = await import("@/pipeline/steps/upload");
+    const episode = await createEpisode({ topic: "너무 긴 영상", outline: "" });
+    await saveScript(episode.id, toDraft(validSubmission()), { source: "generated", warnings: [], model: null, usage: null });
+    await saveAsset({ episodeId: episode.id, kind: "final", model: null, credits: 0, url: "https://blob.test/final.mp4", meta: { scriptVersion: 1, seconds: 61.2 } });
+    await query("update episodes set status = 'ready', upload_privacy = 'public' where id = $1", [episode.id]);
+    const fetchImpl = youtubeFetch();
+    await expect(runUploadStep((await getEpisode(episode.id))!, { deps: { credentials, fetchImpl } })).rejects.toThrow(
+      "완성 영상이 61.2초라 1분 미만 기준을 넘습니다",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });
