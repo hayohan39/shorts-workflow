@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { selectClips } from "@/pipeline/clips/select";
 import { buildUserPrompt } from "@/pipeline/script/prompt";
+import { lengthRules } from "@/pipeline/script/schema";
 import { statusForRequest } from "@/pipeline/status";
 import { clip } from "./helpers/clips";
 import { createMigratedSchema, testDatabaseUrl } from "./helpers/db";
@@ -11,6 +12,7 @@ describe("영상 먼저 찾기(clips 길) 규칙", () => {
   it("대본 프롬프트에 장면 순서대로 고른 클립을 넣는다", () => {
     const prompt = buildUserPrompt({
       topic: "겨울 보습",
+      rules: lengthRules(30),
       outline: "컨셉: 차분하게",
       reviewerNote: null,
       previousNarration: null,
@@ -21,9 +23,10 @@ describe("영상 먼저 찾기(clips 길) 규칙", () => {
       ],
     });
     expect(prompt).toContain("미리 고른 무료 영상 클립");
+    expect(prompt).toContain("분량: 30초 영상 — 장면 4개(AI 영상 2개 + AI 이미지 2개), 내레이션 전체 공백 제외 111~130자");
     expect(prompt).toContain('- 장면 1: ocean waves (검색어 "winter sea", 원본 12초)');
     expect(prompt).toContain('- 장면 2: ice (검색어 "ice")');
-    expect(buildUserPrompt({ topic: "a", outline: "", reviewerNote: null, previousNarration: null, recentEpisodes: [] })).not.toContain(
+    expect(buildUserPrompt({ topic: "a", rules: lengthRules(30), outline: "", reviewerNote: null, previousNarration: null, recentEpisodes: [] })).not.toContain(
       "클립",
     );
   });

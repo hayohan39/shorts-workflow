@@ -1,12 +1,11 @@
 import type { Scene } from "@/pipeline/script/schema";
-import { countChars } from "@/pipeline/script/schema";
+import { countChars, TAIL_SECONDS } from "@/pipeline/script/schema";
 
 // 영상 타임라인: 내레이션 실제 길이를 장면별 내레이션 글자 수 비율로 나눈다(docs/plan.md 2장).
 // 장면이 바뀌는 때와 그 장면의 자막이 같이 움직이게 하기 위해서다. 영상 장면이 원본보다 길어지면
 // 마지막 프레임을 늘리고, 이미지 장면은 그 길이만큼 천천히 확대·이동한다.
 
-/** 마지막 장면 뒤에 두는 여유(초). 말이 끝나자마자 영상이 끊기지 않게. */
-export const TAIL_SECONDS = 0.4;
+export { TAIL_SECONDS };
 /** 장면 하나의 최소 길이(초). 아주 짧은 문장이어도 화면이 번쩍 지나가지 않게. */
 export const MIN_SCENE_SECONDS = 1.5;
 

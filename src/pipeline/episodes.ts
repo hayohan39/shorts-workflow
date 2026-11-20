@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool, query, transaction } from "@/lib/db";
 import { watchUrl } from "@/pipeline/youtube/links";
 import { redact } from "@/lib/health";
+import { isTargetSeconds, TARGET_SECONDS } from "@/pipeline/script/schema";
 import {
   statusForDecision,
   statusForDone,
@@ -23,6 +24,8 @@ export interface Episode {
   /** 채널 slug(channels.slug). */
   channel: string;
   route: Route;
+  /** 목표 영상 길이(초). 장면 수·내레이션 글자 수가 여기서 나온다(lengthRules). */
+  targetSeconds: number;
   topic: string;
   outline: string;
   status: Status;
@@ -51,6 +54,7 @@ interface EpisodeRow {
   id: number;
   channel: string;
   route: Route;
+  target_seconds: number;
   topic: string;
   outline: string;
   status: Status;
@@ -70,7 +74,7 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, channel, route, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
+const COLUMNS = `id, channel, route, target_seconds, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
@@ -90,6 +94,7 @@ function toEpisode(row: EpisodeRow): Episode {
     id: row.id,
     channel: row.channel,
     route: row.route,
+    targetSeconds: row.target_seconds,
     topic: row.topic,
     outline: row.outline,
     status: row.status,
@@ -116,15 +121,22 @@ export async function createEpisode(input: {
   route?: Route;
   /** 채널 slug. 없으면 DB 기본값(raccoon). */
   channel?: string;
+  /** 목표 길이(초, TARGET_SECONDS 중 하나). 없으면 DB 기본값. */
+  targetSeconds?: number;
 }): Promise<Episode> {
   const topic = input.topic.trim();
   const outline = input.outline.trim();
   if (!topic) throw new RangeError("주제를 입력하세요.");
   if (topic.length > TOPIC_MAX) throw new RangeError(`주제는 ${TOPIC_MAX}자 이내로 입력하세요.`);
   if (outline.length > OUTLINE_MAX) throw new RangeError(`목차는 ${OUTLINE_MAX}자 이내로 입력하세요.`);
+  if (input.targetSeconds !== undefined && !isTargetSeconds(input.targetSeconds)) {
+    throw new RangeError(`영상 길이는 ${TARGET_SECONDS.join("·")}초 중에서 고르세요.`);
+  }
+  // 채널·길이를 주지 않으면(테스트·예전 호출) 마이그레이션의 기본값과 같은 값을 쓴다.
   const [row] = await query<EpisodeRow>(
-    `insert into episodes (topic, outline, route, channel) values ($1, $2, $3, coalesce($4, 'raccoon')) returning ${COLUMNS}`,
-    [topic, outline, input.route ?? "ai", input.channel ?? null],
+    `insert into episodes (topic, outline, route, channel, target_seconds)
+      values ($1, $2, $3, coalesce($4, 'raccoon'), coalesce($5, 35)) returning ${COLUMNS}`,
+    [topic, outline, input.route ?? "ai", input.channel ?? null, input.targetSeconds ?? null],
   );
   return toEpisode(row);
 }

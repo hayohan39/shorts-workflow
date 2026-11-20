@@ -33,14 +33,20 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
       { slug: "saesae", route: "clips", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_SAESAE", youtubeChannelId: null },
     ]);
     expect(channels.map(channelLabel)).toEqual(["🦝 피부건강 라쿤씨", "🐦 새새 열매"]);
-    expect((await createEpisode({ topic: "기본 채널", outline: "" })).channel).toBe("raccoon");
+    expect(channels.map((channel) => channel.defaultSeconds)).toEqual([30, 30]);
+    expect(await createEpisode({ topic: "기본 채널", outline: "" })).toMatchObject({ channel: "raccoon", targetSeconds: 35 });
+    expect((await createEpisode({ topic: "30초", outline: "", targetSeconds: 30 })).targetSeconds).toBe(30);
+    await expect(createEpisode({ topic: "1분", outline: "", targetSeconds: 60 })).rejects.toThrow("영상 길이는");
   });
 
   it("채널 설정: 이름·아이콘·기본 방식·유튜브 채널 ID 를 바꾸고, 잘못된 값은 이유와 함께 거절한다", async () => {
     const { updateChannel, getChannel } = await import("@/pipeline/channels");
-    const base = { name: "새새 열매", emoji: "🐦", route: "clips" as const, youtubeChannelId: "" };
+    const base = { name: "새새 열매", emoji: "🐦", route: "clips" as const, defaultSeconds: 30, youtubeChannelId: "" };
     await expect(updateChannel("saesae", { ...base, name: "  " })).rejects.toThrow("채널 이름을 입력하세요");
     await expect(updateChannel("saesae", { ...base, youtubeChannelId: "my-channel" })).rejects.toThrow("UC 로 시작하는 24자");
+    await expect(updateChannel("saesae", { ...base, defaultSeconds: 60 })).rejects.toThrow(
+      "기본 길이는 20·25·30·35·40·45·50·55초 중에서",
+    );
     await expect(updateChannel("nope", base)).rejects.toThrow("채널을 찾을 수 없습니다");
 
     const id = "UC" + "a".repeat(22);
@@ -53,7 +59,12 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
     });
     // 비우면 연결을 끊는다(자동 업로드를 하지 않는다)
     await updateChannel("saesae", base);
-    expect(await getChannel("saesae")).toMatchObject({ name: "새새 열매", route: "clips", youtubeChannelId: null });
+    expect(await getChannel("saesae")).toMatchObject({
+      name: "새새 열매",
+      route: "clips",
+      defaultSeconds: 30,
+      youtubeChannelId: null,
+    });
   });
 
   it("에피소드는 채널에 속하고, 목록과 최근 대본(훅 겹침 방지)은 채널별로 본다", async () => {

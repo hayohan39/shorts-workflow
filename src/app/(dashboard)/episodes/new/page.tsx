@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const ROUTE_HINTS: Record<Route, string> = {
   ai: "주제와 목차로 대본을 쓰고, 장면은 AI 로 만듭니다(장면 크레딧 사용).",
-  clips: "무료 영상을 먼저 찾아 4개를 고르고, 그 화면에 맞춰 대본을 씁니다(장면 크레딧 없음).",
+  clips: "무료 영상을 먼저 찾아 장면 수만큼 고르고, 그 화면에 맞춰 대본을 씁니다(장면 크레딧 없음).",
 };
 
 function isRoute(value: unknown): value is Route {
@@ -68,15 +68,26 @@ export default async function NewEpisodePage({ searchParams }: PageProps<"/episo
         {route === "ai" ? (
           <>
             <p className="muted small">만들면 바로 대본 생성이 시작됩니다. 대본은 검토 후 승인해야 다음 단계로 넘어갑니다.</p>
-            <NewEpisodeForm channel={channel.slug} topicMax={TOPIC_MAX} outlineMax={OUTLINE_MAX} startsRun={availability.ok} />
+            <NewEpisodeForm
+              channel={channel.slug}
+              defaultSeconds={channel.defaultSeconds}
+              topicMax={TOPIC_MAX}
+              outlineMax={OUTLINE_MAX}
+              startsRun={availability.ok}
+            />
           </>
         ) : (
           <>
             <p className="muted small">
-              만들면 바로 무료 영상 찾기가 시작됩니다(보통 1분). 찾은 영상에서 장면 4개를 고르고 컨셉·목차를 적으면 대본을
+              만들면 바로 무료 영상 찾기가 시작됩니다(보통 1분). 찾은 영상에서 장면 클립을 고르고 컨셉·목차를 적으면 대본을
               만듭니다.
             </p>
-            <ClipsEpisodeForm channel={channel.slug} maxLength={CLIP_TOPIC_MAX} startsRun={availability.ok} />
+            <ClipsEpisodeForm
+              channel={channel.slug}
+              defaultSeconds={channel.defaultSeconds}
+              maxLength={CLIP_TOPIC_MAX}
+              startsRun={availability.ok}
+            />
           </>
         )}
       </section>

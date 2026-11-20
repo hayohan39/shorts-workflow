@@ -121,6 +121,7 @@ describe.skipIf(!testDatabaseUrl || !hasFfmpeg)("영상 합성 (실제 DB·실�
     await ff("-f", "lavfi", "-i", "testsrc=size=360x640:rate=24:duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "v.mp4");
     await ff("-f", "lavfi", "-i", "testsrc2=size=400x400", "-frames:v", "1", "i.jpg");
     await ff("-f", "lavfi", "-i", "sine=f=440:d=8", "-c:a", "libmp3lame", "n.mp3");
+    await ff("-f", "lavfi", "-i", "sine=f=440:d=60", "-c:a", "libmp3lame", "n60.mp3");
   }, 60_000);
 
   afterAll(async () => {
@@ -189,5 +190,10 @@ describe.skipIf(!testDatabaseUrl || !hasFfmpeg)("영상 합성 (실제 DB·실�
     expect(again.seconds).toBeCloseTo(8 + 0.4, 0);
     const [latest] = await listAssets(episode.id, "final");
     expect(latest.meta.sceneAssetIds).toContain(clipAsset.id);
+
+    // 내레이션이 길어 영상이 1분을 넘으면 합성하지 않는다(완성 영상도 늘지 않는다).
+    await saveAsset({ episodeId: episode.id, kind: "voice", model: "eleven_v3", credits: 80, url: "https://blob.example/n60.mp3", meta: {} });
+    await expect(runComposeStep((await getEpisode(episode.id))!, { deps })).rejects.toThrow(/영상이 60\.\d초가 됩니다\(59\.5초까지\)/);
+    expect(await listAssets(episode.id, "final")).toHaveLength(2);
   }, 180_000);
 });

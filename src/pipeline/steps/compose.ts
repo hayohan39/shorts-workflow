@@ -8,9 +8,10 @@ import type { Episode } from "@/pipeline/episodes";
 import { listAssets, saveAsset } from "@/pipeline/assets";
 import { createBlobPut, readBlobToken, type BlobPut } from "@/pipeline/providers/blob";
 import { scenesDone } from "@/pipeline/steps/render";
+import { MAX_VIDEO_SECONDS } from "@/pipeline/script/schema";
 import { latestScript } from "@/pipeline/scripts";
 
-// 영상 합성(⑥): 장면 4개 + 가장 최근 내레이션 + 대본 자막 → 1080×1920 MP4 → 검사 → Blob → assets(kind=final).
+// 영상 합성(⑥): 장면들 + 가장 최근 내레이션 + 대본 자막 → 1080×1920 MP4 → 검사 → Blob → assets(kind=final).
 // 크레딧을 쓰지 않는다. 내레이션을 다시 만들었거나 자막 규칙을 바꿨으면 "다시 합성" 으로 몇 번이고 돌린다.
 
 export interface ComposeDeps {
@@ -63,6 +64,13 @@ export async function runComposeStep(
 
     const voice = await probeMedia(path.join(dir, "narration.mp3"));
     const timeline = planTimeline(planned, voice.duration);
+    // 쇼츠는 1분 미만. 내레이션 실제 길이로 정해지는 영상 길이가 넘으면 합성하지 않는다.
+    if (timeline.total > MAX_VIDEO_SECONDS) {
+      throw new Error(
+        `내레이션이 ${voice.duration.toFixed(1)}초라 영상이 ${timeline.total.toFixed(1)}초가 됩니다(${MAX_VIDEO_SECONDS}초까지). ` +
+          "대본 내레이션을 줄이고 내레이션을 다시 만드세요.",
+      );
+    }
     await writeFile(path.join(dir, SUBTITLE_FILE), buildAss(timeline));
 
     await progress(`영상 합성 중 (${timeline.total.toFixed(1)}초 영상, 보통 1분 안팎)`);

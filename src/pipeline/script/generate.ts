@@ -5,7 +5,6 @@ import { formatUsd, roundCost } from "@/pipeline/script/pricing";
 import { buildUserPrompt, SYSTEM_PROMPT, type PromptInput } from "@/pipeline/script/prompt";
 import {
   countChars,
-  RULES,
   SUBMISSION_SCHEMA,
   toDraft,
   validateScript,
@@ -162,11 +161,12 @@ async function generateLoop(
     }
 
     const draft = toDraft(call.input as ScriptSubmission);
-    const { errors, warnings } = validateScript(draft);
-    // 길이는 경고 대상이지만, 첫 제출에서 벗어났으면 한 번은 고쳐 보게 한다(20초 타이밍에 중요).
+    const { rules } = input;
+    const { errors, warnings } = validateScript(draft, rules);
+    // 길이는 경고 대상이지만, 첫 제출에서 벗어났으면 한 번은 고쳐 보게 한다(영상 길이가 내레이션으로 정해진다).
     const length = countChars(draft.narration);
-    const lengthOff = length < RULES.narrationMin || length > RULES.narrationMax;
-    const fixes = [...errors, ...(lengthOff && corrections === 0 ? [{ field: "narration", message: `내레이션이 공백 제외 ${length}자다. ${RULES.narrationMin}~${RULES.narrationMax}자로 맞춘다.` }] : [])];
+    const lengthOff = length < rules.narrationMin || length > rules.narrationMax;
+    const fixes = [...errors, ...(lengthOff && corrections === 0 ? [{ field: "narration", message: `내레이션이 공백 제외 ${length}자다. ${rules.narrationMin}~${rules.narrationMax}자로 맞춘다.` }] : [])];
 
     if (fixes.length && corrections < MAX_CORRECTIONS) {
       corrections++;

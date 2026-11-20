@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { fillSceneWithClip, removeSceneClip } from "@/pipeline/clips/episode";
-import { PICK_COUNT, savePicks } from "@/pipeline/clips/picks";
+import { pickCount, savePicks } from "@/pipeline/clips/picks";
 import { getChannel } from "@/pipeline/channels";
 import { createEpisode, getEpisode, setOutline } from "@/pipeline/episodes";
 import { TransitionError } from "@/pipeline/status";
@@ -168,26 +168,28 @@ export async function removeSceneClipAction(_prev: ClipActionState, formData: Fo
 
 // ── 편집형(clips 길) ─────────────────────────────────────────
 
-export type ClipsEpisodeState = { error?: string; topic?: string; related?: string };
+export type ClipsEpisodeState = { error?: string; topic?: string; related?: string; targetSeconds?: number };
 
 /** 편집형: 에피소드를 만들고 주제·연관 단어로 무료 영상을 찾는다(Claude Haiku 키워드 1회, 누르는 것이 확인). */
 export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formData: FormData): Promise<ClipsEpisodeState> {
   await requireSession();
   const topic = String(formData.get("topic") ?? "");
   const related = String(formData.get("related") ?? "");
+  const targetSeconds = Number(formData.get("targetSeconds"));
   // 에피소드를 만들기 전에 수집 쪽 길이 제한을 먼저 본다(에피소드만 남지 않게).
-  if (topic.trim().length > TOPIC_MAX) return { error: `주제는 ${TOPIC_MAX}자 이내로 입력하세요.`, topic, related };
-  if (related.trim().length > TOPIC_MAX) return { error: `연관 단어는 ${TOPIC_MAX}자 이내로 입력하세요.`, topic, related };
+  const kept = { topic, related, targetSeconds };
+  if (topic.trim().length > TOPIC_MAX) return { error: `주제는 ${TOPIC_MAX}자 이내로 입력하세요.`, ...kept };
+  if (related.trim().length > TOPIC_MAX) return { error: `연관 단어는 ${TOPIC_MAX}자 이내로 입력하세요.`, ...kept };
   const channel = await getChannel(String(formData.get("channel") ?? ""));
-  if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, related };
+  if (!channel) return { error: "채널을 찾을 수 없습니다.", ...kept };
 
   let episodeId: number;
   let collectionId: number;
   try {
-    episodeId = (await createEpisode({ topic, outline: "", route: "clips", channel: channel.slug })).id;
+    episodeId = (await createEpisode({ topic, outline: "", route: "clips", channel: channel.slug, targetSeconds })).id;
     collectionId = (await createSearchCollection(topic, { related, episodeId })).id;
   } catch (error) {
-    if (error instanceof RangeError) return { error: error.message, topic, related };
+    if (error instanceof RangeError) return { error: error.message, ...kept };
     throw error;
   }
   // 실행할 수 없는 환경(프리뷰·로컬)이면 이유를 남겨 둔다. 화면에서 다시 시도할 수 있다.
@@ -200,7 +202,7 @@ export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formDat
 export type PickState = { error?: string; concept?: string; outline?: string; scenes?: Record<string, string> };
 
 /**
- * 영상 찾기 결과에서 장면 1~4 에 쓸 클립을 고르고 컨셉·목차를 적는다.
+ * 영상 찾기 결과에서 장면마다 쓸 클립을 고르고 컨셉·목차를 적는다.
  * 고른 클립만 채택(내려받아 저장, 무료)하고 대본 생성을 시작한다(Claude 비용, 누르는 것이 확인).
  */
 export async function pickClipsAction(_prev: PickState, formData: FormData): Promise<PickState> {
@@ -208,6 +210,9 @@ export async function pickClipsAction(_prev: PickState, formData: FormData): Pro
   const id = positiveId(formData.get("id"));
   const concept = String(formData.get("concept") ?? "").trim();
   const outline = String(formData.get("outline") ?? "").trim();
+  const episode = id ? await getEpisode(id) : null;
+  if (!episode) return { error: "에피소드를 찾을 수 없습니다." };
+  const count = pickCount(episode);
   const scenes: Record<string, string> = {};
   const order: number[] = [];
   for (const [key, value] of formData.entries()) {
@@ -215,17 +220,15 @@ export async function pickClipsAction(_prev: PickState, formData: FormData): Pro
     scenes[key] = String(value);
     const sceneNo = Number(value);
     const clipId = positiveId(key.slice("scene-".length));
-    if (!clipId || !Number.isInteger(sceneNo) || sceneNo < 1 || sceneNo > PICK_COUNT) return { error: "잘못된 요청입니다." };
+    if (!clipId || !Number.isInteger(sceneNo) || sceneNo < 1 || sceneNo > count) return { error: "잘못된 요청입니다." };
     if (order[sceneNo - 1]) return { error: `장면 ${sceneNo}에 클립이 두 개 골라졌습니다.`, concept, outline, scenes };
     order[sceneNo - 1] = clipId;
   }
   const kept = { concept, outline, scenes };
-  const missing = Array.from({ length: PICK_COUNT }, (_, i) => i + 1).filter((no) => !order[no - 1]);
+  const missing = Array.from({ length: count }, (_, i) => i + 1).filter((no) => !order[no - 1]);
   if (missing.length) return { error: `장면 ${missing.join(", ")}에 쓸 클립을 고르세요.`, ...kept };
   if (!concept && !outline) return { error: "영상 컨셉이나 목차를 적어 주세요.", ...kept };
 
-  const episode = id ? await getEpisode(id) : null;
-  if (!episode) return { error: "에피소드를 찾을 수 없습니다." };
   const availability = dispatchAvailability();
   if (!availability.ok) return { error: availability.reason, ...kept };
 

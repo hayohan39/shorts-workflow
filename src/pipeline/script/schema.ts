@@ -49,16 +49,59 @@ export interface Problem {
 }
 
 export const RULES = {
-  scenes: 4,
-  videoScenes: 2,
-  imageScenes: 2,
+  /** 장면마다 생성하는 영상·이미지 길이(초). 화면에 보이는 길이는 내레이션에 맞춰 늘어난다(compose/timeline.ts). */
   sceneSeconds: 5,
-  narrationMin: 150,
-  narrationMax: 170,
   titleMax: 40,
   tagsMin: 3,
   tagsMax: 5,
 } as const;
+
+/** 고를 수 있는 영상 길이(초). */
+export const TARGET_SECONDS = [20, 25, 30, 35, 40, 45, 50, 55] as const;
+/** 완성 영상은 이 길이를 넘으면 안 된다(쇼츠 1분 미만). 합성·업로드에서 막는다. */
+export const MAX_VIDEO_SECONDS = 59.5;
+/**
+ * 내레이션 읽는 속도(공백 제외 글자/초). 2026-11 실측: 160자 → 내레이션 약 36.8초(ElevenLabs v3, Sian).
+ * 글자 수 기준을 길이로 바꾸는 데만 쓰고, 실제 길이는 합성 때 내레이션 파일을 재서 확인한다.
+ */
+export const CHARS_PER_SECOND = 4.4;
+/** 마지막 장면 뒤에 두는 여유(초). 말이 끝나자마자 영상이 끊기지 않게(compose/timeline.ts). */
+export const TAIL_SECONDS = 0.4;
+
+export function isTargetSeconds(value: unknown): value is (typeof TARGET_SECONDS)[number] {
+  return TARGET_SECONDS.includes(value as (typeof TARGET_SECONDS)[number]);
+}
+
+/** 목표 길이에서 나오는 대본 분량: 장면 수(영상·이미지), 내레이션 글자 수. */
+export interface LengthRules {
+  seconds: number;
+  scenes: number;
+  videoScenes: number;
+  imageScenes: number;
+  narrationMin: number;
+  narrationMax: number;
+}
+
+/**
+ * 장면은 약 8.5초에 하나(최소 4개), AI 영상 장면은 절반까지 최대 3개(크레딧이 큰 쪽).
+ * 내레이션은 (길이 − 끝 여유) × 읽는 속도가 상한, 그 85% 가 하한.
+ */
+export function lengthRules(seconds: number): LengthRules {
+  const scenes = Math.max(4, Math.round(seconds / 8.5));
+  const videoScenes = Math.min(3, Math.ceil(scenes / 2));
+  const narrationMax = Math.floor((seconds - TAIL_SECONDS) * CHARS_PER_SECOND);
+  return {
+    seconds,
+    scenes,
+    videoScenes,
+    imageScenes: scenes - videoScenes,
+    narrationMin: Math.round(narrationMax * 0.85),
+    narrationMax,
+  };
+}
+
+/** 이 글자 수를 넘으면 완성 영상이 60초를 넘을 수 있다(저장을 막는다). */
+export const NARRATION_HARD_MAX = Math.floor((MAX_VIDEO_SECONDS - TAIL_SECONDS) * CHARS_PER_SECOND);
 
 export const DISCLAIMER = "※ 이 영상은 정보 제공용이며 의학적 조언이 아닙니다. 피부·건강 문제는 전문의와 상담하세요.";
 
@@ -90,7 +133,7 @@ export const SUBMISSION_SCHEMA = {
     },
     scenes: {
       type: "array",
-      description: "정확히 4개. 1번은 질문형 훅 영상. 영상 2개 + 이미지 2개, 각 5초.",
+      description: "사용자 메시지의 분량대로. 1번은 질문형 훅 영상, 각 5초.",
       items: {
         type: "object",
         properties: {
@@ -177,18 +220,18 @@ export function toDraft(submission: ScriptSubmission): ScriptDraft {
  * errors: 다음 단계(장면 생성)가 깨지는 문제 → Claude 에게 고치게 하거나 저장을 막는다.
  * warnings: 사람이 보고 판단할 문제 → 검토 화면에 표시.
  */
-export function validateScript(draft: ScriptDraft): { errors: Problem[]; warnings: Problem[] } {
+export function validateScript(draft: ScriptDraft, rules: LengthRules): { errors: Problem[]; warnings: Problem[] } {
   const errors: Problem[] = [];
   const warnings: Problem[] = [];
   const { scenes } = draft;
 
-  if (scenes.length !== RULES.scenes) {
-    errors.push({ field: "scenes", message: `장면은 정확히 ${RULES.scenes}개여야 합니다(현재 ${scenes.length}개).` });
+  if (scenes.length !== rules.scenes) {
+    errors.push({ field: "scenes", message: `${rules.seconds}초 영상은 장면이 정확히 ${rules.scenes}개여야 합니다(현재 ${scenes.length}개).` });
   }
   const videos = scenes.filter((scene) => scene.kind === "video").length;
   const images = scenes.filter((scene) => scene.kind === "image").length;
-  if (videos !== RULES.videoScenes || images !== RULES.imageScenes) {
-    errors.push({ field: "scenes", message: `영상 ${RULES.videoScenes}개 + 이미지 ${RULES.imageScenes}개여야 합니다(현재 영상 ${videos}, 이미지 ${images}).` });
+  if (videos !== rules.videoScenes || images !== rules.imageScenes) {
+    errors.push({ field: "scenes", message: `영상 ${rules.videoScenes}개 + 이미지 ${rules.imageScenes}개여야 합니다(현재 영상 ${videos}, 이미지 ${images}).` });
   }
   if (scenes[0] && scenes[0].kind !== "video") {
     errors.push({ field: "scenes", message: "1번 장면(훅)은 영상이어야 합니다." });
@@ -203,8 +246,16 @@ export function validateScript(draft: ScriptDraft): { errors: Problem[]; warning
   if (!draft.title) errors.push({ field: "title", message: "제목이 없습니다." });
 
   const length = countChars(draft.narration);
-  if (length < RULES.narrationMin || length > RULES.narrationMax) {
-    warnings.push({ field: "narration", message: `내레이션 ${length}자 (기준 ${RULES.narrationMin}~${RULES.narrationMax}자, 공백 제외)` });
+  if (length > NARRATION_HARD_MAX) {
+    errors.push({
+      field: "narration",
+      message: `내레이션이 공백 제외 ${length}자라 영상이 1분을 넘습니다(${NARRATION_HARD_MAX}자 이하, 이 편 기준 ${rules.narrationMax}자 이하).`,
+    });
+  } else if (length < rules.narrationMin || length > rules.narrationMax) {
+    warnings.push({
+      field: "narration",
+      message: `내레이션 ${length}자 (${rules.seconds}초 기준 ${rules.narrationMin}~${rules.narrationMax}자, 공백 제외)`,
+    });
   }
   if (scenes[0] && !/[?？]\s*$/.test(scenes[0].narration)) {
     warnings.push({ field: "scenes.1", message: "첫 장면이 질문형 훅이 아닙니다." });
