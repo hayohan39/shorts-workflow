@@ -92,11 +92,11 @@ jobs:
           # 영상 클립 검색(clips)에만 넘긴다. 없으면 Pixabay 만 꺼지고 수집 결과에 이유가 남는다.
           PIXABAY_API_KEY: ${{ inputs.step == 'clips' && secrets.PIXABAY_API_KEY || '' }}
           # 유튜브 업로드(upload)에만 넘긴다. 발급 방법: docs/youtube-setup.md
+          # 리프레시 토큰은 채널마다 따로다(channels.youtube_token_secret). 업로드 단계가 에피소드 채널의 것만 읽는다.
           YOUTUBE_CLIENT_ID: ${{ inputs.step == 'upload' && secrets.YOUTUBE_CLIENT_ID || '' }}
           YOUTUBE_CLIENT_SECRET: ${{ inputs.step == 'upload' && secrets.YOUTUBE_CLIENT_SECRET || '' }}
           YOUTUBE_REFRESH_TOKEN: ${{ inputs.step == 'upload' && secrets.YOUTUBE_REFRESH_TOKEN || '' }}
-          # 선택: 올려야 하는 채널 ID(비밀 아님, Variables). 있으면 토큰의 채널이 다를 때 올리지 않는다.
-          YOUTUBE_CHANNEL_ID: ${{ inputs.step == 'upload' && vars.YOUTUBE_CHANNEL_ID || '' }}
+          YOUTUBE_REFRESH_TOKEN_SAESAE: ${{ inputs.step == 'upload' && secrets.YOUTUBE_REFRESH_TOKEN_SAESAE || '' }}
         run: npm run pipeline -- run "$STEP" "$TARGET_ID"
 
       # 매일 실행에서만. 꺼져 있으면 DB 만 보고 바로 끝난다. probe 가 실패해도 수집은 시도한다.

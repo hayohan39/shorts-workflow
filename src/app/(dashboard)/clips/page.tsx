@@ -35,7 +35,7 @@ export default async function ClipsPage() {
       <h1>클립 보관함</h1>
       <p className="muted">
         지금까지 찾은 무료 라이선스 영상입니다. 채택한 클립은 에피소드 장면에 넣을 수 있습니다. 새로 찾으려면{" "}
-        <Link href="/episodes/new?route=clips">영상 먼저 찾기</Link>로 에피소드를 만드세요.
+        <Link href="/episodes/new?route=clips">편집형</Link> 에피소드를 만드세요.
       </p>
 
       <section>

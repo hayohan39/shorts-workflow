@@ -4,10 +4,12 @@ import { useActionState } from "react";
 import { createEpisodeAction, type NewEpisodeState } from "../../actions";
 
 export function NewEpisodeForm({
+  channel,
   topicMax,
   outlineMax,
   startsRun,
 }: {
+  channel: string;
   topicMax: number;
   outlineMax: number;
   startsRun: boolean;
@@ -15,6 +17,7 @@ export function NewEpisodeForm({
   const [state, formAction, pending] = useActionState<NewEpisodeState, FormData>(createEpisodeAction, {});
   return (
     <form action={formAction} className="stack">
+      <input type="hidden" name="channel" value={channel} />
       <label className="field">
         <span>주제</span>
         <input name="topic" required maxLength={topicMax} defaultValue={state.topic} placeholder="예: PDRN" />

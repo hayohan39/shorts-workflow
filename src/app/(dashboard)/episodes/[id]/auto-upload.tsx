@@ -13,12 +13,15 @@ const CHOICES = [
 /** 유튜브 자동 업로드: 공개 상태를 고르고 올린다(Actions, 무료). */
 export function AutoUpload({
   episodeId,
+  target,
   minPublishAt,
   retry,
   disabled,
   disabledReason,
 }: {
   episodeId: number;
+  /** 올릴 채널(이름과 유튜브 채널 ID). 없으면 올릴 수 없다. */
+  target: string | null;
   /** 예약으로 고를 수 있는 가장 이른 시각(한국 시간, datetime-local 형식) */
   minPublishAt: string;
   retry: boolean;
@@ -30,6 +33,7 @@ export function AutoUpload({
   return (
     <section>
       <h2>유튜브에 자동으로 올리기</h2>
+      {target ? <p className="muted small">{target} 채널에 올립니다.</p> : null}
       <form action={formAction} className="stack">
         <input type="hidden" name="id" value={episodeId} />
         <fieldset className="choices">

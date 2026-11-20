@@ -3,31 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const LINKS = [
-  {
-    href: "/",
-    label: "에피소드",
-    match: (path: string) => path === "/" || path.startsWith("/episodes"),
-  },
-  {
-    href: "/clips",
-    label: "클립 보관함",
-    match: (path: string) => path.startsWith("/clips"),
-  },
-  {
-    href: "/settings",
-    label: "설정",
-    match: (path: string) => path.startsWith("/settings"),
-  },
+export interface NavChannel {
+  slug: string;
+  label: string;
+}
+
+const FIXED = [
+  { href: "/clips", label: "클립 보관함" },
+  { href: "/settings", label: "설정" },
 ];
 
-/** 상단 메뉴. 지금 보고 있는 메뉴를 표시한다. */
-export function NavLinks() {
+/** 상단 메뉴: 채널마다 탭 하나 + 클립 보관함 + 설정. 지금 보고 있는 메뉴를 표시한다. */
+export function NavLinks({ channels }: { channels: NavChannel[] }) {
   const pathname = usePathname();
+  const links = [...channels.map((channel) => ({ href: `/channels/${channel.slug}`, label: channel.label })), ...FIXED];
   return (
     <nav className="tabs" aria-label="메뉴">
-      {LINKS.map((link) => {
-        const active = link.match(pathname);
+      {links.map((link) => {
+        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
           <Link
             key={link.href}

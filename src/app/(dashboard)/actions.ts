@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
+import { getChannel } from "@/pipeline/channels";
 import { fillScenesFromPicks } from "@/pipeline/clips/picks";
 import { createEpisode, decide, getEpisode, saveUpload, setUploadPlan, setVoiceSelection } from "@/pipeline/episodes";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
@@ -28,10 +29,12 @@ export async function createEpisodeAction(_prev: NewEpisodeState, formData: Form
   await requireSession();
   const topic = String(formData.get("topic") ?? "");
   const outline = String(formData.get("outline") ?? "");
+  const channel = await getChannel(String(formData.get("channel") ?? ""));
+  if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, outline };
 
   let id: number;
   try {
-    id = (await createEpisode({ topic, outline })).id;
+    id = (await createEpisode({ topic, outline, channel: channel.slug })).id;
   } catch (error) {
     if (error instanceof RangeError) return { error: error.message, topic, outline };
     throw error;
@@ -132,7 +135,7 @@ export async function approveScriptAction(_prev: SimpleState, formData: FormData
     throw error;
   }
   await setReviewerNote(script.id, note(formData) || null);
-  // 영상 먼저 찾기(clips 길): 고른 클립으로 장면을 채운다. 채택이 아직이면 채택이 끝날 때 채운다.
+  // 편집형(clips 길): 고른 클립으로 장면을 채운다. 채택이 아직이면 채택이 끝날 때 채운다.
   await fillScenesFromPicks(approved).catch((error: unknown) => {
     console.warn(`장면 채우기 실패: ${error instanceof Error ? error.message : String(error)}`);
   });
@@ -268,6 +271,10 @@ export async function uploadAction(_prev: SimpleState, formData: FormData): Prom
 
   const availability = dispatchAvailability();
   if (!availability.ok) return { error: availability.reason };
+  // 채널이 여럿이라 올릴 유튜브 채널을 확인할 수 없으면 올리지 않는다.
+  const episode = await getEpisode(id);
+  const channel = episode ? await getChannel(episode.channel) : null;
+  if (!channel?.youtubeChannelId) return { error: "채널 설정에 유튜브 채널 ID 를 먼저 넣으세요." };
   try {
     await setUploadPlan(id, privacy, scheduledAt);
     await triggerStep(id, "upload", createDispatcher());

@@ -24,3 +24,12 @@ describe("워크플로의 Claude 키", () => {
     }
   });
 });
+
+describe("워크플로의 유튜브 키", () => {
+  it("업로드 단계에만 넘긴다(채널별 리프레시 토큰 포함)", () => {
+    const pipeline = workflows.find(({ name }) => name === "pipeline.yml")!.text;
+    const lines = pipeline.split("\n").filter((line) => /secrets\.YOUTUBE_/.test(line));
+    expect(lines.length).toBeGreaterThanOrEqual(4);
+    for (const line of lines) expect(line).toContain("inputs.step == 'upload' && secrets.YOUTUBE_");
+  });
+});

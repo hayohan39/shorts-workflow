@@ -9,6 +9,7 @@ import { dispatchAvailability } from "@/lib/github";
 import { listAssets } from "@/pipeline/assets";
 import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
 import { canFillScenes, descriptionWithCredits, sceneClips } from "@/pipeline/clips/episode";
+import { channelLabel, getChannel } from "@/pipeline/channels";
 import { canPick, listPicks, PICK_COUNT } from "@/pipeline/clips/picks";
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, isJobBusy, listAdoptedClips, listClips } from "@/pipeline/clips/store";
@@ -21,7 +22,7 @@ import { estimateSceneCredits, scenesDone } from "@/pipeline/steps/render";
 import { studioUrl, watchUrl } from "@/pipeline/youtube/links";
 import { buildUploadText, hasAiScenes } from "@/pipeline/youtube/metadata";
 import { isStale, runnableStep } from "@/pipeline/trigger";
-import { isStage, ROUTE_LABELS, ROUTE_STAGES, STAGE_LABELS, STEP_STAGE, workflow, type Stage } from "@/pipeline/workflow";
+import { isStage, ROUTE_ICONS, ROUTE_LABELS, ROUTE_STAGES, STAGE_LABELS, STEP_STAGE, workflow, type Stage } from "@/pipeline/workflow";
 import {
   DEFAULT_VOICE_ID,
   DEFAULT_VOICE_MODEL,
@@ -68,6 +69,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
     latestUpload(id),
   ]);
   if (!episode) notFound();
+  const channel = await getChannel(episode.channel);
+  if (!channel) notFound();
   const narrationAssets = assets.filter((asset) => asset.kind === "voice");
   const scenes = script ? scenesDone(assets, script.version) : new Map();
   const missingScenes = script ? script.scenes.filter((scene) => !scenes.has(scene.no)) : [];
@@ -76,7 +79,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   const canFill = Boolean(script) && canFillScenes(episode);
   const clips = await sceneClips(scenes);
 
-  // 영상 먼저 찾기(clips 길): 이 에피소드에서 찾은 영상과 장면에 고른 클립.
+  // 편집형(clips 길): 이 에피소드에서 찾은 영상과 장면에 고른 클립.
   const byClips = episode.route === "clips";
   const collection = byClips ? await episodeCollection(episode.id) : null;
   const [found, picks] = collection ? await Promise.all([listClips(collection.id), listPicks(episode.id)]) : [[], []];
@@ -96,6 +99,12 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
       : nextStep;
   const availability = dispatchAvailability();
   const canDispatch = availability.ok;
+  // 채널이 여럿이라 올릴 유튜브 채널 ID 가 없으면 자동 업로드를 막는다.
+  const uploadBlocked = !canDispatch
+    ? availability.reason
+    : channel.youtubeChannelId
+      ? null
+      : "채널 설정에 유튜브 채널 ID 가 없어 올릴 수 없습니다. 채널 → 채널 설정에서 넣으세요.";
   const buttonLabel = step
     ? episode.status === "failed" || stale
       ? `${STEP_LABELS[step]} 다시 시도`
@@ -152,8 +161,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   return (
     <>
       <AutoRefresh active={(busy && !stale) || searching || adopting} />
-      <Link href="/" className="back">
-        ← 에피소드 목록
+      <Link href={`/channels/${episode.channel}`} className="back">
+        ← {channelLabel(channel)}
       </Link>
       <div className="row between episode-head">
         <h1>
@@ -162,7 +171,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
         <StatusBadge episode={episode} />
       </div>
       <p className="muted small route-label">
-        {byClips ? "🎬" : "✍️"} {ROUTE_LABELS[episode.route]}
+        {ROUTE_ICONS[episode.route]} {ROUTE_LABELS[episode.route]}
       </p>
 
       <WorkflowTabs episodeId={episode.id} flow={flow} active={tab} />
@@ -427,10 +436,11 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             {step === "upload" && finalVideo?.url ? (
               <AutoUpload
                 episodeId={episode.id}
+                target={channel.youtubeChannelId ? `${channelLabel(channel)} (${channel.youtubeChannelId})` : null}
                 minPublishAt={earliestSchedule()}
                 retry={episode.status === "failed" || stale}
-                disabled={!canDispatch}
-                disabledReason={canDispatch ? null : availability.reason}
+                disabled={Boolean(uploadBlocked)}
+                disabledReason={uploadBlocked}
               />
             ) : null}
             {finalVideo?.url && script && (episode.status === "ready" || episode.status === "uploaded") ? (

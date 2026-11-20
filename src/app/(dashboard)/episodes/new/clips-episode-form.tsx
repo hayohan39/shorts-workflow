@@ -3,11 +3,12 @@
 import { useActionState } from "react";
 import { createClipsEpisodeAction, type ClipsEpisodeState } from "../../clips/actions";
 
-/** 영상 먼저 찾기: 주제 + 연관 단어 → 무료 영상 찾기. */
-export function ClipsEpisodeForm({ maxLength, startsRun }: { maxLength: number; startsRun: boolean }) {
+/** 편집형: 주제 + 연관 단어 → 무료 영상 찾기. */
+export function ClipsEpisodeForm({ channel, maxLength, startsRun }: { channel: string; maxLength: number; startsRun: boolean }) {
   const [state, formAction, pending] = useActionState<ClipsEpisodeState, FormData>(createClipsEpisodeAction, {});
   return (
     <form action={formAction} className="stack">
+      <input type="hidden" name="channel" value={channel} />
       <label className="field">
         <span>주제</span>
         <input name="topic" required maxLength={maxLength} defaultValue={state.topic} placeholder="예: 겨울 바다와 피부 보습" />

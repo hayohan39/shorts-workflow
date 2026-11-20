@@ -1,39 +1,40 @@
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { StatusBadge } from "@/components/status-badge";
-import { WorkflowBar } from "@/components/workflow-steps";
+import { EpisodeCards } from "@/components/episode-cards";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { getManyMotionsAccount } from "@/pipeline/accounts";
+import { channelLabel, listChannels } from "@/pipeline/channels";
 import { monthlyActualCost, utcMonthStart } from "@/pipeline/costs";
 import { monthlyCredits } from "@/pipeline/credits";
-import { listEpisodes } from "@/pipeline/episodes";
+import { listEpisodes, uploadedCounts } from "@/pipeline/episodes";
 import { formatUsd } from "@/pipeline/script/pricing";
 import { scriptCostSince } from "@/pipeline/scripts";
 import { isBusy } from "@/pipeline/status";
-import { STAGE_LABELS, workflow } from "@/pipeline/workflow";
+import { ROUTE_ICONS, ROUTE_LABELS, workflow } from "@/pipeline/workflow";
 
 export const dynamic = "force-dynamic";
 
-export default async function EpisodesPage() {
+/** 첫 화면: 이번 달 사용량, 채널별 현황, 채널을 가리지 않고 지금 내가 볼 에피소드. */
+export default async function HomePage() {
   await requireSession();
-  const [episodes, credits, actual, calculated, account] = await Promise.all([
-    listEpisodes(),
+  const [channels, active, uploaded, credits, actual, calculated, account] = await Promise.all([
+    listChannels(),
+    listEpisodes({ active: true, limit: 200 }),
+    uploadedCounts(),
     monthlyCredits(),
     monthlyActualCost(),
     scriptCostSince(utcMonthStart()),
     getManyMotionsAccount(),
   ]);
+  const labels = new Map(channels.map((channel) => [channel.slug, channelLabel(channel)]));
+  // 사람 차례(검토·고르기·업로드)이거나 실패해서 손봐야 하는 에피소드
+  const mine = active.filter((episode) => workflow(episode).activity !== "busy");
 
   return (
     <>
-      <AutoRefresh active={episodes.some(isBusy)} />
-      <div className="row between page-head">
-        <h1>에피소드</h1>
-        <Link href="/episodes/new" className="button">
-          + 새 에피소드
-        </Link>
-      </div>
+      <AutoRefresh active={active.some(isBusy)} />
+      <h1 className="page-head">대시보드</h1>
 
       <div className="stats">
         <div className="stat">
@@ -66,40 +67,38 @@ export default async function EpisodesPage() {
         </p>
       ) : null}
 
-      {episodes.length === 0 ? (
-        <div className="empty">
-          <p>아직 에피소드가 없습니다.</p>
-          <p className="muted small">주제와 목차를 넣으면 대본 → 내레이션 → 장면 → 영상 → 업로드 순서로 진행합니다.</p>
-          <Link href="/episodes/new" className="button">
-            첫 에피소드 만들기
-          </Link>
-        </div>
+      <h2 className="list-title">채널</h2>
+      <ul className="cards channel-cards">
+        {channels.map((channel) => {
+          const episodes = active.filter((episode) => episode.channel === channel.slug);
+          const waiting = mine.filter((episode) => episode.channel === channel.slug).length;
+          return (
+            <li key={channel.slug}>
+              <Link href={`/channels/${channel.slug}`} className="card">
+                <div className="row between">
+                  <strong className="card-title">{channelLabel(channel)}</strong>
+                  <span className="badge">
+                    {ROUTE_ICONS[channel.route]} {ROUTE_LABELS[channel.route]}
+                  </span>
+                </div>
+                <p className="muted small channel-counts">
+                  진행 중 {episodes.length} · <span className={waiting ? "accent" : undefined}>내 차례 {waiting}</span> · 올림{" "}
+                  {uploaded.get(channel.slug) ?? 0}
+                </p>
+                {channel.youtubeChannelId ? null : (
+                  <p className="warn small">유튜브 채널 ID 가 없어 자동 업로드가 꺼져 있습니다.</p>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <h2 className="list-title">내 차례</h2>
+      {mine.length ? (
+        <EpisodeCards episodes={mine} channelLabels={labels} />
       ) : (
-        <ul className="cards">
-          {episodes.map((episode) => {
-            const flow = workflow(episode);
-            return (
-              <li key={episode.id}>
-                <Link href={`/episodes/${episode.id}`} className="card">
-                  <div className="row between">
-                    <strong className="card-title">
-                      <span className="muted">#{episode.id}</span> {episode.topic}
-                    </strong>
-                    <StatusBadge episode={episode} />
-                  </div>
-                  <WorkflowBar flow={flow} />
-                  <div className="row between muted small">
-                    <span>
-                      {flow.activity ? `${STAGE_LABELS[flow.current]} 단계` : "모든 단계 끝"}
-                      {episode.stepProgress && isBusy(episode) ? ` · ${episode.stepProgress}` : ""}
-                    </span>
-                    <span>{formatDateTime(episode.updatedAt)}</span>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <p className="muted small">지금 검토하거나 고를 에피소드가 없습니다.</p>
       )}
     </>
   );

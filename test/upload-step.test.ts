@@ -11,7 +11,7 @@ import { buildMetadata, latestFinal } from "@/pipeline/steps/upload";
 import { createMigratedSchema, testDatabaseUrl } from "./helpers/db";
 import { validSubmission } from "./helpers/script";
 
-const credentials = { clientId: "cid", clientSecret: "csecret", refreshToken: "rtoken" };
+const credentials = { clientId: "cid", clientSecret: "csecret", refreshToken: "rtoken", tokenSecret: "YOUTUBE_REFRESH_TOKEN", channelId: "UCmine" };
 const metadata: VideoMetadata = {
   snippet: { title: "t", description: "d", tags: [], categoryId: "27", defaultLanguage: "ko" },
   status: { privacyStatus: "private", selfDeclaredMadeForKids: false, containsSyntheticMedia: false },
@@ -42,13 +42,26 @@ function youtubeFetch(
 }
 
 describe("YouTube API", () => {
-  it("키 3개가 없으면 무엇이 없는지 알려 준다", () => {
-    expect(() => readYoutubeCredentials({ YOUTUBE_CLIENT_ID: "x" })).toThrow(
+  it("채널마다 자기 토큰 Secret 을 읽고, 채널 ID 가 없거나 키가 없으면 무엇이 없는지 알려 준다", () => {
+    const raccoon = { name: "라쿤씨", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN", youtubeChannelId: "UCraccoon" };
+    const saesae = { name: "새새 열매", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_SAESAE", youtubeChannelId: "UCsaesae" };
+    const env = { YOUTUBE_CLIENT_ID: "a", YOUTUBE_CLIENT_SECRET: "b", YOUTUBE_REFRESH_TOKEN: "r1", YOUTUBE_REFRESH_TOKEN_SAESAE: "r2" };
+    expect(readYoutubeCredentials(raccoon, env)).toEqual({
+      clientId: "a",
+      clientSecret: "b",
+      refreshToken: "r1",
+      tokenSecret: "YOUTUBE_REFRESH_TOKEN",
+      channelId: "UCraccoon",
+    });
+    expect(readYoutubeCredentials(saesae, env)).toMatchObject({ refreshToken: "r2", channelId: "UCsaesae" });
+    // 다른 채널의 토큰으로 대신하지 않는다
+    expect(() => readYoutubeCredentials(saesae, { ...env, YOUTUBE_REFRESH_TOKEN_SAESAE: "" })).toThrow(
+      "YOUTUBE_REFRESH_TOKEN_SAESAE 가 없습니다",
+    );
+    expect(() => readYoutubeCredentials(raccoon, { YOUTUBE_CLIENT_ID: "x" })).toThrow(
       "YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN 가 없습니다",
     );
-    expect(
-      readYoutubeCredentials({ YOUTUBE_CLIENT_ID: "a", YOUTUBE_CLIENT_SECRET: "b", YOUTUBE_REFRESH_TOKEN: "c" }),
-    ).toEqual({ clientId: "a", clientSecret: "b", refreshToken: "c" });
+    expect(() => readYoutubeCredentials({ ...raccoon, youtubeChannelId: null }, env)).toThrow("유튜브 채널 ID 가 없습니다");
   });
 
   it("리프레시 토큰으로 액세스 토큰을 받고, 만료되면 다시 발급하라고 알려 준다", async () => {
@@ -94,15 +107,9 @@ describe("YouTube API", () => {
     expect(put?.method).toBe("PUT");
   });
 
-  it("채널 확인: 설정한 채널 ID 가 없으면 건너뛰고, 같으면 통과, 다르면 올리지 않는다", async () => {
-    expect(
-      readYoutubeCredentials({ YOUTUBE_CLIENT_ID: "a", YOUTUBE_CLIENT_SECRET: "b", YOUTUBE_REFRESH_TOKEN: "c", YOUTUBE_CHANNEL_ID: " UCmine " }),
-    ).toMatchObject({ channelId: "UCmine" });
+  it("채널 확인: 토큰의 채널이 설정한 채널 ID 와 같으면 통과, 다르면 올리지 않는다", async () => {
     const fetchImpl = youtubeFetch();
-    expect(await checkChannel(credentials, "atoken", fetchImpl)).toBeNull();
-    expect(fetchImpl).not.toHaveBeenCalled();
-
-    expect(await checkChannel({ ...credentials, channelId: "UCmine" }, "atoken", fetchImpl)).toEqual({ id: "UCmine", title: "내 채널" });
+    expect(await checkChannel(credentials, "atoken", fetchImpl)).toEqual({ id: "UCmine", title: "내 채널" });
     expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({ authorization: "Bearer atoken" });
     await expect(checkChannel({ ...credentials, channelId: "UCother" }, "atoken", fetchImpl)).rejects.toThrow(
       /올리지 않았습니다: 토큰은 "내 채널" 채널\(UCmine\)인데, 설정한 채널은 UCother/,
@@ -115,10 +122,10 @@ describe("YouTube API", () => {
         { status: 403 },
       ),
     });
-    await expect(checkChannel({ ...credentials, channelId: "UCmine" }, "atoken", noScope)).rejects.toThrow(/youtube\.readonly/);
+    await expect(checkChannel(credentials, "atoken", noScope)).rejects.toThrow(/youtube\.readonly/);
     // 채널이 없는 계정
     const noChannel = youtubeFetch({ channel: Response.json({ items: [] }) });
-    await expect(checkChannel({ ...credentials, channelId: "UCmine" }, "atoken", noChannel)).rejects.toThrow("채널이 없습니다");
+    await expect(checkChannel(credentials, "atoken", noChannel)).rejects.toThrow("채널이 없습니다");
   });
 
   it("한도 초과는 이유와 함께 알려 준다", async () => {

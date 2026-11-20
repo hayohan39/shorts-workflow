@@ -21,7 +21,7 @@ export async function runScriptStep(
   const progress = options.progress ?? (async () => {});
   const [previous, recent, settings, picks] = await Promise.all([
     latestScript(episode.id),
-    recentScripts(episode.id),
+    recentScripts(episode),
     getSettings(),
     episode.route === "clips" ? listPicks(episode.id) : [],
   ]);

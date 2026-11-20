@@ -12,7 +12,7 @@
 //           MANYMOTIONS_API_KEY(probe), ANTHROPIC_API_KEY(script·probe),
 //           ANTHROPIC_ADMIN_KEY(probe, 선택: 실제 청구 비용 조회), ANTHROPIC_COST_WORKSPACE_ID(선택: 그 워크스페이스만),
 //           PIXABAY_API_KEY(clips), BLOB_READ_WRITE_TOKEN(clips-adopt),
-//           YOUTUBE_CLIENT_ID·YOUTUBE_CLIENT_SECRET·YOUTUBE_REFRESH_TOKEN(upload), YOUTUBE_CHANNEL_ID(upload, 선택: 채널 확인)
+//           YOUTUBE_CLIENT_ID·YOUTUBE_CLIENT_SECRET·채널별 리프레시 토큰(upload, channels.youtube_token_secret 이 이름)
 import { appendFile } from "node:fs/promises";
 import Anthropic from "@anthropic-ai/sdk";
 import { getPool, hasDatabase } from "@/lib/db";

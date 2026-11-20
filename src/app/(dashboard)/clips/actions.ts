@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { fillSceneWithClip, removeSceneClip } from "@/pipeline/clips/episode";
 import { PICK_COUNT, savePicks } from "@/pipeline/clips/picks";
+import { getChannel } from "@/pipeline/channels";
 import { createEpisode, getEpisode, setOutline } from "@/pipeline/episodes";
 import { TransitionError } from "@/pipeline/status";
 import { triggerStep } from "@/pipeline/trigger";
@@ -165,11 +166,11 @@ export async function removeSceneClipAction(_prev: ClipActionState, formData: Fo
   return {};
 }
 
-// ── 영상 먼저 찾기(clips 길) ─────────────────────────────────────────
+// ── 편집형(clips 길) ─────────────────────────────────────────
 
 export type ClipsEpisodeState = { error?: string; topic?: string; related?: string };
 
-/** 영상 먼저 찾기: 에피소드를 만들고 주제·연관 단어로 무료 영상을 찾는다(Claude Haiku 키워드 1회, 누르는 것이 확인). */
+/** 편집형: 에피소드를 만들고 주제·연관 단어로 무료 영상을 찾는다(Claude Haiku 키워드 1회, 누르는 것이 확인). */
 export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formData: FormData): Promise<ClipsEpisodeState> {
   await requireSession();
   const topic = String(formData.get("topic") ?? "");
@@ -177,11 +178,13 @@ export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formDat
   // 에피소드를 만들기 전에 수집 쪽 길이 제한을 먼저 본다(에피소드만 남지 않게).
   if (topic.trim().length > TOPIC_MAX) return { error: `주제는 ${TOPIC_MAX}자 이내로 입력하세요.`, topic, related };
   if (related.trim().length > TOPIC_MAX) return { error: `연관 단어는 ${TOPIC_MAX}자 이내로 입력하세요.`, topic, related };
+  const channel = await getChannel(String(formData.get("channel") ?? ""));
+  if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, related };
 
   let episodeId: number;
   let collectionId: number;
   try {
-    episodeId = (await createEpisode({ topic, outline: "", route: "clips" })).id;
+    episodeId = (await createEpisode({ topic, outline: "", route: "clips", channel: channel.slug })).id;
     collectionId = (await createSearchCollection(topic, { related, episodeId })).id;
   } catch (error) {
     if (error instanceof RangeError) return { error: error.message, topic, related };

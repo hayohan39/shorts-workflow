@@ -7,7 +7,8 @@
 // Google Cloud 의 OAuth 클라이언트(유형: 데스크톱 앱)의 클라이언트 ID·보안 비밀을 물어본 뒤,
 // 브라우저에서 업로드할 채널의 구글 계정으로 로그인·허용하면(채널이 여러 개면 그 화면에서 채널을 고른다)
 // 그 토큰이 올릴 채널 이름·ID 와 리프레시 토큰을 보여 준다.
-// 세 값을 GitHub Secrets(YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN)에 넣는다.
+// 클라이언트 ID·보안 비밀은 GitHub Secrets(YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET)에 한 번만 넣고,
+// 리프레시 토큰은 채널마다 그 채널의 Secret(대시보드 채널 설정에 나오는 이름)에, 채널 ID 는 채널 설정 화면에 넣는다.
 // 자세한 순서: docs/youtube-setup.md
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
@@ -102,12 +103,13 @@ if (channel) {
   console.log(`\n⚠️ 채널을 확인하지 못했습니다(HTTP ${channels.status}). 이 계정에 YouTube 채널이 있는지 확인하세요.\n`);
 }
 
-console.log("리프레시 토큰을 받았습니다. 아래 세 값을 GitHub → Settings → Secrets and variables → Actions 에 넣으세요.");
+console.log("리프레시 토큰을 받았습니다. GitHub → Settings → Secrets and variables → Actions 에 넣으세요.");
 console.log("(이 값은 비밀번호와 같습니다. 채팅·문서에 붙여 넣지 마세요.)\n");
-console.log("YOUTUBE_CLIENT_ID      =", clientId);
-console.log("YOUTUBE_CLIENT_SECRET  = (방금 입력한 클라이언트 보안 비밀번호)");
-console.log("YOUTUBE_REFRESH_TOKEN  =", body.refresh_token);
+console.log("YOUTUBE_CLIENT_ID      =", clientId, " (처음 한 번만)");
+console.log("YOUTUBE_CLIENT_SECRET  = (방금 입력한 클라이언트 보안 비밀번호, 처음 한 번만)");
+console.log("리프레시 토큰          =", body.refresh_token);
+console.log("  → 대시보드 채널 → 채널 설정에 나오는 Secret 이름으로 넣으세요(예: 라쿤씨 YOUTUBE_REFRESH_TOKEN).");
 if (channel) {
-  console.log("\n채널 확인(권장): 같은 화면의 Variables 탭에 아래 값을 넣으면, 다른 채널 토큰일 때 업로드를 막습니다.");
-  console.log("YOUTUBE_CHANNEL_ID     =", channel.id);
+  console.log("\n채널 ID(비밀 아님): 대시보드 채널 → 채널 설정의 \"유튜브 채널 ID\" 에 넣으세요. 다른 채널 토큰이면 올리지 않습니다.");
+  console.log("유튜브 채널 ID         =", channel.id);
 }
