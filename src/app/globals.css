@@ -1053,3 +1053,52 @@ details.manual > summary {
 .list-title + .cards {
   margin-top: 0.6rem;
 }
+.subtab-badge {
+  display: inline-block;
+  min-width: 1.2rem;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.2rem;
+  text-align: center;
+  color: var(--accent-text);
+  background: var(--accent-2);
+  border-radius: 999px;
+}
+
+/* 추천(기획안) */
+.idea-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.idea-title {
+  font-size: 1.05rem;
+}
+.idea-hook {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+.idea-card p {
+  margin: 0;
+}
+.idea-actions {
+  margin-top: 0.35rem;
+}
+.idea-edit {
+  display: grid;
+  gap: 0.6rem;
+}
+.prompt-block {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.prompt-history ol {
+  display: grid;
+  gap: 0.6rem;
+  padding-left: 1.1rem;
+}
+.prompt-history p {
+  margin: 0.25rem 0 0;
+}

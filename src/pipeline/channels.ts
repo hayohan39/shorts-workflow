@@ -11,6 +11,10 @@ export interface Channel {
   route: Route;
   /** 새 에피소드의 기본 영상 길이(초). */
   defaultSeconds: number;
+  /** 자동 추천(매일 실행에서 주기마다). 돈이 드는 자동 실행이라 기본 꺼짐. */
+  ideasAuto: boolean;
+  /** 자동 추천 주기(일). */
+  ideasEveryDays: number;
   /** 올릴 유튜브 채널 ID(UC…). 없으면 자동 업로드를 하지 않는다. */
   youtubeChannelId: string | null;
   /** 이 채널의 리프레시 토큰이 든 GitHub Secret 이름. */
@@ -23,11 +27,13 @@ interface ChannelRow {
   emoji: string;
   route: Route;
   default_seconds: number;
+  ideas_auto: boolean;
+  ideas_every_days: number;
   youtube_channel_id: string | null;
   youtube_token_secret: string;
 }
 
-const COLUMNS = "slug, name, emoji, route, default_seconds, youtube_channel_id, youtube_token_secret";
+const COLUMNS = "slug, name, emoji, route, default_seconds, ideas_auto, ideas_every_days, youtube_channel_id, youtube_token_secret";
 
 export const CHANNEL_NAME_MAX = 40;
 export const YOUTUBE_CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/;
@@ -39,6 +45,8 @@ function toChannel(row: ChannelRow): Channel {
     emoji: row.emoji,
     route: row.route,
     defaultSeconds: row.default_seconds,
+    ideasAuto: row.ideas_auto,
+    ideasEveryDays: row.ideas_every_days,
     youtubeChannelId: row.youtube_channel_id,
     youtubeTokenSecret: row.youtube_token_secret,
   };
@@ -77,6 +85,21 @@ export async function updateChannel(
     `update channels set name = $2, emoji = $3, route = $4, default_seconds = $5, youtube_channel_id = $6, updated_at = now()
       where slug = $1 returning ${COLUMNS}`,
     [slug, name, emoji, input.route, input.defaultSeconds, youtubeChannelId || null],
+  );
+  if (!row) throw new RangeError("채널을 찾을 수 없습니다.");
+  return toChannel(row);
+}
+
+export const IDEAS_EVERY_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+
+/** 자동 추천 켜기·끄기와 주기. */
+export async function updateIdeaSettings(slug: string, input: { auto: boolean; everyDays: number }): Promise<Channel> {
+  if (!IDEAS_EVERY_DAYS.includes(input.everyDays as (typeof IDEAS_EVERY_DAYS)[number])) {
+    throw new RangeError("추천 주기는 1~7일 중에서 고르세요.");
+  }
+  const [row] = await query<ChannelRow>(
+    `update channels set ideas_auto = $2, ideas_every_days = $3, updated_at = now() where slug = $1 returning ${COLUMNS}`,
+    [slug, input.auto, input.everyDays],
   );
   if (!row) throw new RangeError("채널을 찾을 수 없습니다.");
   return toChannel(row);
