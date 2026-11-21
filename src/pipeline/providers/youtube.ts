@@ -183,3 +183,43 @@ export async function uploadVideo(options: {
   if (!video.id) throw new Error("YouTube 업로드 응답에 영상 ID 가 없습니다.");
   return { id: video.id, privacyStatus: video.status?.privacyStatus ?? null, publishAt: video.status?.publishAt ?? null };
 }
+
+const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
+
+/** videos.update(part=status) 에 다시 보내도 되는 status 필드. 보내지 않은 필드는 기본값으로 돌아가므로 지금 값을 그대로 담는다. */
+const WRITABLE_STATUS = ["privacyStatus", "publishAt", "selfDeclaredMadeForKids", "containsSyntheticMedia", "embeddable", "license", "publicStatsViewable"] as const;
+export type VideoStatus = Partial<Record<(typeof WRITABLE_STATUS)[number], string | boolean>>;
+
+/** 영상의 지금 status(쓸 수 있는 필드만). 영상이 없거나 이 토큰의 채널 것이 아니면 오류. */
+export async function getVideoStatus(accessToken: string, videoId: string, fetchImpl: typeof fetch = fetch): Promise<VideoStatus> {
+  const response = await fetchImpl(`${VIDEOS_URL}?part=status&id=${encodeURIComponent(videoId)}`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error(`YouTube 영상 조회 실패 (HTTP ${response.status}) ${await errorReason(response)}.`);
+  const body = (await response.json()) as { items?: { status?: Record<string, unknown> }[] };
+  const status = body.items?.[0]?.status;
+  if (!status) throw new Error(`YouTube 에서 영상 ${videoId} 을 찾을 수 없습니다(지웠거나 다른 채널의 영상).`);
+  return Object.fromEntries(WRITABLE_STATUS.filter((key) => key in status).map((key) => [key, status[key] as string | boolean]));
+}
+
+/** 예약 공개 시각을 바꾼다(비공개 + publishAt 유지). 바뀐 status 를 돌려준다. */
+export async function updatePublishAt(options: {
+  accessToken: string;
+  videoId: string;
+  current: VideoStatus;
+  publishAt: Date;
+  fetchImpl?: typeof fetch;
+}): Promise<VideoStatus> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const response = await fetchImpl(`${VIDEOS_URL}?part=status`, {
+    method: "PUT",
+    headers: { authorization: `Bearer ${options.accessToken}`, "content-type": "application/json; charset=UTF-8" },
+    body: JSON.stringify({
+      id: options.videoId,
+      status: { ...options.current, privacyStatus: "private", publishAt: options.publishAt.toISOString() },
+    }),
+  });
+  if (!response.ok) throw new Error(`YouTube 예약 시각 변경 실패 (HTTP ${response.status}) ${await errorReason(response)}.`);
+  const body = (await response.json()) as { status?: VideoStatus };
+  return body.status ?? {};
+}

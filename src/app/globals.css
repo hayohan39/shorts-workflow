@@ -1102,3 +1102,56 @@ details.manual > summary {
 .prompt-history p {
   margin: 0.25rem 0 0;
 }
+
+/* 업로드 큐 */
+.queue-days {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  overflow: hidden;
+}
+.queue-day {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.88rem;
+  border-top: 1px solid var(--border);
+}
+.queue-day:first-child {
+  border-top: 0;
+}
+.queue-day-empty {
+  color: var(--muted);
+}
+.queue-date {
+  flex-shrink: 0;
+  width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.queue-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.queue-item {
+  font-weight: 600;
+}
+.queue-meta {
+  margin: 0.3rem 0 0.5rem;
+}
+.queue-row {
+  flex-wrap: wrap;
+}
+.queue-row input {
+  flex: 1;
+  min-width: 11rem;
+}
+.queue-title {
+  color: inherit;
+  text-decoration: none;
+}

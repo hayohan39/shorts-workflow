@@ -4,7 +4,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { StatusBadge } from "@/components/status-badge";
 import { WorkflowTabs } from "@/components/workflow-steps";
 import { requireSession } from "@/lib/auth";
-import { formatDateTime, formatElapsed } from "@/lib/format";
+import { formatDateTime, formatElapsed, kstInputValue } from "@/lib/format";
 import { dispatchAvailability } from "@/lib/github";
 import { listAssets } from "@/pipeline/assets";
 import { attributionText, hasShareAlike } from "@/pipeline/clips/attribution";
@@ -483,7 +483,7 @@ const isFuture = (date: Date) => date.getTime() > Date.now();
 
 /** 예약으로 고를 수 있는 가장 이른 시각(한국 시간 datetime-local 값, 분 단위). 제출까지 걸리는 시간을 5분 더 둔다. */
 function earliestSchedule(): string {
-  return new Date(Date.now() + SCHEDULE_MIN_LEAD_MS + 5 * 60_000 + 9 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  return kstInputValue(new Date(Date.now() + SCHEDULE_MIN_LEAD_MS + 5 * 60_000));
 }
 
 /** clips 길에서 적은 "컨셉: …" 과 목차를 나눈다(다시 고를 때 채워 두기 위해). */

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChannelTabs } from "@/components/channel-tabs";
 import { requireSession } from "@/lib/auth";
 import { channelLabel, getChannel } from "@/pipeline/channels";
+import { countReadyToUpload } from "@/pipeline/episodes";
 import { countNewIdeas, listCategories } from "@/pipeline/ideas/store";
 import { ROUTE_ICONS, ROUTE_LABELS } from "@/pipeline/workflow";
 
@@ -11,7 +12,11 @@ export default async function ChannelLayout({ children, params }: LayoutProps<"/
   await requireSession();
   const channel = await getChannel((await params).slug);
   if (!channel) notFound();
-  const [categories, newIdeas] = await Promise.all([listCategories(channel.slug), countNewIdeas(channel.slug)]);
+  const [categories, newIdeas, ready] = await Promise.all([
+    listCategories(channel.slug),
+    countNewIdeas(channel.slug),
+    countReadyToUpload(channel.slug),
+  ]);
   return (
     <>
       <div className="row between channel-head">
@@ -29,7 +34,7 @@ export default async function ChannelLayout({ children, params }: LayoutProps<"/
           </>
         )}
       </p>
-      <ChannelTabs slug={channel.slug} ideas={categories.length ? newIdeas : null} />
+      <ChannelTabs slug={channel.slug} ideas={categories.length ? newIdeas : null} ready={ready} />
       {children}
     </>
   );
