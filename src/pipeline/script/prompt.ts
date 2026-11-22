@@ -34,7 +34,7 @@ export interface PromptInput {
   /** 최근 다른 편의 훅과 장면 구성(겹치지 않게). */
   recentEpisodes: { title: string; hook: string; sceneKinds: string }[];
   /** 무료 영상 클립을 먼저 고른 편(clips 길)이면 장면 순서대로의 클립. 없으면 AI 로 장면을 만든다. */
-  clips?: { title: string; keyword: string; seconds: number | null }[];
+  clips?: { title: string; keyword: string; seconds: number | null; media?: "video" | "image" }[];
 }
 
 export function buildUserPrompt(input: PromptInput): string {
@@ -51,12 +51,13 @@ export function buildUserPrompt(input: PromptInput): string {
   if (input.clips?.length) {
     lines.push(
       "",
-      "이 편은 미리 고른 무료 영상 클립을 장면 순서대로 화면에 쓴다(AI 로 영상·이미지를 만들지 않는다).",
+      "이 편은 미리 고른 무료 영상 클립·사진을 장면 순서대로 화면에 쓴다(AI 로 영상·이미지를 만들지 않는다). 사진은 천천히 확대·이동해 보여 준다.",
       "각 장면의 narration 은 그 장면 클립의 화면과 어울리게 쓰고, prompt 에는 그 클립 화면을 짧게 묘사한다.",
       "클립은 실제 촬영 영상이라 realistic_person 은 모두 false 로 한다. 장면 kind 규칙(영상·이미지 개수)은 형식대로 지킨다.",
     );
     input.clips.forEach((clip, index) => {
-      lines.push(`- 장면 ${index + 1}: ${clip.title} (검색어 "${clip.keyword}"${clip.seconds ? `, 원본 ${clip.seconds}초` : ""})`);
+      const kind = clip.media === "image" ? ", 사진" : clip.seconds ? `, 원본 ${clip.seconds}초` : "";
+      lines.push(`- 장면 ${index + 1}: ${clip.title} (검색어 "${clip.keyword}"${kind})`);
     });
   }
   if (input.recentEpisodes.length) {

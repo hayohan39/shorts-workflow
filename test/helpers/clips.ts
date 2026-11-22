@@ -7,6 +7,7 @@ export function clip(overrides: Partial<ClipCandidate> = {}): ClipCandidate {
   const id = String(next++);
   return {
     source: "pixabay",
+    media: "video",
     sourceId: id,
     keyword: "ocean",
     title: `clip ${id}`,

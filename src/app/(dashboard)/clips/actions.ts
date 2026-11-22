@@ -202,7 +202,7 @@ export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formDat
 export type PickState = { error?: string; concept?: string; outline?: string; scenes?: Record<string, string> };
 
 /**
- * 영상 찾기 결과에서 장면마다 쓸 클립을 고르고 컨셉·목차를 적는다.
+ * 소재 찾기 결과에서 장면마다 쓸 클립을 고르고 컨셉·목차를 적는다.
  * 고른 클립만 채택(내려받아 저장, 무료)하고 대본 생성을 시작한다(Claude 비용, 누르는 것이 확인).
  */
 export async function pickClipsAction(_prev: PickState, formData: FormData): Promise<PickState> {

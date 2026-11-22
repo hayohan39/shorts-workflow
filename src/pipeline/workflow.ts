@@ -3,7 +3,7 @@ import { isBusy, type EpisodeState, type Step } from "@/pipeline/status";
 
 // 에피소드 화면의 단계 탭. 만드는 길(route)마다 단계가 다르다.
 //   ai    : 대본 → 내레이션 → 장면 → 영상 → 업로드
-//   clips : 영상 찾기 → 대본 → 내레이션 → 영상 → 업로드 (장면은 고른 클립으로 채운다)
+//   clips : 소재 찾기 → 대본 → 내레이션 → 영상 → 업로드 (장면은 고른 클립으로 채운다)
 // 상태(status)와 실제로 만들어진 것(고른 클립·내레이션·장면)을 보고 지금 어느 단계에 있는지 정한다. DB 를 모르는 순수 규칙.
 
 export const STAGES = ["clips", "script", "voice", "scenes", "video", "upload"] as const;
@@ -19,7 +19,7 @@ export const ROUTE_LABELS: Record<Route, string> = { ai: "생성형", clips: "�
 export const ROUTE_ICONS: Record<Route, string> = { ai: "✍️", clips: "🎬" };
 
 export const STAGE_LABELS: Record<Stage, string> = {
-  clips: "영상 찾기",
+  clips: "소재 찾기",
   script: "대본",
   voice: "내레이션",
   scenes: "장면",
@@ -44,7 +44,7 @@ export interface StageFacts {
   scenesLeft: number;
   /** clips 길: 장면에 쓸 클립을 다 골랐는가. */
   picked?: boolean;
-  /** clips 길: 영상 찾기가 도는 중이거나 실패했는가. */
+  /** clips 길: 소재 찾기가 도는 중이거나 실패했는가. */
   search?: "busy" | "failed" | null;
 }
 
@@ -79,7 +79,7 @@ export function currentStage(episode: WorkflowEpisode, facts?: StageFacts): Stag
   if ((isBusy(episode) || episode.status === "failed") && episode.step) return STEP_STAGE[episode.step];
   switch (episode.status) {
     case "queued":
-      // clips 길은 클립을 고르기 전까지 영상 찾기 단계. 목록처럼 모를 때는 대본을 요청한 적이 있는지로 본다.
+      // clips 길은 클립을 고르기 전까지 소재 찾기 단계. 목록처럼 모를 때는 대본을 요청한 적이 있는지로 본다.
       if (clips && !(facts ? facts.picked : episode.step !== null)) return "clips";
       return "script";
     case "script_review":

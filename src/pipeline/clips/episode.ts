@@ -1,14 +1,15 @@
 import { deleteAsset, saveAsset, type Asset } from "@/pipeline/assets";
 import { attributionText } from "@/pipeline/clips/attribution";
+import { isCommercialUse } from "@/pipeline/clips/license";
 import { getClips, type StoredClip } from "@/pipeline/clips/store";
 import type { Episode } from "@/pipeline/episodes";
 import { latestScript } from "@/pipeline/scripts";
 import { isBusy, type Status } from "@/pipeline/status";
 
-// 에피소드 연동: 채택한 무료 클립으로 장면을 채운다.
-// 클립은 그 장면의 생성물(assets, kind=video, model=clip, 크레딧 0)로 기록한다. 그러면
+// 에피소드 연동: 채택한 무료 클립·사진으로 장면을 채운다.
+// 소재는 그 장면의 생성물(assets, kind=video|image, model=clip, 크레딧 0)로 기록한다. 그러면
 //   - 장면 생성(render)은 이미 있는 장면이라 건너뛴다(크레딧을 쓰지 않는다)
-//   - 합성(compose)은 생성물의 종류(video)를 보고 영상으로 넣는다(대본에서 이미지 장면이어도)
+//   - 합성(compose)은 생성물의 종류를 보고 영상은 영상으로, 사진은 천천히 확대·이동하는 장면으로 넣는다(대본의 종류와 관계없이)
 //   - 같은 장면에 나중에 넣은 것이 앞선다. 클립을 빼면 그 전 생성물(있으면)이 다시 쓰인다
 // 출처 표기는 지금 장면에 쓰인 클립에서 만든다(영상 검토 화면·업로드 설명란).
 
@@ -30,9 +31,10 @@ export async function fillSceneWithClip(episode: Episode, sceneNo: number, clipI
   if (!script?.scenes.some((scene) => scene.no === sceneNo)) throw new RangeError("없는 장면입니다.");
   const [clip] = await getClips([clipId]);
   if (!clip?.blobUrl) throw new RangeError("채택한 클립만 넣을 수 있습니다. 클립 보관함에서 먼저 채택하세요.");
+  if (!isCommercialUse(clip)) throw new RangeError("상업적 이용이 허용되지 않는 라이선스의 소재는 쓸 수 없습니다.");
   return saveAsset({
     episodeId: episode.id,
-    kind: "video",
+    kind: clip.media,
     sceneNo,
     model: CLIP_MODEL,
     credits: 0,

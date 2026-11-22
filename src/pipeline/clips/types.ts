@@ -1,8 +1,8 @@
-// 무료 라이선스 영상 클립 수집의 공통 타입.
-// 소스(Pixabay·NASA·Wikimedia Commons·Internet Archive)마다 어댑터가 search() 결과를 ClipCandidate 로 맞춘다.
+// 무료 라이선스 영상·사진 소재 수집의 공통 타입.
+// 소스(Pixabay·NASA·Wikimedia Commons·Internet Archive·iNaturalist)마다 어댑터가 search() 결과를 ClipCandidate 로 맞춘다.
 // 라이선스는 수집한 시점의 값을 그대로 남긴다(license.raw). 나중에 원본 페이지의 표기가 바뀌어도 근거가 남도록.
 
-export type ClipSourceId = "pixabay" | "nasa" | "wikimedia" | "archive";
+export type ClipSourceId = "pixabay" | "nasa" | "wikimedia" | "archive" | "inaturalist";
 
 /** 화면·출처 표기용 소스 이름 */
 export const SOURCE_LABELS: Record<ClipSourceId, string> = {
@@ -10,7 +10,11 @@ export const SOURCE_LABELS: Record<ClipSourceId, string> = {
   nasa: "NASA Image and Video Library",
   wikimedia: "Wikimedia Commons",
   archive: "Internet Archive",
+  inaturalist: "iNaturalist",
 };
+
+/** 소재 종류. 사진은 합성 때 천천히 확대·이동해 영상처럼 쓴다. */
+export type MediaKind = "video" | "image";
 
 export type Orientation = "vertical" | "square" | "horizontal";
 
@@ -28,6 +32,7 @@ export interface ClipLicense {
 
 export interface ClipCandidate {
   source: ClipSourceId;
+  media: MediaKind;
   /** 소스 안에서의 ID. (source, sourceId) 로 중복을 가린다. */
   sourceId: string;
   /** 이 후보를 찾은 검색어 */

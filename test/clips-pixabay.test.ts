@@ -5,8 +5,31 @@ import { createPixabayAdapter, type PixabayResponse } from "@/pipeline/clips/sou
 
 const fixture = JSON.parse(readFileSync(path.join("test", "fixtures", "clips", "pixabay-videos.json"), "utf8")) as PixabayResponse;
 
-function fakeFetch(body: unknown = fixture) {
-  return vi.fn<typeof fetch>(async () => new Response(JSON.stringify(body), { status: 200 }));
+const images = {
+  total: 1,
+  totalHits: 1,
+  hits: [
+    {
+      id: 7,
+      pageURL: "https://pixabay.com/photos/sparrow-7/",
+      tags: "sparrow, bird, nature",
+      previewURL: "https://cdn.pixabay.com/photo/7_150.jpg",
+      webformatURL: "https://pixabay.com/get/7_640.jpg",
+      largeImageURL: "https://pixabay.com/get/7_1280.jpg",
+      imageWidth: 4000,
+      imageHeight: 6000,
+      user_id: 42,
+      user: "birder",
+    },
+  ],
+};
+
+/** 영상 검색에는 body, 사진 검색에는 imageBody 를 돌려준다. */
+function fakeFetch(body: unknown = fixture, imageBody: unknown = { total: 0, totalHits: 0, hits: [] }) {
+  return vi.fn<typeof fetch>(async (input) => {
+    const videos = String(input).startsWith("https://pixabay.com/api/videos/");
+    return new Response(JSON.stringify(videos ? body : imageBody), { status: 200 });
+  });
 }
 
 describe("Pixabay 어댑터", () => {
@@ -23,6 +46,9 @@ describe("Pixabay 어댑터", () => {
     const url = new URL(String(fetchImpl.mock.calls[0][0]));
     expect(url.origin + url.pathname).toBe("https://pixabay.com/api/videos/");
     expect(Object.fromEntries(url.searchParams)).toEqual({ key: "secret", q: "ocean waves", safesearch: "true", per_page: "200" });
+    const photos = new URL(String(fetchImpl.mock.calls[1][0]));
+    expect(photos.origin + photos.pathname).toBe("https://pixabay.com/api/");
+    expect(photos.searchParams.get("image_type")).toBe("photo");
   });
 
   it("응답을 후보로 바꾼다: 가장 큰 파일·가장 작은 미리보기·작성자·라이선스", async () => {
@@ -30,6 +56,7 @@ describe("Pixabay 어댑터", () => {
     expect(clips).toHaveLength(2);
     expect(clips[0]).toEqual({
       source: "pixabay",
+      media: "video",
       sourceId: "125",
       keyword: "flowers",
       title: "flowers, yellow, blossom",
@@ -60,6 +87,26 @@ describe("Pixabay 어댑터", () => {
       height: 1920,
     });
     expect(clips.map((clip) => clip.sourceId)).not.toContain("99");
+  });
+
+  it("사진도 찾는다: 긴 변 1280px 파일을 받고, 크기는 원본 비율로 계산한다", async () => {
+    const clips = await createPixabayAdapter({ PIXABAY_API_KEY: "k" }).search("sparrow", {
+      limit: 20,
+      fetchImpl: fakeFetch({ total: 0, totalHits: 0, hits: [] }, images),
+    });
+    expect(clips).toEqual([
+      expect.objectContaining({
+        media: "image",
+        sourceId: "photo-7",
+        downloadUrl: "https://pixabay.com/get/7_1280.jpg",
+        previewUrl: "https://pixabay.com/get/7_640.jpg",
+        width: 853,
+        height: 1280,
+        durationSec: null,
+        author: "birder",
+        license: expect.objectContaining({ code: "pixabay" }),
+      }),
+    ]);
   });
 
   it("실패 응답에 키를 드러내지 않는다", async () => {

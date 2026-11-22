@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const ROUTE_HINTS: Record<Route, string> = {
   ai: "주제와 목차로 대본을 쓰고, 장면은 AI 로 만듭니다(장면 크레딧 사용).",
-  clips: "무료 영상을 먼저 찾아 장면 수만큼 고르고, 그 화면에 맞춰 대본을 씁니다(장면 크레딧 없음).",
+  clips: "무료 영상·사진을 먼저 찾아 장면 수만큼 고르고, 그 화면에 맞춰 대본을 씁니다(장면 크레딧 없음).",
 };
 
 function isRoute(value: unknown): value is Route {
@@ -61,7 +61,7 @@ export default async function NewEpisodePage({ searchParams }: PageProps<"/episo
       <section>
         {!availability.ok ? (
           <p className="warn small">
-            이 화면에서는 에피소드만 만들어지고 {route === "ai" ? "대본 생성" : "영상 찾기"}는 시작되지 않습니다.{" "}
+            이 화면에서는 에피소드만 만들어지고 {route === "ai" ? "대본 생성" : "소재 찾기"}는 시작되지 않습니다.{" "}
             {availability.reason}
           </p>
         ) : null}
@@ -79,7 +79,7 @@ export default async function NewEpisodePage({ searchParams }: PageProps<"/episo
         ) : (
           <>
             <p className="muted small">
-              만들면 바로 무료 영상 찾기가 시작됩니다(보통 1분). 찾은 영상에서 장면 클립을 고르고 컨셉·목차를 적으면 대본을
+              만들면 바로 무료 영상·사진 찾기가 시작됩니다(보통 1분). 찾은 소재에서 장면마다 고르고 컨셉·목차를 적으면 대본을
               만듭니다.
             </p>
             <ClipsEpisodeForm

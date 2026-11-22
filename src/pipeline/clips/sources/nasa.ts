@@ -89,6 +89,7 @@ function toCandidate(
   const creator = data.secondary_creator?.trim();
   return {
     source: "nasa",
+    media: "video",
     sourceId: data.nasa_id,
     keyword,
     title: data.title,

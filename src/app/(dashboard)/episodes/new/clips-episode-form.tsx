@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { LengthSelect } from "@/components/length-select";
 import { createClipsEpisodeAction, type ClipsEpisodeState } from "../../clips/actions";
 
-/** 편집형: 주제 + 연관 단어 → 무료 영상 찾기. */
+/** 편집형: 주제 + 연관 단어 → 무료 영상·사진 찾기. */
 export function ClipsEpisodeForm({
   channel,
   defaultSeconds,
@@ -40,7 +40,7 @@ export function ClipsEpisodeForm({
       />
       {state.error ? <p className="error">{state.error}</p> : null}
       <button type="submit" disabled={pending}>
-        {pending ? "만드는 중…" : startsRun ? "만들고 영상 찾기 시작" : "만들기"}
+        {pending ? "만드는 중…" : startsRun ? "만들고 소재 찾기 시작" : "만들기"}
       </button>
       <p className="muted small">누르면 Claude Haiku 로 영어 검색어를 만들고(1회 $0.001 미만) 무료 소스에서 찾습니다.</p>
     </form>

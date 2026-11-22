@@ -1,6 +1,7 @@
 import { transaction, query } from "@/lib/db";
 import { listAssets } from "@/pipeline/assets";
 import { CLIP_MODEL, canFillScenes, fillSceneWithClip } from "@/pipeline/clips/episode";
+import { isCommercialUse } from "@/pipeline/clips/license";
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, getClips, type StoredClip } from "@/pipeline/clips/store";
 import type { Episode } from "@/pipeline/episodes";
@@ -48,7 +49,8 @@ export async function savePicks(episode: Episode, clipIds: number[]): Promise<St
   for (const id of clipIds) {
     const clip = clips.get(id);
     if (!clip || clip.collectionId !== collection?.id) throw new RangeError("이 에피소드에서 찾은 클립만 고를 수 있습니다.");
-    if (!isSelectable(clip)) throw new RangeError(`"${clip.title}" 은(는) 내려받을 수 없는 클립입니다.`);
+    if (!isSelectable(clip)) throw new RangeError(`"${clip.title}" 은(는) 내려받을 수 없는 소재입니다.`);
+    if (!isCommercialUse(clip)) throw new RangeError(`"${clip.title}" 은(는) 상업적 이용이 허용되지 않는 라이선스입니다.`);
   }
   await transaction(async (client) => {
     await client.query("delete from episode_clips where episode_id = $1", [episode.id]);

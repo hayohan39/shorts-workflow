@@ -80,6 +80,7 @@ async function searchArchive(query: string, options: SearchOptions): Promise<Cli
     const creator = [doc.creator].flat()[0]?.trim() || null;
     candidates.push({
       source: "archive",
+      media: "video",
       sourceId: doc.identifier,
       keyword: query,
       title: doc.title ?? doc.identifier,
