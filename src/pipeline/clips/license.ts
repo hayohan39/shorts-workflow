@@ -1,4 +1,4 @@
-import type { ClipLicense, LicenseCode } from "@/pipeline/clips/types";
+import type { ClipCandidate, ClipLicense, LicenseCode } from "@/pipeline/clips/types";
 
 // 라이선스 판정. 영상은 편집(자막·자르기)해서 수익 채널에 올리므로
 //   허용: 퍼블릭 도메인, CC0, CC BY, CC BY-SA, 소스 자체 라이선스(Pixabay·NASA, 어댑터가 직접 붙인다)
@@ -56,4 +56,24 @@ function displayName(code: CcCode, name: string | null | undefined, url: string 
   if (code === "pd" || code === "cc0") return CC_NAMES[code];
   const version = url?.match(/\/(\d\.\d)\b/)?.[1] ?? name?.match(/\b(\d\.\d)\b/)?.[1];
   return version ? `${CC_NAMES[code]} ${version}` : CC_NAMES[code];
+}
+
+/** 상업적 이용·편집이 되는 라이선스. DB 에도 같은 목록으로 체크 제약이 있다(migrations/…_add-clip-media.sql). */
+export const COMMERCIAL_LICENSES: readonly LicenseCode[] = ["pixabay", "nasa", "pd", "cc0", "cc-by", "cc-by-sa"];
+
+/** 원본 응답에 라이선스 표기가 따로 있는 소스는 그 값도 다시 본다(iNaturalist 사진의 license_code). */
+const RAW_LICENSE_CODES = new Set(["cc0", "cc-by", "cc-by-sa"]);
+
+/**
+ * 수익 채널에 써도 되는 소재인가. 어댑터가 이미 거르지만, 저장·채택·장면 넣기 전에 한 번 더 본다(이중 차단).
+ * 판단할 수 없으면 쓰지 않는다.
+ */
+export function isCommercialUse(clip: Pick<ClipCandidate, "source" | "license">): boolean {
+  if (!COMMERCIAL_LICENSES.includes(clip.license.code)) return false;
+  if (/\bnc\b|non-?commercial|\bnd\b|no-?deriv|all rights reserved/i.test(clip.license.name)) return false;
+  if (clip.source === "inaturalist") {
+    const raw = clip.license.raw.license_code;
+    return typeof raw === "string" && RAW_LICENSE_CODES.has(raw.toLowerCase());
+  }
+  return true;
 }

@@ -44,7 +44,7 @@ export async function runScriptStep(
         hook: script.scenes[0]?.narration ?? "",
         sceneKinds: script.scenes.map((scene) => scene.kind).join("·"),
       })),
-      clips: picks.map((clip) => ({ title: clip.title, keyword: clip.keyword, seconds: clip.durationSec })),
+      clips: picks.map((clip) => ({ title: clip.title, keyword: clip.keyword, seconds: clip.durationSec, media: clip.media })),
     },
     { model, send: sender, onProgress: progress },
   ).catch((error: unknown) => {

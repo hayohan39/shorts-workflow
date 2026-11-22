@@ -1,5 +1,6 @@
 import { RateLimitError } from "@/pipeline/clips/http";
 import { expandKeywords, type CreateMessage } from "@/pipeline/clips/keywords";
+import { isCommercialUse } from "@/pipeline/clips/license";
 import { selectClips } from "@/pipeline/clips/select";
 import {
   finishCollection,
@@ -13,7 +14,7 @@ import {
 } from "@/pipeline/clips/store";
 import { SOURCE_LABELS, type ClipCandidate, type ClipSourceId, type SourceAdapter } from "@/pipeline/clips/types";
 
-// 수집 한 번: 주제 → 영어 키워드 → 소스마다 키워드별 검색(24시간 캐시) → 선별 → DB.
+// 수집 한 번: 주제 → 영어 키워드 → 소스마다 키워드별 검색(24시간 캐시) → 라이선스 재확인 → 선별 → DB.
 // 소스 하나가 실패하거나 한도에 걸려도 나머지 소스로 계속한다. 이유는 소스별 결과(source_results)에 남긴다.
 
 /** 키워드 하나에 소스별로 요청할 결과 수 */
@@ -71,9 +72,11 @@ export async function collectClips(collection: ClipCollection, deps: CollectDeps
           const clips = await adapter.search(keyword, { limit: PER_KEYWORD, fetchImpl });
           found = { clips, fetchedAt: await saveCachedSearch(adapter.id, keyword, clips) };
         }
-        for (const clip of found.clips) fetchedAt.set(clip, found.fetchedAt);
-        candidates.push(...found.clips);
-        result.found += found.clips.length;
+        // 상업적 이용이 되는 라이선스만 남긴다(어댑터가 이미 거르지만 캐시·소스 변경에 대비해 한 번 더).
+        const allowed = found.clips.filter(isCommercialUse);
+        for (const clip of allowed) fetchedAt.set(clip, found.fetchedAt);
+        candidates.push(...allowed);
+        result.found += allowed.length;
       } catch (error) {
         if (error instanceof RateLimitError) {
           await setSourceRetryAt(adapter.id, error.retryAt);

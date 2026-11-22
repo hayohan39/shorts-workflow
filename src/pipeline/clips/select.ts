@@ -2,12 +2,17 @@ import { orientationOf, type ClipCandidate, type Orientation } from "@/pipeline/
 
 // 후보에서 쇼츠 한 편 분량을 고른다.
 //   - 클립 하나는 3초 이상. 30초를 넘는 클립은 15초 구간만 쓴다(clipSegment). 합계는 60~120초(90초 근처에서 멈춘다)
+//   - 사진은 짧은 변 600px 이상만, 한 장을 5초로 센다(합성 때 천천히 확대·이동해 영상처럼 쓴다)
 //   - 세로 > 정사각 > 가로, 같으면 해상도가 높은 것
 //   - 같은 클립(소스·ID 또는 제목·길이가 같은 것)은 하나만
 //   - 소스를 번갈아 골라 한 소스에 몰리지 않게
 // 길이를 모르는 후보와 링크만 있는 후보(받을 파일 없음)는 고르지 않는다(교체 후보로는 남는다).
 
 const SELECT_RULES = { minClipSec: 3, maxClipSec: 30, trimSec: 15, minTotalSec: 60, targetTotalSec: 90, maxTotalSec: 120 };
+/** 사진 한 장을 몇 초로 셀지(합계 계산용) */
+export const IMAGE_SECONDS = 5;
+/** 사진의 짧은 변 최소 픽셀(세로 영상에서 너무 흐려지지 않게) */
+const MIN_IMAGE_SIDE = 600;
 
 const ORIENTATION_SCORE: Record<Orientation, number> = { vertical: 3, square: 2, horizontal: 1 };
 
@@ -38,13 +43,21 @@ export function clipSegment(durationSec: number): { start: number; length: numbe
   return { start: Math.round(durationSec * 2.5) / 10, length: SELECT_RULES.trimSec };
 }
 
-/** 선택된 클립들의 합계(쓰는 구간 기준). */
-export function totalSeconds(clips: Pick<ClipCandidate, "durationSec">[]): number {
-  return clips.reduce((sum, clip) => sum + (clip.durationSec === null ? 0 : clipSegment(clip.durationSec).length), 0);
+/** 소재 하나가 차지하는 초(영상은 쓰는 구간, 사진은 IMAGE_SECONDS, 길이를 모르는 영상은 0). */
+export function usedSeconds(clip: Pick<ClipCandidate, "durationSec" | "media">): number {
+  if (clip.media === "image") return IMAGE_SECONDS;
+  return clip.durationSec === null ? 0 : clipSegment(clip.durationSec).length;
+}
+
+/** 선택된 소재들의 합계(쓰는 구간 기준). */
+export function totalSeconds(clips: Pick<ClipCandidate, "durationSec" | "media">[]): number {
+  return clips.reduce((sum, clip) => sum + usedSeconds(clip), 0);
 }
 
 export function isSelectable(clip: ClipCandidate): boolean {
-  return clip.downloadUrl !== null && clip.durationSec !== null && clip.durationSec >= SELECT_RULES.minClipSec;
+  if (clip.downloadUrl === null) return false;
+  if (clip.media === "image") return Math.min(clip.width ?? 0, clip.height ?? 0) >= MIN_IMAGE_SIDE;
+  return clip.durationSec !== null && clip.durationSec >= SELECT_RULES.minClipSec;
 }
 
 /** 같은 클립을 하나만 남긴다(먼저 나온 것 유지). */
@@ -72,14 +85,14 @@ export function selectClips(candidates: ClipCandidate[]): Selection {
   let totalSec = 0;
   while (totalSec < SELECT_RULES.targetTotalSec && [...queues.values()].some((queue) => queue.length > 0)) {
     for (const queue of queues.values()) {
-      const index = queue.findIndex((clip) => totalSec + clipSegment(clip.durationSec!).length <= SELECT_RULES.maxTotalSec);
+      const index = queue.findIndex((clip) => totalSec + usedSeconds(clip) <= SELECT_RULES.maxTotalSec);
       if (index < 0) {
         queue.length = 0;
         continue;
       }
       const [clip] = queue.splice(index, 1);
       selected.push(clip);
-      totalSec += clipSegment(clip.durationSec!).length;
+      totalSec += usedSeconds(clip);
       if (totalSec >= SELECT_RULES.targetTotalSec) break;
     }
   }
@@ -97,6 +110,6 @@ function shortfallReason(ranked: ClipCandidate[], totalSec: number): string | nu
   if (totalSec >= SELECT_RULES.minTotalSec) return null;
   const usable = ranked.filter(isSelectable).length;
   if (ranked.length === 0) return "허용 라이선스의 검색 결과가 없습니다.";
-  if (usable === 0) return `후보 ${ranked.length}개가 모두 길이를 모르거나 3초 미만이거나 받을 수 없는 클립입니다.`;
-  return `조건에 맞는 클립이 ${usable}개뿐이라 합계 ${Math.round(totalSec)}초입니다(목표 60초 이상).`;
+  if (usable === 0) return `후보 ${ranked.length}개가 모두 길이를 모르거나 3초 미만이거나, 작은 사진이거나, 받을 수 없는 소재입니다.`;
+  return `조건에 맞는 소재가 ${usable}개뿐이라 합계 ${Math.round(totalSec)}초입니다(목표 60초 이상).`;
 }

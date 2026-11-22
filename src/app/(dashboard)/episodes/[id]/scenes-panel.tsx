@@ -6,6 +6,7 @@ import { clipSegment } from "@/pipeline/clips/select";
 import type { StoredClip } from "@/pipeline/clips/store";
 import { SOURCE_LABELS } from "@/pipeline/clips/types";
 import type { Scene } from "@/pipeline/script/schema";
+import { ClipMedia } from "../../clips/clip-card";
 import { FillSceneButton, RemoveSceneClipButton } from "../../clips/clip-forms";
 
 /**
@@ -73,19 +74,11 @@ export function ScenesPanel({
                           {clip.title}
                           <span className="muted">
                             {" "}
-                            · {clip.durationSec === null ? "" : `${clipSegment(clip.durationSec).length}초 · `}
+                            · {clip.media === "image" ? "사진" : clip.durationSec === null ? "" : `${clipSegment(clip.durationSec).length}초`} ·{" "}
                             {SOURCE_LABELS[clip.source]} · {clip.license.name}
                           </span>
                         </div>
-                        <video
-                          className="scene-media"
-                          src={clip.blobUrl!}
-                          poster={clip.thumbnailUrl ?? undefined}
-                          controls
-                          muted
-                          playsInline
-                          preload="none"
-                        />
+                        <ClipMedia clip={clip} />
                         <FillSceneButton id={episodeId} scene={scene.no} clip={clip.id} />
                       </li>
                     ))}

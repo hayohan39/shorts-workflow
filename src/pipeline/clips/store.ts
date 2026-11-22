@@ -2,7 +2,7 @@ import type { PoolClient } from "pg";
 import { query, transaction } from "@/lib/db";
 import { redact } from "@/lib/health";
 import { clipScore, totalSeconds, type Selection } from "@/pipeline/clips/select";
-import type { ClipCandidate, ClipLicense, ClipSourceId, LicenseCode } from "@/pipeline/clips/types";
+import type { ClipCandidate, ClipLicense, ClipSourceId, LicenseCode, MediaKind } from "@/pipeline/clips/types";
 
 // 클립 수집·채택의 DB 기록. 수집과 채택은 Actions 에서 돌고, 대시보드는 요청과 [교체]만 한다.
 
@@ -76,6 +76,7 @@ interface ClipRow {
   id: number;
   collection_id: number;
   source: ClipSourceId;
+  media: MediaKind;
   source_id: string;
   keyword: string;
   title: string;
@@ -102,7 +103,7 @@ interface ClipRow {
 const COLLECTION_COLUMNS = `id, kind, topic, episode_id, status, keywords, source_results, total_seconds, shortfall, keyword_cost_usd,
   run_url, error, adopt_status, adopt_error, adopt_run_url, created_at, updated_at, finished_at`;
 
-const CLIP_COLUMNS = `id, collection_id, source, source_id, keyword, title, page_url, thumbnail_url, preview_url, download_url,
+const CLIP_COLUMNS = `id, collection_id, source, media, source_id, keyword, title, page_url, thumbnail_url, preview_url, download_url,
   width, height, duration_sec, author, author_url, license_code, license_name, license_url, license_raw, fetched_at,
   score, rank, blob_url, adopted_at`;
 
@@ -136,6 +137,7 @@ function toClip(row: ClipRow): StoredClip {
     id: row.id,
     collectionId: row.collection_id,
     source: row.source,
+    media: row.media,
     sourceId: row.source_id,
     keyword: row.keyword,
     title: row.title,
@@ -273,8 +275,8 @@ async function insertClip(client: PoolClient, collectionId: number, clip: ClipCa
   await client.query(
     `insert into clip_candidates (collection_id, source, source_id, keyword, title, page_url, thumbnail_url, preview_url,
         download_url, width, height, duration_sec, author, author_url, license_code, license_name, license_url,
-        license_raw, fetched_at, score, rank)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+        license_raw, fetched_at, score, rank, media)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`,
     [
       collectionId,
       clip.source,
@@ -297,6 +299,7 @@ async function insertClip(client: PoolClient, collectionId: number, clip: ClipCa
       fetchedAt,
       clipScore(clip),
       rank,
+      clip.media,
     ],
   );
 }
@@ -376,11 +379,11 @@ export async function swapClip(collectionId: number, selectedId: number, alterna
     }
     await client.query("update clip_candidates set rank = null where id = $1", [selectedId]);
     await client.query("update clip_candidates set rank = $2 where id = $1", [alternateId, selected.rank]);
-    const { rows: ranked } = await client.query<{ duration_sec: string | null }>(
-      "select duration_sec from clip_candidates where collection_id = $1 and rank is not null",
+    const { rows: ranked } = await client.query<{ duration_sec: string | null; media: MediaKind }>(
+      "select duration_sec, media from clip_candidates where collection_id = $1 and rank is not null",
       [collectionId],
     );
-    const total = totalSeconds(ranked.map((row) => ({ durationSec: numberOrNull(row.duration_sec) })));
+    const total = totalSeconds(ranked.map((row) => ({ durationSec: numberOrNull(row.duration_sec), media: row.media })));
     await client.query("update clip_collections set updated_at = now(), total_seconds = $2 where id = $1", [
       collectionId,
       total,
@@ -514,7 +517,8 @@ export async function getCachedSearch(
       where source = $1 and query = $2 and fetched_at > now() - make_interval(secs => $3)`,
     [source, keyword, maxAgeMs / 1000],
   );
-  return row ? { clips: row.response, fetchedAt: row.fetched_at } : null;
+  // 사진을 넣기 전에 저장한 캐시에는 media 가 없다(모두 영상).
+  return row ? { clips: row.response.map((clip) => ({ ...clip, media: clip.media ?? "video" })), fetchedAt: row.fetched_at } : null;
 }
 
 export async function saveCachedSearch(source: ClipSourceId, keyword: string, clips: ClipCandidate[]): Promise<Date> {

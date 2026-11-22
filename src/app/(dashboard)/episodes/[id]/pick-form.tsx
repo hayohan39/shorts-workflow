@@ -4,9 +4,10 @@ import { useActionState, useState } from "react";
 import type { StoredClip } from "@/pipeline/clips/store";
 import { SOURCE_LABELS } from "@/pipeline/clips/types";
 import { pickClipsAction, type PickState } from "../../clips/actions";
+import { ClipMedia, durationLabel } from "../../clips/clip-card";
 
 /**
- * 영상 찾기 결과에서 장면 1~N 에 쓸 클립을 고르고(같은 장면을 다른 클립에 고르면 앞의 것은 비운다),
+ * 소재 찾기 결과에서 장면 1~N 에 쓸 클립을 고르고(같은 장면을 다른 클립에 고르면 앞의 것은 비운다),
  * 영상 컨셉·목차를 적어 대본 생성을 시작한다.
  */
 export function PickForm({
@@ -66,30 +67,19 @@ export function PickForm({
       </section>
 
       <section>
-        <h2>찾은 영상</h2>
-        <p className="muted small">미리 보고, 쓸 클립에 장면 번호를 고르세요. 1번은 첫 2초 훅 장면입니다.</p>
+        <h2>찾은 소재</h2>
+        <p className="muted small">미리 보고, 쓸 영상·사진에 장면 번호를 고르세요. 1번은 첫 2초 훅 장면입니다. 사진은 천천히 확대·이동해 영상처럼 씁니다.</p>
         <ul className="pick-grid">
           {clips.map((clip) => {
             const sceneNo = scenes[clip.id] ?? 0;
-            const src = clip.blobUrl ?? clip.previewUrl;
             return (
               <li key={clip.id} className={sceneNo ? "pick-card pick-chosen" : "pick-card"}>
-                {src ? (
-                  <video
-                    className="pick-media"
-                    src={src}
-                    poster={clip.thumbnailUrl ?? undefined}
-                    controls
-                    muted
-                    playsInline
-                    preload="none"
-                  />
-                ) : null}
+                <ClipMedia clip={clip} className="pick-media" />
                 <a href={clip.pageUrl} target="_blank" rel="noreferrer" className="pick-name small">
                   {clip.title}
                 </a>
                 <span className="muted pick-info">
-                  {clip.durationSec ?? "?"}초 · {SOURCE_LABELS[clip.source]}
+                  {durationLabel(clip)} · {SOURCE_LABELS[clip.source]}
                   {clip.license.code === "cc-by-sa" ? " · 동일조건(SA)" : ""}
                 </span>
                 <label className="pick-select">

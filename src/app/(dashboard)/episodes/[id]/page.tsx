@@ -49,7 +49,7 @@ export const dynamic = "force-dynamic";
 
 // 지금 단계에서 사람이 할 일. 단계가 도는 중이거나 실패했으면 그 안내가 대신 나온다.
 const NEXT_ACTION: Record<Stage, string> = {
-  clips: "찾은 영상에서 장면마다 쓸 클립을 고르고 영상 컨셉·목차를 적으세요.",
+  clips: "찾은 소재(영상·사진)에서 장면마다 쓸 것을 고르고 영상 컨셉·목차를 적으세요.",
   script: "대본을 검토하고 승인하거나 반려하세요.",
   voice: "목소리를 골라 내레이션을 만드세요.",
   scenes: "장면을 만들거나 무료 클립으로 채우세요.",
@@ -201,7 +201,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
           </>
         ) : flow.current === "clips" && flow.activity === "failed" ? (
           <>
-            <p className="now-title">영상 찾기가 끝나지 않았습니다. 다시 시도하세요.</p>
+            <p className="now-title">소재 찾기가 끝나지 않았습니다. 다시 시도하세요.</p>
             {collection?.error ? <p className="error prewrap small">{collection.error}</p> : null}
           </>
         ) : stale ? (
@@ -225,7 +225,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
       <div className="tab-panel">
         {tab === "clips" ? (
           !collection ? (
-            <Empty>영상 찾기 기록이 없습니다.</Empty>
+            <Empty>소재 찾기 기록이 없습니다.</Empty>
           ) : collection.status !== "done" ? (
             searching ? (
               <Empty>무료 영상 소스에서 찾는 중입니다…</Empty>
@@ -278,7 +278,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
             {script ? (
               <ScriptReview script={script} rules={rules} reviewing={episode.status === "script_review" && !busy} />
             ) : byClips && !picked ? (
-              <Empty>영상 찾기에서 장면 클립을 고르면 대본을 만듭니다.</Empty>
+              <Empty>소재 찾기에서 장면 클립을 고르면 대본을 만듭니다.</Empty>
             ) : (
               <Empty>대본을 만들면 여기에 나옵니다.</Empty>
             )}

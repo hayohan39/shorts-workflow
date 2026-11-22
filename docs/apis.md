@@ -13,16 +13,18 @@
 - 추천(기본) 모델: 영상 Kling 3.0 Standard · 이미지 Seedream 4.5 · 음성 ElevenLabs v3 (`src/pipeline/recommended.ts`).
 - 잔여 크레딧·모델 목록은 매일 03:17 KST 자동 조회, 설정 화면에서 새로 고칠 수 있다.
 
-## 2. 무료 영상 소스 (영상 소스 화면 → [수집])
+## 2. 무료 영상·사진 소스 (편집형 에피소드의 소재 찾기, 클립 보관함)
 
-| 소스 | 영상 성격 | 라이선스 | 키 |
+| 소스 | 소재 | 라이선스 | 키 |
 | --- | --- | --- | --- |
-| **Pixabay** | 일반 스톡 실사(세로 포함) | Pixabay Content License | `PIXABAY_API_KEY` (GitHub) |
+| **Pixabay** | 일반 스톡 실사 영상·사진(사진은 긴 변 1280px) | Pixabay Content License | `PIXABAY_API_KEY` (GitHub) |
 | **NASA** | 우주·지구·로켓 | 저작권 없음(외부 촬영자 표기 항목 제외) | 없음 |
-| **Wikimedia Commons** | 자연·도시·기록 | CC0 · PD · CC BY · CC BY-SA | 없음 |
+| **Wikimedia Commons** | 자연·도시·기록 영상·사진(사진은 1440px) | CC0 · PD · CC BY · CC BY-SA | 없음 |
 | **Internet Archive** | 기록 영상·옛 필름 | CC0 · PD · CC BY · CC BY-SA(업로더 표기 기준) | 없음 |
+| **iNaturalist** | 동식물 관찰 사진(새 사진이 많음, 연구 등급만) | **CC0 · CC BY · CC BY-SA 사진만** (대부분인 CC BY-NC 는 제외) | 없음 |
 
-- 흐름: [수집] → 60~120초 분량 추천 → [교체] → [채택](mp4 변환 후 Blob 저장) → 에피소드 장면에 넣기(그 장면은 크레딧 0).
+- 흐름: [수집] → 60~120초 분량 추천(사진 한 장 = 5초) → [교체] → [채택](영상은 mp4, 사진은 JPEG 로 Blob 저장) → 에피소드 장면에 넣기(그 장면은 크레딧 0, 사진은 천천히 확대·이동).
+- 라이선스는 상업적 이용·편집이 되는 것만: 어댑터에서 거르고, 저장·채택·장면 넣기 전에 다시 확인하고(`isCommercialUse`), DB 체크 제약이 마지막으로 막는다.
 - 출처 표기 자동 생성, CC BY-SA 가 섞이면 경고. 매일 자동 수집은 기본 꺼짐(영상 소스 화면에서 켜고 태그 등록).
 - 제외: 공유마당, Coverr(유료). 보류: Pexels(신규 키 발급 중단 — 다시 열리면 #31 을 다시 연다).
 
