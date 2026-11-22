@@ -157,7 +157,12 @@ export interface ScriptEdit {
  * 사람이 고친 내용으로 새 버전을 만든다. 장면 구성·프롬프트·근거는 그대로 두고
  * 내레이션·제목·설명란·해시태그만 바꾼다. 형식 오류면 RangeError.
  */
-export async function saveEditedScript(base: Script, edit: ScriptEdit, rules: LengthRules): Promise<Script> {
+export async function saveEditedScript(
+  base: Script,
+  edit: ScriptEdit,
+  rules: LengthRules,
+  descriptionFooter = "",
+): Promise<Script> {
   if (edit.narrations.length !== base.scenes.length) throw new RangeError("장면 수가 맞지 않습니다.");
   const draft: ScriptDraft = {
     ...toDraft({
@@ -172,8 +177,9 @@ export async function saveEditedScript(base: Script, edit: ScriptEdit, rules: Le
   };
   const { errors, warnings } = validateScript(draft, rules);
   if (errors.length) throw new RangeError(errors.map((p) => p.message).join(" / "));
-  if (!draft.description.includes("의학적 조언이 아닙니다")) {
-    warnings.push({ field: "description", message: "설명란에 의학적 조언이 아니라는 고지가 없습니다." });
+  // 채널 설정의 설명란 끝 문구(고지)를 지웠으면 알린다.
+  if (descriptionFooter.trim() && !draft.description.includes(descriptionFooter.trim())) {
+    warnings.push({ field: "description", message: "설명란에 채널의 끝 문구(고지)가 없습니다." });
   }
   return saveScript(base.episodeId, draft, {
     source: "edited",

@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
 
   it("채널 설정: 이름·아이콘·기본 길이·유튜브 채널 ID 를 바꾸고(제작 방식은 그대로), 잘못된 값은 이유와 함께 거절한다", async () => {
     const { updateChannel, getChannel } = await import("@/pipeline/channels");
-    const base = { name: "새새 열매", emoji: "🐦", defaultSeconds: 30, youtubeChannelId: "" };
+    const base = { name: "새새 열매", emoji: "🐦", defaultSeconds: 30, youtubeChannelId: "", descriptionFooter: "", videoNotice: "" };
     await expect(updateChannel("saesae", { ...base, name: "  " })).rejects.toThrow("채널 이름을 입력하세요");
     await expect(updateChannel("saesae", { ...base, youtubeChannelId: "my-channel" })).rejects.toThrow("UC 로 시작하는 24자");
     await expect(updateChannel("saesae", { ...base, defaultSeconds: 60 })).rejects.toThrow(

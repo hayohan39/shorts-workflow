@@ -123,7 +123,7 @@ describe.skipIf(!testDatabaseUrl)("추천 기획안 (실제 DB)", () => {
   });
 
   it("라쿤씨는 카테고리 3개와 기본 프롬프트로 시작하고, 프롬프트는 버전으로 쌓여 되돌릴 수 있다", async () => {
-    const { listCategories, isIdeaPromptKey } = await import("@/pipeline/ideas/store");
+    const { listCategories, isEditablePromptKey } = await import("@/pipeline/ideas/store");
     const prompts = await import("@/pipeline/prompts");
     const categories = await listCategories("raccoon");
     expect(categories.map((category) => category.name)).toEqual(CATEGORIES);
@@ -143,11 +143,11 @@ describe.skipIf(!testDatabaseUrl)("추천 기획안 (실제 DB)", () => {
     expect(await prompts.savePrompt(key, original)).toMatchObject({ version: 3, body: original });
     expect((await prompts.promptHistory(key)).map((p) => p.version)).toEqual([3, 2, 1]);
 
-    expect(await isIdeaPromptKey("ideas:raccoon")).toBe(true);
-    expect(await isIdeaPromptKey(key)).toBe(true);
-    expect(await isIdeaPromptKey("ideas:nope")).toBe(false);
-    expect(await isIdeaPromptKey("ideas:category:99999")).toBe(false);
-    expect(await isIdeaPromptKey("script:raccoon")).toBe(false);
+    expect(await isEditablePromptKey("ideas:raccoon")).toBe(true);
+    expect(await isEditablePromptKey(key)).toBe(true);
+    expect(await isEditablePromptKey("ideas:nope")).toBe(false);
+    expect(await isEditablePromptKey("ideas:category:99999")).toBe(false);
+    expect(await isEditablePromptKey("script:raccoon")).toBe(true);
   });
 
   it("추천 실행: 하나씩만 돌고, 기획안을 카테고리에 붙여 저장한다. 실패하면 이유와 비용을 남긴다", async () => {

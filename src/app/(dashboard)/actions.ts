@@ -186,6 +186,7 @@ export async function editScriptAction(_prev: SimpleState, formData: FormData): 
         tags: String(formData.get("tags") ?? ""),
       },
       lengthRules(episode.targetSeconds),
+      (await getChannel(episode.channel))?.descriptionFooter,
     );
   } catch (error) {
     if (error instanceof RangeError) return { error: error.message };

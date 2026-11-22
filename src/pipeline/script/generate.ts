@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { checkGuardrails } from "@/pipeline/script/guardrails";
 import { modelProfile } from "@/pipeline/script/model";
 import { formatUsd, roundCost } from "@/pipeline/script/pricing";
-import { buildUserPrompt, SYSTEM_PROMPT, type PromptInput } from "@/pipeline/script/prompt";
+import { buildSystemPrompt, buildUserPrompt, type PromptInput } from "@/pipeline/script/prompt";
 import {
   countChars,
   SUBMISSION_SCHEMA,
@@ -62,13 +62,27 @@ const SUBMIT_TOOL: Anthropic.Beta.Messages.BetaTool = {
   input_schema: SUBMISSION_SCHEMA as unknown as Anthropic.Beta.Messages.BetaTool["input_schema"],
 };
 
+/** 채널마다 다른 대본 지침과 설명란 끝 문구(채널 설정). */
+export interface ScriptChannel {
+  guide: string;
+  descriptionFooter: string;
+}
+
+export interface GenerateOptions {
+  model: string;
+  send: SendMessage;
+  onProgress?: (text: string) => Promise<void>;
+  /** 없으면 공통 규칙만, 설명란 끝 문구 없음. */
+  channel?: ScriptChannel;
+}
+
 /** 모델에 맞는 요청 옵션(도구 버전·effort·대체 모델). */
-export function requestOptions(model: string): Omit<Params, "messages"> {
+export function requestOptions(model: string, channelGuide = ""): Omit<Params, "messages"> {
   const profile = modelProfile(model);
   return {
     model,
     max_tokens: 64_000,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(channelGuide),
     tools: [
       { type: profile.webSearch, name: "web_search", max_uses: 12 },
       { type: profile.webFetch, name: "web_fetch", max_uses: 8 },
@@ -94,10 +108,7 @@ export function describeUsage(usage: ScriptUsage): string {
   return `웹 검색 ${usage.webSearches}회 · 페이지 ${usage.webFetches}개${cost}`;
 }
 
-export async function generateScript(
-  input: PromptInput,
-  options: { model: string; send: SendMessage; onProgress?: (text: string) => Promise<void> },
-): Promise<GeneratedScript> {
+export async function generateScript(input: PromptInput, options: GenerateOptions): Promise<GeneratedScript> {
   const usage: ScriptUsage = { inputTokens: 0, outputTokens: 0, webSearches: 0, webFetches: 0, rounds: 0, costUsd: 0 };
   try {
     return await generateLoop(input, options, usage);
@@ -116,11 +127,11 @@ export async function generateScript(
 
 async function generateLoop(
   input: PromptInput,
-  options: { model: string; send: SendMessage; onProgress?: (text: string) => Promise<void> },
+  options: GenerateOptions,
   usage: ScriptUsage,
 ): Promise<GeneratedScript> {
   const progress = options.onProgress ?? (async () => {});
-  const base = requestOptions(options.model);
+  const base = requestOptions(options.model, options.channel?.guide);
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [{ role: "user", content: buildUserPrompt(input) }];
   let corrections = 0;
   let reminded = false;
@@ -160,7 +171,7 @@ async function generateLoop(
       continue;
     }
 
-    const draft = toDraft(call.input as ScriptSubmission);
+    const draft = toDraft(call.input as ScriptSubmission, options.channel?.descriptionFooter);
     const { rules } = input;
     const { errors, warnings } = validateScript(draft, rules);
     // 길이는 경고 대상이지만, 첫 제출에서 벗어났으면 한 번은 고쳐 보게 한다(영상 길이가 내레이션으로 정해진다).

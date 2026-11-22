@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { getChannel } from "@/pipeline/channels";
 import { buildAss } from "@/pipeline/compose/ass";
 import { buildFfmpegArgs, checkOutput, probeMedia, runFfmpeg, SUBTITLE_FILE } from "@/pipeline/compose/ffmpeg";
 import { planTimeline } from "@/pipeline/compose/timeline";
@@ -71,7 +72,8 @@ export async function runComposeStep(
           "대본 내레이션을 줄이고 내레이션을 다시 만드세요.",
       );
     }
-    await writeFile(path.join(dir, SUBTITLE_FILE), buildAss(timeline));
+    const channel = await getChannel(episode.channel);
+    await writeFile(path.join(dir, SUBTITLE_FILE), buildAss(timeline, channel?.videoNotice));
 
     await progress(`영상 합성 중 (${timeline.total.toFixed(1)}초 영상, 보통 1분 안팎)`);
     await runFfmpeg(buildFfmpegArgs(timeline, { scenes: files, narration: "narration.mp3", output: "final.mp4" }), dir);
