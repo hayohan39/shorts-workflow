@@ -7,7 +7,7 @@ export interface Channel {
   slug: string;
   name: string;
   emoji: string;
-  /** 기본 제작 방식(생성형 = ai, 편집형 = clips). 새 에피소드의 기본값이다. */
+  /** 제작 방식(생성형 = ai, 편집형 = clips). 채널 특성이라 화면에서 바꾸지 않는다. 새 에피소드의 기본값이다. */
   route: Route;
   /** 새 에피소드의 기본 영상 길이(초). */
   defaultSeconds: number;
@@ -66,10 +66,10 @@ export async function getChannel(slug: string): Promise<Channel | null> {
   return row ? toChannel(row) : null;
 }
 
-/** 채널 설정 화면에서 바꾸는 값. 잘못된 값이면 RangeError(화면에 그대로 보여 준다). */
+/** 채널 설정 화면에서 바꾸는 값(제작 방식은 채널 특성이라 바꾸지 않는다). 잘못된 값이면 RangeError(화면에 그대로 보여 준다). */
 export async function updateChannel(
   slug: string,
-  input: { name: string; emoji: string; route: Route; defaultSeconds: number; youtubeChannelId: string },
+  input: { name: string; emoji: string; defaultSeconds: number; youtubeChannelId: string },
 ): Promise<Channel> {
   const name = input.name.trim();
   const emoji = input.emoji.trim();
@@ -82,9 +82,9 @@ export async function updateChannel(
     throw new RangeError("유튜브 채널 ID 는 UC 로 시작하는 24자입니다(YouTube Studio → 설정 → 채널 → 고급 설정).");
   }
   const [row] = await query<ChannelRow>(
-    `update channels set name = $2, emoji = $3, route = $4, default_seconds = $5, youtube_channel_id = $6, updated_at = now()
+    `update channels set name = $2, emoji = $3, default_seconds = $4, youtube_channel_id = $5, updated_at = now()
       where slug = $1 returning ${COLUMNS}`,
-    [slug, name, emoji, input.route, input.defaultSeconds, youtubeChannelId || null],
+    [slug, name, emoji, input.defaultSeconds, youtubeChannelId || null],
   );
   if (!row) throw new RangeError("채널을 찾을 수 없습니다.");
   return toChannel(row);
