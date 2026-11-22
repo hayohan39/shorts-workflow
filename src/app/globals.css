@@ -1155,3 +1155,6 @@ details.manual > summary {
   color: inherit;
   text-decoration: none;
 }
+.channel-route {
+  margin: 0;
+}

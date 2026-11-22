@@ -39,9 +39,9 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
     await expect(createEpisode({ topic: "1분", outline: "", targetSeconds: 60 })).rejects.toThrow("영상 길이는");
   });
 
-  it("채널 설정: 이름·아이콘·기본 방식·유튜브 채널 ID 를 바꾸고, 잘못된 값은 이유와 함께 거절한다", async () => {
+  it("채널 설정: 이름·아이콘·기본 길이·유튜브 채널 ID 를 바꾸고(제작 방식은 그대로), 잘못된 값은 이유와 함께 거절한다", async () => {
     const { updateChannel, getChannel } = await import("@/pipeline/channels");
-    const base = { name: "새새 열매", emoji: "🐦", route: "clips" as const, defaultSeconds: 30, youtubeChannelId: "" };
+    const base = { name: "새새 열매", emoji: "🐦", defaultSeconds: 30, youtubeChannelId: "" };
     await expect(updateChannel("saesae", { ...base, name: "  " })).rejects.toThrow("채널 이름을 입력하세요");
     await expect(updateChannel("saesae", { ...base, youtubeChannelId: "my-channel" })).rejects.toThrow("UC 로 시작하는 24자");
     await expect(updateChannel("saesae", { ...base, defaultSeconds: 60 })).rejects.toThrow(
@@ -50,11 +50,9 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
     await expect(updateChannel("nope", base)).rejects.toThrow("채널을 찾을 수 없습니다");
 
     const id = "UC" + "a".repeat(22);
-    expect(
-      await updateChannel("saesae", { ...base, name: " 새새 열매 🍒 ", route: "ai", youtubeChannelId: ` ${id} ` }),
-    ).toMatchObject({
+    expect(await updateChannel("saesae", { ...base, name: " 새새 열매 🍒 ", youtubeChannelId: ` ${id} ` })).toMatchObject({
       name: "새새 열매 🍒",
-      route: "ai",
+      route: "clips",
       youtubeChannelId: id,
     });
     // 비우면 연결을 끊는다(자동 업로드를 하지 않는다)
