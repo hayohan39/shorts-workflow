@@ -12,7 +12,8 @@ import {
   type PromptVersion,
 } from "@/pipeline/prompts";
 import { ChannelSettingsForm } from "./channel-settings-form";
-import { IdeaSettingsForm, PromptForm } from "./idea-settings-forms";
+import { IdeaSettingsForm, PoolKeywordsForm, PromptForm } from "./idea-settings-forms";
+import { KEYWORDS_PER_RUN, listPoolKeywords, POOL_KEYWORD_MAX } from "@/pipeline/clips/pool";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,14 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
   const channel = await getChannel((await params).slug);
   if (!channel) notFound();
   const categories = await listCategories(channel.slug);
+  const stories = channel.route === "clips";
   const prompts = [
     {
       key: channelIdeaPromptKey(channel.slug),
-      label: "채널 공통",
-      hint: "채널 소개·시청자·말투·피할 것. 모든 카테고리 추천에 함께 들어갑니다.",
+      label: stories ? "스토리 후보 요청" : "채널 공통",
+      hint: stories
+        ? "어떤 이야기를 원하는지(채널 성격·예시 주제·피할 것). 소재 목록과 형식은 앱이 붙입니다."
+        : "채널 소개·시청자·말투·피할 것. 모든 카테고리 추천에 함께 들어갑니다.",
     },
     ...categories.map((category) => ({
       key: categoryIdeaPromptKey(category.id),
@@ -35,9 +39,11 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
       hint: "이 카테고리에서 어떤 쇼츠 거리를 원하는지.",
     })),
   ];
-  const [histories, scriptHistory] = await Promise.all([
-    categories.length ? Promise.all(prompts.map((prompt) => promptHistory(prompt.key))) : [],
+  const hasIdeas = categories.length > 0 || stories;
+  const [histories, scriptHistory, keywords] = await Promise.all([
+    hasIdeas ? Promise.all(prompts.map((prompt) => promptHistory(prompt.key))) : [],
     promptHistory(scriptPromptKey(channel.slug)),
+    stories ? listPoolKeywords(channel.slug) : [],
   ]);
   const historyItems = (items: PromptVersion[]) =>
     items.map((item) => ({ version: item.version, body: item.body, savedAt: formatDateTime(item.createdAt) }));
@@ -67,10 +73,28 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
           max={PROMPT_MAX}
         />
       </section>
-      {categories.length ? (
+      {hasIdeas ? (
         <section id="ideas" className="stack">
           <h2>추천</h2>
-          <IdeaSettingsForm slug={channel.slug} auto={channel.ideasAuto} everyDays={channel.ideasEveryDays} />
+          <IdeaSettingsForm
+            slug={channel.slug}
+            auto={channel.ideasAuto}
+            everyDays={channel.ideasEveryDays}
+            what={
+              stories
+                ? "소재 풀을 채우고(무료) 스토리 후보를 만듭니다(1회 약 $0.04)"
+                : "카테고리마다 기획안을 하나씩 만듭니다(1회 약 $0.05)"
+            }
+            costPerRun={stories ? 0.04 : 0.05}
+          />
+          {stories ? (
+            <PoolKeywordsForm
+              slug={channel.slug}
+              keywords={keywords.map((keyword) => keyword.keyword)}
+              max={POOL_KEYWORD_MAX}
+              perRun={KEYWORDS_PER_RUN}
+            />
+          ) : null}
           <h3>추천 프롬프트</h3>
           <p className="muted small">
             기획안을 만들 때 Claude 에게 주는 요청입니다. 형식(제목·훅·목차·길이, 1분 미만, 최근 주제 피하기)은 앱이 따로 붙이므로

@@ -221,7 +221,7 @@ describe.skipIf(!testDatabaseUrl)("추천 기획안 (실제 DB)", () => {
     expect(await store.dueIdeaChannels(now)).toEqual([]); // 기본 꺼짐
 
     await updateIdeaSettings("raccoon", { auto: true, everyDays: 2 });
-    await updateIdeaSettings("saesae", { auto: true, everyDays: 1 }); // 카테고리가 없어 대상 아님
+    await updateIdeaSettings("saesae", { auto: false, everyDays: 1 }); // 편집형은 stories.test.ts 에서 본다
     await expect(updateIdeaSettings("raccoon", { auto: true, everyDays: 8 })).rejects.toThrow("1~7일");
     // 방금 성공한 실행이 있다 → 아직
     expect(await store.dueIdeaChannels(now)).toEqual([]);

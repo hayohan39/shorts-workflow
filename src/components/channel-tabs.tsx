@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * 채널 화면의 하위 탭. ideas 가 null 이면 추천 탭이 없는 채널(카테고리 없음), 숫자는 새 기획안 수.
+ * 채널 화면의 하위 탭. ideas 가 null 이면 추천 탭이 없는 채널(생성형인데 카테고리 없음), 숫자는 새 기획안 수.
  * ready 는 업로드 큐에서 날짜를 정해야 하는 영상 수.
  */
 export function ChannelTabs({ slug, ideas, ready }: { slug: string; ideas: number | null; ready: number }) {

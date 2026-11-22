@@ -6,7 +6,7 @@ name: Pipeline
 # 같은 매일 실행에서 영상 클립 자동 수집(clips-daily)도 한다. 대시보드에서 켜 둔 경우에만 실제로 수집한다(기본 꺼짐).
 # 따로 schedule 을 두지 않는 것은 꺼져 있을 때 Actions 사용 시간이 늘지 않게 하기 위해서다.
 # clips 는 무료 라이선스 영상 클립 수집, clips-adopt 는 선택된 클립의 다운로드·mp4 변환·Blob 저장(대상: collection_id).
-# ideas 는 채널 추천(기획안) 만들기(대상: idea_run_id). 매일 실행에서는 자동 추천이 켜진 채널만 주기마다(ideas-daily, 기본 꺼짐).
+# ideas 는 채널 추천 만들기(생성형: 카테고리별 기획안, 편집형: 소재 풀 채우기 + 스토리 후보, 대상: idea_run_id). 매일 실행에서는 자동 추천이 켜진 채널만 주기마다(ideas-daily, 기본 꺼짐).
 # 보통은 대시보드 버튼이 GitHub API 로 이 워크플로를 실행한다(사용자가 이 화면을 볼 일은 없다).
 # 직접 실행해도 된다: Actions → Pipeline → Run workflow.
 #
@@ -94,8 +94,8 @@ jobs:
           ANTHROPIC_ADMIN_KEY: ${{ (inputs.step || 'probe') == 'probe' && secrets.ANTHROPIC_ADMIN_KEY || '' }}
           # 선택: 이 워크스페이스의 비용만 센다(Console 의 wrkspc_… ID, 기본 워크스페이스는 default).
           ANTHROPIC_COST_WORKSPACE_ID: ${{ vars.ANTHROPIC_COST_WORKSPACE_ID }}
-          # 영상 클립 검색(clips)에만 넘긴다. 없으면 Pixabay 만 꺼지고 수집 결과에 이유가 남는다.
-          PIXABAY_API_KEY: ${{ inputs.step == 'clips' && secrets.PIXABAY_API_KEY || '' }}
+          # 소재 검색(clips, 편집형 채널의 ideas 소재 풀)에만 넘긴다. 없으면 Pixabay 만 꺼지고 결과에 이유가 남는다.
+          PIXABAY_API_KEY: ${{ (inputs.step == 'clips' || inputs.step == 'ideas') && secrets.PIXABAY_API_KEY || '' }}
           # 유튜브 업로드(upload)와 예약 시각 변경(reschedule)에만 넘긴다. 발급 방법: docs/youtube-setup.md
           # 리프레시 토큰은 채널마다 따로다(channels.youtube_token_secret). 업로드 단계가 에피소드 채널의 것만 읽는다.
           YOUTUBE_CLIENT_ID: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_CLIENT_ID || '' }}
@@ -117,6 +117,8 @@ jobs:
         if: ${{ github.event_name == 'schedule' && !cancelled() }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 편집형 채널은 스토리 전에 소재 풀을 채운다(무료 소스).
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         run: npm run pipeline -- run ideas-daily
 
       # 시간 초과·취소·설치 실패처럼 위 단계가 스스로 실패를 기록하지 못한 경우에 대비한다.

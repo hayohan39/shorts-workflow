@@ -56,6 +56,10 @@ export interface ClipCandidate {
 export interface SearchOptions {
   /** 소스에 요청할 최대 결과 수 */
   limit: number;
+  /** 몇 번째 결과 페이지(1부터). 소재 풀이 같은 검색어로 매일 같은 결과를 받지 않게 다음 페이지를 가져온다. */
+  page?: number;
+  /** iNaturalist 만: 이 분류군 관찰만(예: "Aves" = 조류). */
+  iconicTaxa?: string;
   fetchImpl?: typeof fetch;
 }
 

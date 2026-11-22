@@ -75,6 +75,10 @@ async function searchWikimedia(query: string, options: SearchOptions): Promise<C
   return [...(await searchVideos(query, options)), ...(await searchImages(query, options))];
 }
 
+/** 다음 페이지(검색 결과 건너뛰기). */
+const offset = (options: SearchOptions): Record<string, string> =>
+  options.page && options.page > 1 ? { gsroffset: String((options.page - 1) * Math.min(options.limit, 50)) } : {};
+
 async function requestPages(params: URLSearchParams, options: SearchOptions) {
   const body = await fetchSourceJson<WikimediaResponse>(`${API}?${params}`, {
     source: "wikimedia",
@@ -110,6 +114,7 @@ async function searchImages(query: string, options: SearchOptions): Promise<Clip
     gsrnamespace: "6",
     gsrsearch: `${query} filetype:bitmap`,
     gsrlimit: String(Math.min(options.limit, 50)),
+    ...offset(options),
     prop: "imageinfo",
     iiprop: "url|size|mime|mediatype|extmetadata",
     iiurlwidth: String(IMAGE_WIDTH),
@@ -153,6 +158,7 @@ async function searchVideos(query: string, options: SearchOptions): Promise<Clip
     gsrnamespace: "6",
     gsrsearch: `${query} filetype:video`,
     gsrlimit: String(Math.min(options.limit, 50)),
+    ...offset(options),
     prop: "videoinfo",
     viprop: "url|size|mime|mediatype|extmetadata|derivatives",
     viurlwidth: "320",

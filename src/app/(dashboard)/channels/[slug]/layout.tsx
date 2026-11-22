@@ -34,7 +34,7 @@ export default async function ChannelLayout({ children, params }: LayoutProps<"/
           </>
         )}
       </p>
-      <ChannelTabs slug={channel.slug} ideas={categories.length ? newIdeas : null} ready={ready} />
+      <ChannelTabs slug={channel.slug} ideas={categories.length || channel.route === "clips" ? newIdeas : null} ready={ready} />
       {children}
     </>
   );

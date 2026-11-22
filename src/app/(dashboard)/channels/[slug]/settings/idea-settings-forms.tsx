@@ -1,10 +1,23 @@
 "use client";
 
 import { useActionState } from "react";
-import { ideaSettingsAction, savePromptAction, type IdeaActionState } from "../../actions";
+import { ideaSettingsAction, savePoolKeywordsAction, savePromptAction, type IdeaActionState } from "../../actions";
 
 /** 자동 추천 켜기·끄기와 주기. 켜는 것이 매일 실행 비용의 승인이다. */
-export function IdeaSettingsForm({ slug, auto, everyDays }: { slug: string; auto: boolean; everyDays: number }) {
+export function IdeaSettingsForm({
+  slug,
+  auto,
+  everyDays,
+  what,
+  costPerRun,
+}: {
+  slug: string;
+  auto: boolean;
+  everyDays: number;
+  /** 한 번 실행에 하는 일과 비용 안내 */
+  what: string;
+  costPerRun: number;
+}) {
   const [state, formAction, pending] = useActionState<IdeaActionState, FormData>(ideaSettingsAction, {});
   return (
     <form action={formAction} className="stack">
@@ -14,9 +27,7 @@ export function IdeaSettingsForm({ slug, auto, everyDays }: { slug: string; auto
         <span>
           <strong>자동 추천 켜기</strong>
           <br />
-          <span className="muted small">
-            매일 새벽 3시 무렵 실행에서 주기가 되면 카테고리마다 기획안을 하나씩 만듭니다(1회 약 $0.05).
-          </span>
+          <span className="muted small">매일 새벽 3시 무렵 실행에서 주기가 되면 {what}.</span>
         </span>
       </label>
       <label className="field">
@@ -24,7 +35,7 @@ export function IdeaSettingsForm({ slug, auto, everyDays }: { slug: string; auto
         <select name="everyDays" defaultValue={everyDays}>
           {[1, 2, 3, 4, 5, 6, 7].map((days) => (
             <option key={days} value={days}>
-              {days === 1 ? "매일" : `${days}일마다`} (한 달 약 ${((30 / days) * 0.05).toFixed(2)})
+              {days === 1 ? "매일" : `${days}일마다`} (한 달 약 ${((30 / days) * costPerRun).toFixed(2)})
             </option>
           ))}
         </select>
@@ -106,5 +117,41 @@ export function PromptForm({
         </details>
       ) : null}
     </div>
+  );
+}
+
+/** 소재 풀 검색어(한 줄에 하나). 매번 가장 오래 안 쓴 것 몇 개만 쓰고, 같은 검색어는 다음 페이지를 가져온다. */
+export function PoolKeywordsForm({
+  slug,
+  keywords,
+  max,
+  perRun,
+}: {
+  slug: string;
+  keywords: string[];
+  max: number;
+  perRun: number;
+}) {
+  const [state, formAction, pending] = useActionState<IdeaActionState, FormData>(savePoolKeywordsAction, {});
+  return (
+    <form action={formAction} className="stack prompt-block">
+      <input type="hidden" name="slug" value={slug} />
+      <label className="field">
+        <span>
+          소재 풀 검색어 <span className="muted small">· {keywords.length}개</span>
+        </span>
+        <textarea name="keywords" rows={8} defaultValue={keywords.join("\n")} spellCheck={false} />
+        <small className="muted">
+          한 줄에 하나, 영어가 결과가 많습니다(최대 {max}개). 모을 때마다 가장 오래 안 쓴 {perRun}개만 쓰고, 같은 검색어는 다음
+          페이지를 가져와서 같은 소재를 되풀이해 모으지 않습니다. iNaturalist 는 조류 관찰만, 다른 소스는 제목에 검색어나 bird 가
+          있는 것만 남깁니다.
+        </small>
+      </label>
+      {state.error ? <p className="error">{state.error}</p> : null}
+      {state.saved && !pending ? <p className="ok small">저장했습니다.</p> : null}
+      <button type="submit" className="secondary" disabled={pending}>
+        {pending ? "저장 중…" : "검색어 저장"}
+      </button>
+    </form>
   );
 }

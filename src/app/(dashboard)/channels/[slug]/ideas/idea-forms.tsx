@@ -49,7 +49,11 @@ export function IdeaActions({ idea, canStart }: { idea: Idea; canStart: boolean 
             <span>목차</span>
             <textarea name="outline" rows={5} maxLength={1900} defaultValue={idea.outline} />
           </label>
-          <LengthSelect defaultValue={idea.targetSeconds} hint="훅은 기획안 그대로 목차 맨 앞에 넣습니다." />
+          {idea.clipIds ? (
+            <p className="muted small">길이({idea.targetSeconds}초)와 장면 소재는 후보 그대로입니다.</p>
+          ) : (
+            <LengthSelect defaultValue={idea.targetSeconds} hint="훅은 기획안 그대로 목차 맨 앞에 넣습니다." />
+          )}
         </details>
         <button type="submit" disabled={busy}>
           {creating ? "만드는 중…" : canStart ? "이걸로 만들기 (대본 생성 약 $0.1)" : "이걸로 에피소드 만들기"}

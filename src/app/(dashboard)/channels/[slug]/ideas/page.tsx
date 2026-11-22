@@ -7,6 +7,10 @@ import { dispatchAvailability } from "@/lib/github";
 import { getChannel } from "@/pipeline/channels";
 import { isRunActive, latestIdeaRun, listCategories, listIdeas, type Idea, type IdeaRun } from "@/pipeline/ideas/store";
 import { formatUsd } from "@/pipeline/script/pricing";
+import { getClips, type StoredClip } from "@/pipeline/clips/store";
+import { POOL_TARGET, poolStock } from "@/pipeline/clips/pool";
+import { STORY_COUNT } from "@/pipeline/ideas/stories";
+import { ClipMedia } from "../../../clips/clip-card";
 import { IdeaActions, RequestIdeasButton } from "./idea-forms";
 
 export const dynamic = "force-dynamic";
@@ -46,17 +50,39 @@ function RunStatus({ run }: { run: IdeaRun | null }) {
   );
 }
 
-function IdeaCard({ idea, category, canStart }: { idea: Idea; category: string | null; canStart: boolean }) {
+function IdeaCard({
+  idea,
+  category,
+  clips,
+  canStart,
+}: {
+  idea: Idea;
+  category: string | null;
+  /** 스토리 후보의 장면 소재(장면 순서) */
+  clips: StoredClip[];
+  canStart: boolean;
+}) {
   return (
     <li className="card idea-card">
       <div className="row between">
-        <span className="badge">{category ?? "카테고리 없음"}</span>
+        <span className="badge">{idea.clipIds ? `스토리 · 장면 ${idea.clipIds.length}개` : (category ?? "카테고리 없음")}</span>
         <span className="muted small">
           {idea.targetSeconds}초 · {formatDateTime(idea.createdAt)}
         </span>
       </div>
       <strong className="card-title idea-title">{idea.title}</strong>
       <p className="idea-hook">“{idea.hook}”</p>
+      {clips.length ? (
+        <ol className="story-strip">
+          {clips.map((clip, index) => (
+            <li key={clip.id}>
+              <span className="story-no">{index + 1}</span>
+              <ClipMedia clip={clip} className="story-media" />
+              <span className="small muted story-name">{clip.title}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
       <p className="prewrap small">{idea.outline}</p>
       {idea.reason ? <p className="muted small">💡 {idea.reason}</p> : null}
       <IdeaActions idea={idea} canStart={canStart} />
@@ -76,7 +102,15 @@ export default async function ChannelIdeasPage({ params }: PageProps<"/channels/
     listIdeas(channel.slug, ["saved"]),
     listIdeas(channel.slug, ["discarded"], 20),
   ]);
-  if (!categories.length) notFound();
+  const stories = channel.route === "clips";
+  if (!categories.length && !stories) notFound();
+  const [clips, stock] = stories
+    ? await Promise.all([
+        getClips([...fresh, ...saved, ...discarded].flatMap((idea) => idea.clipIds ?? [])),
+        poolStock(channel.slug),
+      ])
+    : [[], 0];
+  const clipById = new Map(clips.map((clip) => [clip.id, clip]));
   const names = new Map(categories.map((category) => [category.id, category.name]));
   const availability = dispatchAvailability();
   const active = runActive(run);
@@ -85,6 +119,7 @@ export default async function ChannelIdeasPage({ params }: PageProps<"/channels/
       key={idea.id}
       idea={idea}
       category={idea.categoryId ? (names.get(idea.categoryId) ?? null) : null}
+      clips={(idea.clipIds ?? []).flatMap((id) => clipById.get(id) ?? [])}
       canStart={availability.ok}
     />
   );
@@ -96,9 +131,10 @@ export default async function ChannelIdeasPage({ params }: PageProps<"/channels/
         <p className="small">
           {channel.ideasAuto ? (
             <>
-              🔁 자동 추천 켜짐: {channel.ideasEveryDays === 1 ? "매일" : `${channel.ideasEveryDays}일마다`} 새벽 3시 무렵,
-              카테고리(
-              {categories.map((category) => category.name).join(" · ")})마다 하나씩.
+              🔁 자동 추천 켜짐: {channel.ideasEveryDays === 1 ? "매일" : `${channel.ideasEveryDays}일마다`} 새벽 3시 무렵,{" "}
+              {stories
+                ? `스토리 후보 ${STORY_COUNT}개.`
+                : `카테고리(${categories.map((category) => category.name).join(" · ")})마다 하나씩.`}
             </>
           ) : (
             <>
@@ -111,11 +147,23 @@ export default async function ChannelIdeasPage({ params }: PageProps<"/channels/
         <RequestIdeasButton
           slug={channel.slug}
           disabled={!availability.ok || active}
-          label={`지금 추천 받기 (${categories.length}개, 약 $0.05)`}
+          label={
+            stories ? `지금 스토리 후보 받기 (${STORY_COUNT}개, 약 $0.04)` : `지금 추천 받기 (${categories.length}개, 약 $0.05)`
+          }
         />
+        {stories ? (
+          <p className="muted small">
+            소재 풀: 아직 안 쓴 영상·사진 {stock}개.{" "}
+            {stock >= POOL_TARGET
+              ? "충분해서 이번에는 새로 모으지 않습니다."
+              : "부족하면 받기 전에 무료 소스에서 새 소재를 더 모읍니다(검색어를 돌아가며, 이미 있는 소재는 빼고)."}
+          </p>
+        ) : null}
         {availability.ok ? null : <p className="warn small">{availability.reason}</p>}
         <p className="muted small">
-          기획안은 제목·훅·목차·길이까지만 만듭니다. 고른 기획안만 근거 조사와 대본으로 넘어갑니다(대본 1편 약 $0.1).
+          {stories
+            ? "후보는 장면 소재·제목·훅·목차까지만 만듭니다. 고른 후보만 소재를 내려받고 사실 확인과 대본으로 넘어갑니다(대본 1편 약 $0.1)."
+            : "기획안은 제목·훅·목차·길이까지만 만듭니다. 고른 기획안만 근거 조사와 대본으로 넘어갑니다(대본 1편 약 $0.1)."}
         </p>
       </section>
 
