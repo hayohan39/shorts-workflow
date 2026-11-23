@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { getChannel, updateChannel, updateIdeaSettings } from "@/pipeline/channels";
+import { setPoolKeywords } from "@/pipeline/clips/pool";
+import { failAdopt, requestAdopt } from "@/pipeline/clips/store";
 import { createEpisode } from "@/pipeline/episodes";
+import { createStoryEpisode } from "@/pipeline/ideas/stories";
 import { decideIdea, failIdeaRun, isEditablePromptKey, listCategories, requestIdeaRun, claimIdea } from "@/pipeline/ideas/store";
 import { savePrompt } from "@/pipeline/prompts";
 import { triggerStep } from "@/pipeline/trigger";
@@ -46,7 +49,9 @@ export async function requestIdeasAction(_prev: IdeaActionState, formData: FormD
   await requireSession();
   const channel = await getChannel(String(formData.get("slug") ?? ""));
   if (!channel) return { error: "채널을 찾을 수 없습니다." };
-  if (!(await listCategories(channel.slug)).length) return { error: "이 채널은 카테고리가 없어 추천을 만들 수 없습니다." };
+  if (channel.route !== "clips" && !(await listCategories(channel.slug)).length) {
+    return { error: "이 채널은 카테고리가 없어 추천을 만들 수 없습니다." };
+  }
   const availability = dispatchAvailability();
   if (!availability.ok) return { error: availability.reason };
   let runId: number;
@@ -86,29 +91,52 @@ export async function decideIdeaAction(_prev: IdeaActionState, formData: FormDat
   return {};
 }
 
-/** 기획안으로 에피소드를 만들고 대본 생성을 시작한다(근거 조사·대본 Claude 비용, 누르는 것이 확인). */
+/**
+ * 기획안으로 에피소드를 만들고 대본 생성을 시작한다(근거 조사·대본 Claude 비용, 누르는 것이 확인).
+ * 생성형 기획안은 생성형 에피소드로, 편집형 스토리 후보는 고른 소재가 장면 순서대로 들어간 편집형 에피소드로 만든다
+ * (소재는 채택해서 저장하고, 대본은 그 화면에 맞춰 쓴다).
+ */
 export async function createFromIdeaAction(_prev: IdeaActionState, formData: FormData): Promise<IdeaActionState> {
   await requireSession();
   const id = positiveId(formData.get("id"));
   if (!id) return { error: "잘못된 요청입니다." };
-  let episodeId: number;
+  const title = String(formData.get("title") ?? "");
+  const outline = String(formData.get("outline") ?? "");
+  let episodeId = 0;
+  let adoptCollection: number | null = null;
   try {
-    episodeId = await claimIdea(id, async (idea) => {
-      const episode = await createEpisode({
-        topic: String(formData.get("title") ?? ""),
-        outline: `훅: ${idea.hook}\n${String(formData.get("outline") ?? "").trim()}`,
-        route: "ai",
-        channel: idea.channel,
-        targetSeconds: Number(formData.get("targetSeconds")),
-      });
-      return episode.id;
+    await claimIdea(id, async (idea) => {
+      if (idea.clipIds) {
+        ({ episodeId, collectionId: adoptCollection } = await createStoryEpisode(idea, { title, outline }));
+      } else {
+        episodeId = (
+          await createEpisode({
+            topic: title,
+            outline: `훅: ${idea.hook}\n${outline.trim()}`,
+            route: "ai",
+            channel: idea.channel,
+            targetSeconds: Number(formData.get("targetSeconds")),
+          })
+        ).id;
+      }
+      return episodeId;
     });
   } catch (error) {
     refresh();
     if (error instanceof RangeError) return { error: error.message };
     throw error;
   }
-  if (dispatchAvailability().ok) await triggerStep(episodeId, "script", createDispatcher());
+  if (dispatchAvailability().ok) {
+    // 스토리 소재를 내려받아 저장한다(무료). 대본과 같이 돌고, 대본 승인 뒤 장면을 채운다.
+    if (adoptCollection && (await requestAdopt(adoptCollection))) {
+      try {
+        await createWorkflowDispatcher()({ step: "clips-adopt", collection_id: String(adoptCollection) });
+      } catch (error) {
+        await failAdopt(adoptCollection, error instanceof Error ? error.message : String(error));
+      }
+    }
+    await triggerStep(episodeId, "script", createDispatcher());
+  }
   redirect(`/episodes/${episodeId}`);
 }
 
@@ -135,6 +163,21 @@ export async function savePromptAction(_prev: IdeaActionState, formData: FormDat
   if (!(await isEditablePromptKey(key))) return { error: "잘못된 요청입니다." };
   try {
     await savePrompt(key, String(formData.get("body") ?? ""));
+  } catch (error) {
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return { saved: true };
+}
+
+/** 소재 풀 검색어 저장(편집형 채널). */
+export async function savePoolKeywordsAction(_prev: IdeaActionState, formData: FormData): Promise<IdeaActionState> {
+  await requireSession();
+  const channel = await getChannel(String(formData.get("slug") ?? ""));
+  if (!channel || channel.route !== "clips") return { error: "잘못된 요청입니다." };
+  try {
+    await setPoolKeywords(channel.slug, String(formData.get("keywords") ?? ""));
   } catch (error) {
     if (error instanceof RangeError) return { error: error.message };
     throw error;

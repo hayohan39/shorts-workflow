@@ -1158,3 +1158,47 @@ details.manual > summary {
 .channel-route {
   margin: 0;
 }
+
+/* 스토리 후보: 장면 소재 줄 */
+.story-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 6.5rem;
+  gap: 0.45rem;
+  margin: 0.2rem 0;
+  padding: 0 0 0.3rem;
+  list-style: none;
+  overflow-x: auto;
+}
+.story-strip li {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+}
+.story-media {
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+.story-no {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  z-index: 1;
+  min-width: 1.3rem;
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3rem;
+  text-align: center;
+  color: #fff;
+  background: rgb(0 0 0 / 0.6);
+  border-radius: 999px;
+}
+.story-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

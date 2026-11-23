@@ -24,6 +24,8 @@ export interface Idea {
   targetSeconds: number;
   status: IdeaStatus;
   episodeId: number | null;
+  /** 편집형 스토리 후보의 소재(풀 clip_candidates.id, 장면 순서). 생성형 기획안은 null. */
+  clipIds: number[] | null;
   createdAt: Date;
 }
 
@@ -49,6 +51,7 @@ export interface NewIdea {
   outline: string;
   reason: string;
   targetSeconds: number;
+  clipIds?: number[];
 }
 
 /** 대기·실행 중인 실행이 이보다 오래되면 멈춘 것으로 보고 새로 요청할 수 있다. */
@@ -69,6 +72,7 @@ interface IdeaRow {
   target_seconds: number;
   status: IdeaStatus;
   episode_id: number | null;
+  clip_ids: number[] | null;
   created_at: Date;
 }
 
@@ -87,7 +91,7 @@ interface RunRow {
 }
 
 const IDEA_COLUMNS =
-  "id, run_id, channel, category_id, title, hook, outline, reason, target_seconds, status, episode_id, created_at";
+  "id, run_id, channel, category_id, title, hook, outline, reason, target_seconds, status, episode_id, clip_ids, created_at";
 const RUN_COLUMNS = "id, channel, trigger, status, progress, error, model, cost_usd, run_url, created_at, finished_at";
 
 const toIdea = (row: IdeaRow): Idea => ({
@@ -102,6 +106,7 @@ const toIdea = (row: IdeaRow): Idea => ({
   targetSeconds: row.target_seconds,
   status: row.status,
   episodeId: row.episode_id,
+  clipIds: row.clip_ids,
   createdAt: row.created_at,
 });
 
@@ -263,10 +268,10 @@ export async function finishIdeaRun(
     const saved: Idea[] = [];
     for (const idea of ideas) {
       const { rows } = await client.query<IdeaRow>(
-        `insert into ideas (run_id, channel, category_id, title, hook, outline, reason, target_seconds)
-          values ($1, $2, (select id from channel_categories where channel = $2 and name = $3), $4, $5, $6, $7, $8)
+        `insert into ideas (run_id, channel, category_id, title, hook, outline, reason, target_seconds, clip_ids)
+          values ($1, $2, (select id from channel_categories where channel = $2 and name = $3), $4, $5, $6, $7, $8, $9)
           returning ${IDEA_COLUMNS}`,
-        [id, run.channel, idea.category, idea.title, idea.hook, idea.outline, idea.reason, idea.targetSeconds],
+        [id, run.channel, idea.category, idea.title, idea.hook, idea.outline, idea.reason, idea.targetSeconds, idea.clipIds ?? null],
       );
       saved.push(toIdea(rows[0]));
     }
@@ -283,14 +288,14 @@ export async function failIdeaRun(id: number, error: string, costUsd: number | n
 }
 
 /**
- * 자동 추천할 채널: 켜져 있고, 카테고리가 있고, 주기(일) 안에 요청한 실행이 없고(실패는 다음 날 다시),
+ * 자동 추천할 채널: 켜져 있고, 카테고리가 있거나 편집형(스토리 후보)이고, 주기(일) 안에 요청한 실행이 없고(실패는 다음 날 다시),
  * 아직 보지 않은 기획안이 많이 쌓이지 않은 채널. 매일 실행 시각이 조금씩 밀려도 주기가 밀리지 않게 3시간 여유를 둔다.
  */
 export async function dueIdeaChannels(now = Date.now()): Promise<string[]> {
   const rows = await query<{ slug: string }>(
     `select c.slug from channels c
       where c.ideas_auto
-        and exists (select 1 from channel_categories k where k.channel = c.slug)
+        and (c.route = 'clips' or exists (select 1 from channel_categories k where k.channel = c.slug))
         and not exists (
           select 1 from idea_runs r where r.channel = c.slug and r.status <> 'failed'
             and r.created_at > $1::timestamptz - make_interval(hours => c.ideas_every_days * 24 - 3))

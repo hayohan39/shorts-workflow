@@ -88,6 +88,7 @@ async function searchPixabay(query: string, options: SearchOptions, key: string)
     q: query.slice(0, 100),
     safesearch: "true",
     per_page: String(Math.min(Math.max(options.limit, 3), 200)),
+    ...(options.page && options.page > 1 ? { page: String(options.page) } : {}),
   });
   const request = { source: "pixabay" as const, fetchImpl: options.fetchImpl };
   const videos = await fetchSourceJson<PixabayResponse>(`${ENDPOINT}?${params}`, request);

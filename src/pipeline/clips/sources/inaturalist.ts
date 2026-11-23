@@ -64,6 +64,8 @@ async function searchINaturalist(query: string, options: SearchOptions): Promise
     quality_grade: "research",
     order_by: "votes",
     per_page: String(Math.min(Math.max(options.limit, 1), 50)),
+    ...(options.page && options.page > 1 ? { page: String(options.page) } : {}),
+    ...(options.iconicTaxa ? { iconic_taxa: options.iconicTaxa } : {}),
   });
   const body = await fetchSourceJson<INaturalistResponse>(`${API}?${params}`, {
     source: "inaturalist",

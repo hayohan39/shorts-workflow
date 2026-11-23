@@ -20,7 +20,7 @@ export interface SourceResult {
 
 export interface ClipCollection {
   id: number;
-  kind: "search" | "daily";
+  kind: "search" | "daily" | "pool";
   topic: string;
   /** 에피소드(clips 길)에서 찾은 것이면 그 에피소드. 채택은 그 에피소드가 고른 클립만 한다. */
   episodeId: number | null;
@@ -271,7 +271,7 @@ export async function finishCollection(id: number, result: CollectResult): Promi
   });
 }
 
-async function insertClip(client: PoolClient, collectionId: number, clip: ClipCandidate, rank: number | null, fetchedAt: Date) {
+export async function insertClip(client: PoolClient, collectionId: number, clip: ClipCandidate, rank: number | null, fetchedAt: Date) {
   await client.query(
     `insert into clip_candidates (collection_id, source, source_id, keyword, title, page_url, thumbnail_url, preview_url,
         download_url, width, height, duration_sec, author, author_url, license_code, license_name, license_url,
