@@ -6,11 +6,14 @@ export function LengthSelect({
   label = "영상 길이",
   defaultValue,
   hint,
+  scenes = true,
 }: {
   name?: string;
   label?: string;
   defaultValue: number;
   hint: string;
+  /** 길이마다 장면 수를 같이 보여 줄지(음악형은 장면 수가 없다). */
+  scenes?: boolean;
 }) {
   return (
     <label className="field">
@@ -18,7 +21,7 @@ export function LengthSelect({
       <select name={name} defaultValue={defaultValue}>
         {TARGET_SECONDS.map((seconds) => (
           <option key={seconds} value={seconds}>
-            {seconds}초 · 장면 {lengthRules(seconds).scenes}개
+            {seconds}초{scenes ? ` · 장면 ${lengthRules(seconds).scenes}개` : ""}
           </option>
         ))}
       </select>

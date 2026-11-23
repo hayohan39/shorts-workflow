@@ -5,6 +5,8 @@
 //          ─compose─► video_review ─approve-video─► ready ─upload─► uploaded
 //   어느 단계든 실패 ─► failed (step 에 실패한 단계) ─다시 시도─► 그 단계부터
 
+import type { Route } from "@/pipeline/episodes";
+
 export const STATUSES = [
   "queued",
   "script_review",
@@ -106,10 +108,12 @@ export function isBusy(episode: EpisodeState): boolean {
 }
 
 /** 목록·상세의 상태 표시. 단계가 대기·실행 중이면 상태 대신 그 단계를 보여 준다("대본 생성 중"). */
-export function statusLabel(episode: EpisodeState): string {
+export function statusLabel(episode: EpisodeState & { route?: Route }): string {
   if (isBusy(episode) && episode.step) {
     return `${STEP_LABELS[episode.step]} ${episode.stepState === "pending" ? "대기" : "중"}`;
   }
+  // 음악형은 대본이 없다. 대기(queued) 동안 음원을 올리고 가사 타이밍을 맞춘다.
+  if (episode.route === "music" && episode.status === "queued") return "음원·가사 준비";
   return STATUS_LABELS[episode.status];
 }
 

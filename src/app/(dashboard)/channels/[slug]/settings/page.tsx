@@ -42,7 +42,8 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
   const hasIdeas = categories.length > 0 || stories;
   const [histories, scriptHistory, keywords] = await Promise.all([
     hasIdeas ? Promise.all(prompts.map((prompt) => promptHistory(prompt.key))) : [],
-    promptHistory(scriptPromptKey(channel.slug)),
+    // 음악형은 대본이 없다.
+    channel.route === "music" ? [] : promptHistory(scriptPromptKey(channel.slug)),
     stories ? listPoolKeywords(channel.slug) : [],
   ]);
   const historyItems = (items: PromptVersion[]) =>
@@ -58,21 +59,23 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
           limits={{ notice: VIDEO_NOTICE_MAX, footer: DESCRIPTION_FOOTER_MAX }}
         />
       </section>
-      <section id="script" className="stack">
-        <h2>대본 지침</h2>
-        <p className="muted small">
-          대본을 쓸 때 Claude 에게 주는 이 채널의 성격·근거 기준·피할 표현입니다. 분량·장면·훅·출처 같은 공통 형식은 앱이 따로
-          붙입니다. 저장하면 다음 대본부터 적용되고, 새 버전으로 남아 되돌릴 수 있습니다.
-        </p>
-        <PromptForm
-          promptKey={scriptPromptKey(channel.slug)}
-          label="채널 지침"
-          hint="예: 채널 소개, 근거를 찾을 곳, 쓰지 말 표현, 말투."
-          body={scriptHistory[0]?.body ?? ""}
-          history={historyItems(scriptHistory)}
-          max={PROMPT_MAX}
-        />
-      </section>
+      {channel.route === "music" ? null : (
+        <section id="script" className="stack">
+          <h2>대본 지침</h2>
+          <p className="muted small">
+            대본을 쓸 때 Claude 에게 주는 이 채널의 성격·근거 기준·피할 표현입니다. 분량·장면·훅·출처 같은 공통 형식은 앱이 따로
+            붙입니다. 저장하면 다음 대본부터 적용되고, 새 버전으로 남아 되돌릴 수 있습니다.
+          </p>
+          <PromptForm
+            promptKey={scriptPromptKey(channel.slug)}
+            label="채널 지침"
+            hint="예: 채널 소개, 근거를 찾을 곳, 쓰지 말 표현, 말투."
+            body={scriptHistory[0]?.body ?? ""}
+            history={historyItems(scriptHistory)}
+            max={PROMPT_MAX}
+          />
+        </section>
+      )}
       {hasIdeas ? (
         <section id="ideas" className="stack">
           <h2>추천</h2>

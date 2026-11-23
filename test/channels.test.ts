@@ -17,7 +17,7 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
     await drop();
   });
 
-  it("라쿤씨(생성형)·새새 열매(편집형) 두 채널로 시작하고, 기존 에피소드는 라쿤씨 것이다", async () => {
+  it("라쿤씨(생성형)·새새 열매(편집형)·음악 채널(음악형)이 있고, 기존 에피소드는 라쿤씨 것이다", async () => {
     const { listChannels, channelLabel } = await import("@/pipeline/channels");
     const { createEpisode } = await import("@/pipeline/episodes");
     const channels = await listChannels();
@@ -31,9 +31,10 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
     ).toEqual([
       { slug: "raccoon", route: "ai", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN", youtubeChannelId: null },
       { slug: "saesae", route: "clips", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_SAESAE", youtubeChannelId: null },
+      { slug: "music", route: "music", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_MUSIC", youtubeChannelId: null },
     ]);
-    expect(channels.map(channelLabel)).toEqual(["🦝 피부건강 라쿤씨", "🐦 새새 열매"]);
-    expect(channels.map((channel) => channel.defaultSeconds)).toEqual([30, 30]);
+    expect(channels.map(channelLabel)).toEqual(["🦝 피부건강 라쿤씨", "🐦 새새 열매", "🎤 음악 샘플"]);
+    expect(channels.map((channel) => channel.defaultSeconds)).toEqual([30, 30, 30]);
     expect(await createEpisode({ topic: "기본 채널", outline: "" })).toMatchObject({ channel: "raccoon", targetSeconds: 35 });
     expect((await createEpisode({ topic: "30초", outline: "", targetSeconds: 30 })).targetSeconds).toBe(30);
     await expect(createEpisode({ topic: "1분", outline: "", targetSeconds: 60 })).rejects.toThrow("영상 길이는");

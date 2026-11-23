@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { getChannel } from "@/pipeline/channels";
 import { listEpisodes } from "@/pipeline/episodes";
 import { isBusy } from "@/pipeline/status";
-import { ROUTE_LABELS, ROUTE_STAGES, STAGE_LABELS } from "@/pipeline/workflow";
+import { ROUTE_LABELS, ROUTE_STAGES, stageLabel } from "@/pipeline/workflow";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default async function ChannelPage({ params }: PageProps<"/channels/[slug
         <div className="empty">
           <p>아직 에피소드가 없습니다.</p>
           <p className="muted small">
-            {ROUTE_LABELS[channel.route]}: {ROUTE_STAGES[channel.route].map((stage) => STAGE_LABELS[stage]).join(" → ")}
+            {ROUTE_LABELS[channel.route]}: {ROUTE_STAGES[channel.route].map((stage) => stageLabel(channel.route, stage)).join(" → ")}
           </p>
           <Link href={newHref} className="button">
             첫 에피소드 만들기

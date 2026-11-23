@@ -4,21 +4,25 @@ import { isBusy, type EpisodeState, type Step } from "@/pipeline/status";
 // 에피소드 화면의 단계 탭. 만드는 길(route)마다 단계가 다르다.
 //   ai    : 대본 → 내레이션 → 장면 → 영상 → 업로드
 //   clips : 소재 찾기 → 대본 → 내레이션 → 영상 → 업로드 (장면은 고른 클립으로 채운다)
+//   music : 음원 → 가사 → 이미지 → 영상 → 업로드 (대본·내레이션 없이 직접 만든 음원이 소리가 된다)
 // 상태(status)와 실제로 만들어진 것(고른 클립·내레이션·장면)을 보고 지금 어느 단계에 있는지 정한다. DB 를 모르는 순수 규칙.
 
-export const STAGES = ["clips", "script", "voice", "scenes", "video", "upload"] as const;
+export const STAGES = ["audio", "lyrics", "clips", "script", "voice", "scenes", "video", "upload"] as const;
 export type Stage = (typeof STAGES)[number];
 
 export const ROUTE_STAGES: Record<Route, readonly Stage[]> = {
   ai: ["script", "voice", "scenes", "video", "upload"],
   clips: ["clips", "script", "voice", "video", "upload"],
+  music: ["audio", "lyrics", "scenes", "video", "upload"],
 };
 
-/** 제작 방식. 생성형 = 대본 → AI 장면 생성, 편집형 = 무료 영상을 먼저 찾아 고른 뒤 대본. */
-export const ROUTE_LABELS: Record<Route, string> = { ai: "생성형", clips: "편집형" };
-export const ROUTE_ICONS: Record<Route, string> = { ai: "✍️", clips: "🎬" };
+/** 제작 방식. 생성형 = 대본 → AI 장면 생성, 편집형 = 무료 영상을 먼저 찾아 고른 뒤 대본, 음악형 = 직접 만든 음원 + 가사 + 이미지. */
+export const ROUTE_LABELS: Record<Route, string> = { ai: "생성형", clips: "편집형", music: "음악형" };
+export const ROUTE_ICONS: Record<Route, string> = { ai: "✍️", clips: "🎬", music: "🎵" };
 
 export const STAGE_LABELS: Record<Stage, string> = {
+  audio: "음원",
+  lyrics: "가사",
   clips: "소재 찾기",
   script: "대본",
   voice: "내레이션",
@@ -26,6 +30,11 @@ export const STAGE_LABELS: Record<Stage, string> = {
   video: "영상",
   upload: "업로드",
 };
+
+/** 길마다 다르게 부르는 단계 이름(음악형의 장면은 곡에 맞춘 이미지). */
+export function stageLabel(route: Route, stage: Stage): string {
+  return route === "music" && stage === "scenes" ? "이미지" : STAGE_LABELS[stage];
+}
 
 /** 자동 단계가 어느 탭에 속하는가. */
 export const STEP_STAGE: Record<Step, Stage> = {
@@ -46,6 +55,10 @@ export interface StageFacts {
   picked?: boolean;
   /** clips 길: 소재 찾기가 도는 중이거나 실패했는가. */
   search?: "busy" | "failed" | null;
+  /** music 길: 음원을 올렸는가. */
+  hasAudio?: boolean;
+  /** music 길: 가사 타이밍을 맞췄는가. */
+  lyricsSynced?: boolean;
 }
 
 /** 단계 판단에 쓰는 에피소드 필드. route 가 없으면 ai 길. */
@@ -77,6 +90,7 @@ export function isStage(value: unknown): value is Stage {
 export function currentStage(episode: WorkflowEpisode, facts?: StageFacts): Stage {
   const clips = episode.route === "clips";
   if ((isBusy(episode) || episode.status === "failed") && episode.step) return STEP_STAGE[episode.step];
+  if (episode.route === "music") return musicStage(episode, facts);
   switch (episode.status) {
     case "queued":
       // clips 길은 클립을 고르기 전까지 소재 찾기 단계. 목록처럼 모를 때는 대본을 요청한 적이 있는지로 본다.
@@ -98,6 +112,24 @@ export function currentStage(episode: WorkflowEpisode, facts?: StageFacts): Stag
   }
 }
 
+/** music 길: 음원·가사를 준비하는 동안은 대기(queued), 그 뒤는 다른 길과 같은 상태를 쓴다. */
+function musicStage(episode: WorkflowEpisode, facts?: StageFacts): Stage {
+  switch (episode.status) {
+    case "queued":
+    case "script_review":
+    case "failed":
+      return facts?.hasAudio ? "lyrics" : "audio";
+    case "approved":
+    case "rendering":
+      return facts && facts.scenesLeft === 0 ? "video" : "scenes";
+    case "video_review":
+      return "video";
+    case "ready":
+    case "uploaded":
+      return "upload";
+  }
+}
+
 export function workflow(episode: WorkflowEpisode, facts?: StageFacts): Workflow {
   const order = ROUTE_STAGES[episode.route ?? "ai"];
   const current = currentStage(episode, facts);
@@ -105,6 +137,8 @@ export function workflow(episode: WorkflowEpisode, facts?: StageFacts): Workflow
   const after = (stage: Stage) => at > order.indexOf(stage);
   const finished = episode.status === "uploaded";
   const complete: Record<Stage, boolean> = {
+    audio: facts?.hasAudio ?? (finished || after("audio")),
+    lyrics: facts?.lyricsSynced ?? (finished || after("lyrics")),
     clips: facts?.picked ?? (finished || after("clips")),
     script: finished || after("script"),
     voice: facts ? facts.hasNarration : finished || after("voice"),
@@ -114,7 +148,7 @@ export function workflow(episode: WorkflowEpisode, facts?: StageFacts): Workflow
   };
   const stages = order.map((stage) => ({
     stage,
-    label: STAGE_LABELS[stage],
+    label: stageLabel(episode.route ?? "ai", stage),
     state: (stage === current && !finished ? "current" : complete[stage] ? "done" : "todo") as StageState,
   }));
   const searching = current === "clips" ? facts?.search : null;
