@@ -1202,3 +1202,13 @@ details.manual > summary {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* 음악형: 구간 고르기 버튼 줄(좁은 화면에서는 줄을 바꾸고 글자는 한 줄로) */
+.nudges {
+  flex-wrap: wrap;
+}
+
+.nudges button {
+  white-space: nowrap;
+  padding-inline: 0.85rem;
+}

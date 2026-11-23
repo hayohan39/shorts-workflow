@@ -35,6 +35,8 @@ export function runnableStep(episode: Episode, now = Date.now()): Step | null {
   else step = NEXT_STEP[episode.status] ?? null;
   // clips 길은 장면을 AI 로 만들지 않는다(고른 클립으로 채운 뒤 바로 합성).
   if (step === "render" && episode.route === "clips") step = "compose";
+  // music 길은 대본·내레이션이 없다(음원과 가사를 화면에서 준비한다).
+  if (episode.route === "music" && (step === "script" || step === "voice")) step = null;
   return step && IMPLEMENTED_STEPS.includes(step) ? step : null;
 }
 
@@ -46,6 +48,9 @@ export function runnableStep(episode: Episode, now = Date.now()): Step | null {
 export async function triggerStep(id: number, step: Step, dispatch: Dispatcher, now = Date.now()): Promise<Episode> {
   const current = await getEpisode(id);
   if (!current) throw new Error(`에피소드 #${id} 를 찾을 수 없습니다.`);
+  if (current.route === "music" && (step === "script" || step === "voice")) {
+    throw new TransitionError("음악형 에피소드는 대본·내레이션 없이 올린 음원으로 만듭니다.");
+  }
   if (current.route === "clips") {
     if (step === "render") throw new TransitionError("이 에피소드는 고른 클립으로 장면을 채웁니다(장면 생성 없음).");
     if (step === "script" && (await listPicks(id)).length !== pickCount(current)) {

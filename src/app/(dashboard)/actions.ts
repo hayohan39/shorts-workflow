@@ -33,6 +33,7 @@ export async function createEpisodeAction(_prev: NewEpisodeState, formData: Form
   const targetSeconds = Number(formData.get("targetSeconds"));
   const channel = await getChannel(String(formData.get("channel") ?? ""));
   if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, outline, targetSeconds };
+  if (channel.route === "music") return { error: "음악형 채널은 음원으로 에피소드를 만듭니다.", topic, outline, targetSeconds };
 
   let id: number;
   try {

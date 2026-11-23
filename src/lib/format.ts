@@ -43,3 +43,10 @@ export function formatDay(date: Date): string {
 export function formatTime(date: Date): string {
   return time.format(date);
 }
+
+/** 곡 안의 위치(초)를 0:42.5 처럼. */
+export function formatClock(seconds: number): string {
+  const tenths = Math.round(Math.max(seconds, 0) * 10);
+  const minutes = Math.floor(tenths / 600);
+  return `${minutes}:${((tenths - minutes * 600) / 10).toFixed(1).padStart(4, "0")}`;
+}

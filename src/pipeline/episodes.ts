@@ -16,8 +16,8 @@ import {
 
 export type UploadPrivacy = "private" | "unlisted" | "public";
 
-/** 만드는 길: ai(주제·목차 → AI 장면 생성) · clips(무료 영상을 먼저 찾아 고른 뒤 대본). */
-export type Route = "ai" | "clips";
+/** 만드는 길: ai(주제·목차 → AI 장면 생성) · clips(무료 영상을 먼저 찾아 고른 뒤 대본) · music(직접 만든 음원 + 가사 + 이미지). */
+export type Route = "ai" | "clips" | "music";
 
 export interface Episode {
   id: number;

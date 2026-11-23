@@ -42,13 +42,14 @@ import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
 import { ScenesPanel } from "./scenes-panel";
 import { UploadKit } from "./upload-kit";
+import { MusicEpisode } from "./music-episode";
 import { VideoReview } from "./video-review";
 import { ScriptReview } from "./script-review";
 
 export const dynamic = "force-dynamic";
 
 // 지금 단계에서 사람이 할 일. 단계가 도는 중이거나 실패했으면 그 안내가 대신 나온다.
-const NEXT_ACTION: Record<Stage, string> = {
+const NEXT_ACTION: Partial<Record<Stage, string>> = {
   clips: "찾은 소재(영상·사진)에서 장면마다 쓸 것을 고르고 영상 컨셉·목차를 적으세요.",
   script: "대본을 검토하고 승인하거나 반려하세요.",
   voice: "목소리를 골라 내레이션을 만드세요.",
@@ -72,6 +73,8 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
   if (!episode) notFound();
   const channel = await getChannel(episode.channel);
   if (!channel) notFound();
+  // 음악형은 대본·내레이션이 없어 화면이 따로 있다.
+  if (episode.route === "music") return <MusicEpisode episode={episode} channel={channel} tab={(await searchParams).tab} />;
   const narrationAssets = assets.filter((asset) => asset.kind === "voice");
   const scenes = script ? scenesDone(assets, script.version) : new Map();
   const missingScenes = script ? script.scenes.filter((scene) => !scenes.has(scene.no)) : [];
