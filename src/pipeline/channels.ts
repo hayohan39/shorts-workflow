@@ -19,6 +19,10 @@ export interface Channel {
   youtubeChannelId: string | null;
   /** 이 채널의 리프레시 토큰이 든 GitHub Secret 이름. */
   youtubeTokenSecret: string;
+  /** 유튜브 설명란 끝에 붙이는 문구(고지). 비우면 붙이지 않는다. */
+  descriptionFooter: string;
+  /** 영상 위쪽에 계속 띄우는 짧은 고지. 비우면 띄우지 않는다. */
+  videoNotice: string;
 }
 
 interface ChannelRow {
@@ -31,11 +35,16 @@ interface ChannelRow {
   ideas_every_days: number;
   youtube_channel_id: string | null;
   youtube_token_secret: string;
+  description_footer: string;
+  video_notice: string;
 }
 
-const COLUMNS = "slug, name, emoji, route, default_seconds, ideas_auto, ideas_every_days, youtube_channel_id, youtube_token_secret";
+const COLUMNS = `slug, name, emoji, route, default_seconds, ideas_auto, ideas_every_days, youtube_channel_id, youtube_token_secret,
+  description_footer, video_notice`;
 
 export const CHANNEL_NAME_MAX = 40;
+export const DESCRIPTION_FOOTER_MAX = 300;
+export const VIDEO_NOTICE_MAX = 30;
 export const YOUTUBE_CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/;
 
 function toChannel(row: ChannelRow): Channel {
@@ -49,6 +58,8 @@ function toChannel(row: ChannelRow): Channel {
     ideasEveryDays: row.ideas_every_days,
     youtubeChannelId: row.youtube_channel_id,
     youtubeTokenSecret: row.youtube_token_secret,
+    descriptionFooter: row.description_footer,
+    videoNotice: row.video_notice,
   };
 }
 
@@ -69,22 +80,35 @@ export async function getChannel(slug: string): Promise<Channel | null> {
 /** 채널 설정 화면에서 바꾸는 값(제작 방식은 채널 특성이라 바꾸지 않는다). 잘못된 값이면 RangeError(화면에 그대로 보여 준다). */
 export async function updateChannel(
   slug: string,
-  input: { name: string; emoji: string; defaultSeconds: number; youtubeChannelId: string },
+  input: {
+    name: string;
+    emoji: string;
+    defaultSeconds: number;
+    youtubeChannelId: string;
+    descriptionFooter: string;
+    videoNotice: string;
+  },
 ): Promise<Channel> {
   const name = input.name.trim();
   const emoji = input.emoji.trim();
   const youtubeChannelId = input.youtubeChannelId.trim();
+  const descriptionFooter = input.descriptionFooter.trim();
+  const videoNotice = input.videoNotice.trim();
   if (!name) throw new RangeError("채널 이름을 입력하세요.");
   if (name.length > CHANNEL_NAME_MAX) throw new RangeError(`채널 이름은 ${CHANNEL_NAME_MAX}자 이내로 입력하세요.`);
   if ([...emoji].length > 8) throw new RangeError("아이콘은 이모지 하나만 넣으세요.");
   if (!isTargetSeconds(input.defaultSeconds)) throw new RangeError(`기본 길이는 ${TARGET_SECONDS.join("·")}초 중에서 고르세요.`);
+  if (descriptionFooter.length > DESCRIPTION_FOOTER_MAX)
+    throw new RangeError(`설명란 끝 문구는 ${DESCRIPTION_FOOTER_MAX}자 이내로 입력하세요.`);
+  if (videoNotice.length > VIDEO_NOTICE_MAX) throw new RangeError(`영상 고지 문구는 ${VIDEO_NOTICE_MAX}자 이내로 입력하세요.`);
   if (youtubeChannelId && !YOUTUBE_CHANNEL_ID_PATTERN.test(youtubeChannelId)) {
     throw new RangeError("유튜브 채널 ID 는 UC 로 시작하는 24자입니다(YouTube Studio → 설정 → 채널 → 고급 설정).");
   }
   const [row] = await query<ChannelRow>(
-    `update channels set name = $2, emoji = $3, default_seconds = $4, youtube_channel_id = $5, updated_at = now()
+    `update channels set name = $2, emoji = $3, default_seconds = $4, youtube_channel_id = $5, description_footer = $6,
+        video_notice = $7, updated_at = now()
       where slug = $1 returning ${COLUMNS}`,
-    [slug, name, emoji, input.defaultSeconds, youtubeChannelId || null],
+    [slug, name, emoji, input.defaultSeconds, youtubeChannelId || null, descriptionFooter, videoNotice],
   );
   if (!row) throw new RangeError("채널을 찾을 수 없습니다.");
   return toChannel(row);

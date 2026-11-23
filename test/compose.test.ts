@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assTime, buildAss, buildCues, highlightNumbers, NOTICE, splitLines } from "@/pipeline/compose/ass";
+import { assTime, buildAss, buildCues, highlightNumbers, splitLines } from "@/pipeline/compose/ass";
 import { buildFfmpegArgs, checkOutput } from "@/pipeline/compose/ffmpeg";
 import { MIN_SCENE_SECONDS, planTimeline, TAIL_SECONDS } from "@/pipeline/compose/timeline";
 import { createMigratedSchema, testDatabaseUrl } from "./helpers/db";
@@ -60,12 +60,14 @@ describe("자막(ASS)", () => {
     }
   });
 
-  it("고지가 처음부터 끝까지 깔린다", () => {
+  it("채널 고지가 있으면 처음부터 끝까지 깔리고, 없으면 띄우지 않는다", () => {
     const timeline = planTimeline(scenes, 20);
-    const ass = buildAss(timeline);
+    const notice = "※ 의학적 조언이 아닙니다";
+    const ass = buildAss(timeline, notice);
     expect(ass).toContain("PlayResX: 1080");
-    expect(ass).toContain(`Dialogue: 1,0:00:00.00,${assTime(timeline.total)},Notice,,0,0,0,,${NOTICE}`);
+    expect(ass).toContain(`Dialogue: 1,0:00:00.00,${assTime(timeline.total)},Notice,,0,0,0,,${notice}`);
     expect(ass).toContain("\\N");
+    expect(buildAss(timeline, "")).not.toContain(",Notice,,");
   });
 });
 

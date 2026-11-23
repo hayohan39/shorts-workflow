@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { getChannel, updateChannel, updateIdeaSettings } from "@/pipeline/channels";
 import { createEpisode } from "@/pipeline/episodes";
-import { decideIdea, failIdeaRun, isIdeaPromptKey, listCategories, requestIdeaRun, claimIdea } from "@/pipeline/ideas/store";
+import { decideIdea, failIdeaRun, isEditablePromptKey, listCategories, requestIdeaRun, claimIdea } from "@/pipeline/ideas/store";
 import { savePrompt } from "@/pipeline/prompts";
 import { triggerStep } from "@/pipeline/trigger";
 
@@ -21,6 +21,8 @@ export async function updateChannelAction(_prev: ChannelSettingsState, formData:
       emoji: String(formData.get("emoji") ?? ""),
       defaultSeconds: Number(formData.get("defaultSeconds")),
       youtubeChannelId: String(formData.get("youtubeChannelId") ?? ""),
+      descriptionFooter: String(formData.get("descriptionFooter") ?? ""),
+      videoNotice: String(formData.get("videoNotice") ?? ""),
     });
   } catch (error) {
     if (error instanceof RangeError) return { error: error.message };
@@ -126,11 +128,11 @@ export async function ideaSettingsAction(_prev: IdeaActionState, formData: FormD
   return { saved: true };
 }
 
-/** 추천 프롬프트 저장(새 버전). 되돌리기도 예전 내용을 이 액션으로 다시 저장한다. */
+/** 추천·대본 프롬프트 저장(새 버전). 되돌리기도 예전 내용을 이 액션으로 다시 저장한다. */
 export async function savePromptAction(_prev: IdeaActionState, formData: FormData): Promise<IdeaActionState> {
   await requireSession();
   const key = String(formData.get("key") ?? "");
-  if (!(await isIdeaPromptKey(key))) return { error: "잘못된 요청입니다." };
+  if (!(await isEditablePromptKey(key))) return { error: "잘못된 요청입니다." };
   try {
     await savePrompt(key, String(formData.get("body") ?? ""));
   } catch (error) {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { checkGuardrails, findForbidden } from "@/pipeline/script/guardrails";
-import { countChars, DISCLAIMER, lengthRules, NARRATION_HARD_MAX, TARGET_SECONDS, toDraft, validateScript } from "@/pipeline/script/schema";
+import { countChars, lengthRules, NARRATION_HARD_MAX, TARGET_SECONDS, toDraft, validateScript } from "@/pipeline/script/schema";
 import { validSubmission } from "./helpers/script";
+
+/** 라쿤씨 채널의 설명란 끝 문구(migrations/…_add-channel-script-guide.sql). */
+const DISCLAIMER = "※ 이 영상은 정보 제공용이며 의학적 조언이 아닙니다. 피부·건강 문제는 전문의와 상담하세요.";
 
 /** 예시 대본(장면 4개, 152자)은 35초 분량이다. */
 const rules35 = lengthRules(35);
@@ -50,13 +53,15 @@ describe("대본 형식", () => {
     expect(warnings.map((w) => w.field)).not.toContain("narration");
   });
 
-  it("저장 형태: 내레이션은 장면을 이어 붙이고, #shorts 를 맨 앞에, 설명란에 출처와 고지", () => {
-    const draft = toDraft(validSubmission({ tags: ["PDRN", "#PDRN", " 피부 과학 ", "a", "b", "c"] }));
+  it("저장 형태: 내레이션은 장면을 이어 붙이고, #shorts 를 맨 앞에, 설명란에 출처와 채널 끝 문구", () => {
+    const draft = toDraft(validSubmission({ tags: ["PDRN", "#PDRN", " 피부 과학 ", "a", "b", "c"] }), DISCLAIMER);
     expect(draft.narration.startsWith("연어에서 뽑은 DNA")).toBe(true);
     expect(draft.tags).toEqual(["#shorts", "#PDRN", "#피부과학", "#a", "#b"]);
     expect(draft.description).toContain("출처\n- Squadrito 2014: https://pubmed.ncbi.nlm.nih.gov/24685532/");
     expect(draft.description.endsWith(DISCLAIMER)).toBe(true);
     expect(draft.needsAiDisclosure).toBe(false);
+    // 끝 문구가 없는 채널(새새 열매)은 출처에서 끝난다
+    expect(toDraft(validSubmission()).description.endsWith("https://pubmed.ncbi.nlm.nih.gov/24685532/")).toBe(true);
   });
 
   it("출처는 http(s) 링크만 남긴다", () => {

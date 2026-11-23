@@ -103,7 +103,6 @@ export function lengthRules(seconds: number): LengthRules {
 /** 이 글자 수를 넘으면 완성 영상이 60초를 넘을 수 있다(저장을 막는다). */
 export const NARRATION_HARD_MAX = Math.floor((MAX_VIDEO_SECONDS - TAIL_SECONDS) * CHARS_PER_SECOND);
 
-export const DISCLAIMER = "※ 이 영상은 정보 제공용이며 의학적 조언이 아닙니다. 피부·건강 문제는 전문의와 상담하세요.";
 
 /** submit_script 도구의 입력 스키마 (strict: 모든 객체에 additionalProperties: false). */
 export const SUBMISSION_SCHEMA = {
@@ -168,8 +167,8 @@ function normalizeTag(tag: string): string {
   return bare ? `#${bare}` : "";
 }
 
-/** 출처 목록과 고지를 붙인 설명란. */
-export function buildDescription(summary: string, research: ResearchItem[]): string {
+/** 출처 목록과 채널의 끝 문구(고지, 없으면 생략)를 붙인 설명란. */
+export function buildDescription(summary: string, research: ResearchItem[], footer = ""): string {
   const seen = new Set<string>();
   const sources: string[] = [];
   for (const item of research) {
@@ -179,7 +178,8 @@ export function buildDescription(summary: string, research: ResearchItem[]): str
       sources.push(`- ${compact(source.title)}: ${source.url}`);
     }
   }
-  return [compact(summary), "", "출처", ...(sources.length ? sources : ["- (확인된 출처 없음)"]), "", DISCLAIMER].join("\n");
+  const lines = [compact(summary), "", "출처", ...(sources.length ? sources : ["- (확인된 출처 없음)"])];
+  return (footer.trim() ? [...lines, "", footer.trim()] : lines).join("\n");
 }
 
 const isWebUrl = (url: string) => /^https?:\/\//i.test(url.trim());
@@ -188,7 +188,7 @@ const isWebUrl = (url: string) => /^https?:\/\//i.test(url.trim());
  * 제출된 대본을 저장 형태로 바꾼다. 해시태그는 #shorts 를 맨 앞에 두고 최대 5개.
  * 출처는 http(s) 링크만 남긴다(웹 조사 중 들어온 javascript: 같은 링크가 화면에 노출되지 않게).
  */
-export function toDraft(submission: ScriptSubmission): ScriptDraft {
+export function toDraft(submission: ScriptSubmission, descriptionFooter = ""): ScriptDraft {
   const research = submission.research.map((item) => ({
     ...item,
     sources: item.sources.filter((source) => isWebUrl(source.url)).map((source) => ({ ...source, url: source.url.trim() })),
@@ -209,7 +209,7 @@ export function toDraft(submission: ScriptSubmission): ScriptDraft {
     scenes,
     narration: scenes.map((scene) => scene.narration).join(" "),
     title: compact(submission.title),
-    description: buildDescription(submission.summary, research),
+    description: buildDescription(submission.summary, research, descriptionFooter),
     tags: tags.slice(0, RULES.tagsMax),
     needsAiDisclosure: scenes.some((scene) => scene.realistic_person),
   };

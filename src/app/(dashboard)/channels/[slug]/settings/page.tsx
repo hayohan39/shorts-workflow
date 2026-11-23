@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import { CHANNEL_NAME_MAX, getChannel } from "@/pipeline/channels";
+import { CHANNEL_NAME_MAX, DESCRIPTION_FOOTER_MAX, getChannel, VIDEO_NOTICE_MAX } from "@/pipeline/channels";
 import { listCategories } from "@/pipeline/ideas/store";
-import { categoryIdeaPromptKey, channelIdeaPromptKey, PROMPT_MAX, promptHistory } from "@/pipeline/prompts";
+import {
+  categoryIdeaPromptKey,
+  channelIdeaPromptKey,
+  PROMPT_MAX,
+  promptHistory,
+  scriptPromptKey,
+  type PromptVersion,
+} from "@/pipeline/prompts";
 import { ChannelSettingsForm } from "./channel-settings-form";
 import { IdeaSettingsForm, PromptForm } from "./idea-settings-forms";
 
@@ -28,12 +35,37 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
       hint: "이 카테고리에서 어떤 쇼츠 거리를 원하는지.",
     })),
   ];
-  const histories = categories.length ? await Promise.all(prompts.map((prompt) => promptHistory(prompt.key))) : [];
+  const [histories, scriptHistory] = await Promise.all([
+    categories.length ? Promise.all(prompts.map((prompt) => promptHistory(prompt.key))) : [],
+    promptHistory(scriptPromptKey(channel.slug)),
+  ]);
+  const historyItems = (items: PromptVersion[]) =>
+    items.map((item) => ({ version: item.version, body: item.body, savedAt: formatDateTime(item.createdAt) }));
 
   return (
     <>
       <section>
-        <ChannelSettingsForm key={channel.slug} channel={channel} nameMax={CHANNEL_NAME_MAX} />
+        <ChannelSettingsForm
+          key={channel.slug}
+          channel={channel}
+          nameMax={CHANNEL_NAME_MAX}
+          limits={{ notice: VIDEO_NOTICE_MAX, footer: DESCRIPTION_FOOTER_MAX }}
+        />
+      </section>
+      <section id="script" className="stack">
+        <h2>대본 지침</h2>
+        <p className="muted small">
+          대본을 쓸 때 Claude 에게 주는 이 채널의 성격·근거 기준·피할 표현입니다. 분량·장면·훅·출처 같은 공통 형식은 앱이 따로
+          붙입니다. 저장하면 다음 대본부터 적용되고, 새 버전으로 남아 되돌릴 수 있습니다.
+        </p>
+        <PromptForm
+          promptKey={scriptPromptKey(channel.slug)}
+          label="채널 지침"
+          hint="예: 채널 소개, 근거를 찾을 곳, 쓰지 말 표현, 말투."
+          body={scriptHistory[0]?.body ?? ""}
+          history={historyItems(scriptHistory)}
+          max={PROMPT_MAX}
+        />
       </section>
       {categories.length ? (
         <section id="ideas" className="stack">
@@ -51,11 +83,7 @@ export default async function ChannelSettingsPage({ params }: PageProps<"/channe
               label={prompt.label}
               hint={prompt.hint}
               body={histories[index][0]?.body ?? ""}
-              history={histories[index].map((item) => ({
-                version: item.version,
-                body: item.body,
-                savedAt: formatDateTime(item.createdAt),
-              }))}
+              history={historyItems(histories[index])}
               max={PROMPT_MAX}
             />
           ))}

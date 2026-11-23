@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 
 // 화면에서 고치는 프롬프트. key 마다 버전을 쌓고 가장 최근 버전을 쓴다(되돌리기 = 예전 내용을 새 버전으로 저장).
+//   ideas:<채널> · ideas:category:<id> (추천), script:<채널> (대본 지침)
 
 export const PROMPT_MAX = 4000;
 
@@ -59,4 +60,6 @@ export async function savePrompt(key: string, body: string): Promise<PromptVersi
 }
 
 export const channelIdeaPromptKey = (channel: string) => `ideas:${channel}`;
+/** 대본 지침(시스템 프롬프트의 "채널 지침"). */
+export const scriptPromptKey = (channel: string) => `script:${channel}`;
 export const categoryIdeaPromptKey = (categoryId: number) => `ideas:category:${categoryId}`;

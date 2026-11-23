@@ -5,7 +5,6 @@ import type { Timeline } from "@/pipeline/compose/timeline";
 // 글자 수 비율로 시간을 나눈다. 숫자·연도는 노란색으로 강조하고, 하단에 고지를 계속 띄운다.
 
 export const FONT_NAME = "Noto Sans CJK KR";
-export const NOTICE = "※ 의학적 조언이 아닙니다";
 /** 한 줄 최대 글자 수(공백 포함). 1080px 폭에서 72px 글씨 기준. */
 export const LINE_MAX = 16;
 
@@ -76,7 +75,8 @@ export function buildCues(timeline: Timeline): Cue[] {
   return cues;
 }
 
-export function buildAss(timeline: Timeline): string {
+/** notice: 영상 내내 위쪽에 띄우는 채널 고지(채널 설정). 비우면 띄우지 않는다. */
+export function buildAss(timeline: Timeline, notice = ""): string {
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
@@ -96,7 +96,7 @@ export function buildAss(timeline: Timeline): string {
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
   ];
   const events = [
-    `Dialogue: 1,${assTime(0)},${assTime(timeline.total)},Notice,,0,0,0,,${escapeText(NOTICE)}`,
+    ...(notice.trim() ? [`Dialogue: 1,${assTime(0)},${assTime(timeline.total)},Notice,,0,0,0,,${escapeText(notice.trim())}`] : []),
     ...buildCues(timeline).map(
       (cue) =>
         `Dialogue: 0,${assTime(cue.start)},${assTime(cue.end)},Caption,,0,0,0,,${cue.lines.map(highlightNumbers).join("\\N")}`,

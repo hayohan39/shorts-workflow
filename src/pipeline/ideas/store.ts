@@ -119,9 +119,9 @@ const toRun = (row: RunRow): IdeaRun => ({
   finishedAt: row.finished_at,
 });
 
-/** 화면에서 고칠 수 있는 추천 프롬프트 key 인가(있는 채널의 공통 프롬프트 또는 있는 카테고리의 프롬프트). */
-export async function isIdeaPromptKey(key: string): Promise<boolean> {
-  const channel = /^ideas:([a-z][a-z0-9-]*)$/.exec(key);
+/** 화면에서 고칠 수 있는 프롬프트 key 인가(있는 채널의 추천·대본 지침, 또는 있는 카테고리의 추천 프롬프트). */
+export async function isEditablePromptKey(key: string): Promise<boolean> {
+  const channel = /^(?:ideas|script):([a-z][a-z0-9-]*)$/.exec(key);
   const category = /^ideas:category:(\d+)$/.exec(key);
   if (channel) return (await query("select 1 from channels where slug = $1", [channel[1]])).length > 0;
   if (category) return (await query("select 1 from channel_categories where id = $1", [Number(category[1])])).length > 0;

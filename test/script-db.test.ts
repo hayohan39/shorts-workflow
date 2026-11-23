@@ -77,6 +77,29 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     expect(prompt).toContain("훅: 연어에서 뽑은 DNA");
   });
 
+  it("채널마다 대본 지침(시스템 프롬프트)과 설명란 끝 문구가 다르다", async () => {
+    const { createEpisode, getEpisode } = await import("@/pipeline/episodes");
+    const { runScriptStep } = await import("@/pipeline/steps/script");
+    const { latestScript } = await import("@/pipeline/scripts");
+    const { savePrompt } = await import("@/pipeline/prompts");
+    const systems: string[] = [];
+    const send: SendMessage = async (params) => {
+      systems.push(String(params.system));
+      return reply(validSubmission());
+    };
+    const skin = await createEpisode({ topic: "세라마이드", outline: "", channel: "raccoon" });
+    await runScriptStep((await getEpisode(skin.id))!, { send });
+    expect(systems[0]).toContain("채널 지침\n건강·화장품 성분을 근거 중심으로");
+    expect((await latestScript(skin.id))!.description.endsWith("전문의와 상담하세요.")).toBe(true);
+
+    await savePrompt("script:saesae", "새 이야기만 한다(고친 지침).");
+    const bird = await createEpisode({ topic: "참새의 모래 목욕", outline: "", channel: "saesae" });
+    await runScriptStep((await getEpisode(bird.id))!, { send });
+    expect(systems[1]).toContain("채널 지침\n새 이야기만 한다(고친 지침).");
+    expect(systems[1]).not.toContain("화장품");
+    expect((await latestScript(bird.id))!.description).not.toContain("의학적 조언");
+  });
+
   it("직접 수정은 새 버전으로 저장하고 다시 검사한다", async () => {
     const { createEpisode, getEpisode } = await import("@/pipeline/episodes");
     const { runScriptStep } = await import("@/pipeline/steps/script");
@@ -85,16 +108,21 @@ describe.skipIf(!testDatabaseUrl)("대본 단계 (실제 DB)", () => {
     await runScriptStep((await getEpisode(episode.id))!, { send: async () => reply(validSubmission()) });
     const base = (await latestScript(episode.id))!;
 
-    const edited = await saveEditedScript(base, {
-      narrations: base.scenes.map((s, i) => (i === 1 ? "피부 재생 성분입니다." : s.narration)),
-      title: "새 제목",
-      description: "출처 없이 쓴 설명",
-      tags: "#shorts PDRN",
-    }, lengthRules(episode.targetSeconds));
+    const edited = await saveEditedScript(
+      base,
+      {
+        narrations: base.scenes.map((s, i) => (i === 1 ? "피부 재생 성분입니다." : s.narration)),
+        title: "새 제목",
+        description: "출처 없이 쓴 설명",
+        tags: "#shorts PDRN",
+      },
+      lengthRules(episode.targetSeconds),
+      "※ 의학적 조언이 아닙니다.",
+    );
     expect(edited).toMatchObject({ version: 2, source: "edited", title: "새 제목", tags: ["#shorts", "#PDRN"] });
     expect(edited.scenes[1].prompt).toBe(base.scenes[1].prompt);
     const messages = edited.warnings.map((w) => w.message).join(" | ");
-    expect(messages).toContain("고지가 없습니다");
+    expect(messages).toContain("끝 문구(고지)가 없습니다");
     expect(messages).toContain("피부 재생");
 
     await expect(
