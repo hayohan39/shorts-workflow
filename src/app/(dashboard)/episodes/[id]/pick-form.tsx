@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { DirectionField } from "@/components/direction-field";
 import type { StoredClip } from "@/pipeline/clips/store";
 import { SOURCE_LABELS } from "@/pipeline/clips/types";
 import { pickClipsAction, type PickState } from "../../clips/actions";
@@ -17,6 +18,7 @@ export function PickForm({
   sceneCount,
   concept,
   outline,
+  direction,
   disabled,
 }: {
   episodeId: number;
@@ -26,6 +28,7 @@ export function PickForm({
   sceneCount: number;
   concept: string;
   outline: string;
+  direction: string;
   disabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState<PickState, FormData>(pickClipsAction, {});
@@ -124,6 +127,7 @@ export function PickForm({
             placeholder={"예: 겨울 피부가 건조한 이유 → 보습 성분 비교 → 바르는 순서"}
           />
         </label>
+        <DirectionField defaultValue={state.direction ?? direction} />
         {state.error ? <p className="error">{state.error}</p> : null}
         <button type="submit" disabled={disabled || pending || !ready}>
           {pending ? "요청 중…" : ready ? "이 클립으로 대본 만들기" : `장면 ${sceneCount}개를 모두 고르세요`}

@@ -57,6 +57,9 @@ export const RULES = {
 } as const;
 
 /** 고를 수 있는 영상 길이(초). */
+/** 에피소드마다 대본 생성 때 같이 보내는 연출 방향의 최대 길이(episodes.script_direction). */
+export const DIRECTION_MAX = 500;
+
 export const TARGET_SECONDS = [20, 25, 30, 35, 40, 45, 50, 55] as const;
 /** 완성 영상은 이 길이를 넘으면 안 된다(쇼츠 1분 미만). 합성·업로드에서 막는다. */
 export const MAX_VIDEO_SECONDS = 59.5;

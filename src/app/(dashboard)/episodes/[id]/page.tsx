@@ -13,7 +13,7 @@ import { channelLabel, getChannel } from "@/pipeline/channels";
 import { canPick, listPicks } from "@/pipeline/clips/picks";
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, isJobBusy, listAdoptedClips, listClips } from "@/pipeline/clips/store";
-import { getEpisode, latestUpload, SCHEDULE_MIN_LEAD_MS } from "@/pipeline/episodes";
+import { canEditDirection, getEpisode, latestUpload, SCHEDULE_MIN_LEAD_MS } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
@@ -37,6 +37,7 @@ import {
 import { ClipMedia, ClipMeta } from "../../clips/clip-card";
 import { AdoptButton, RetryCollectButton } from "../../clips/clip-forms";
 import { AutoUpload } from "./auto-upload";
+import { DirectionForm } from "./direction-form";
 import { PickForm } from "./pick-form";
 import { RunStepButton } from "./run-step-button";
 import { NarrationPanel } from "./narration-panel";
@@ -249,6 +250,7 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
                 picked={picks.map((clip) => clip.id)}
                 sceneCount={rules.scenes}
                 {...splitOutline(episode.outline)}
+                direction={episode.scriptDirection}
                 disabled={!canDispatch}
               />
             </>
@@ -275,6 +277,26 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
               <section>
                 <h2>목차</h2>
                 <p className="prewrap">{episode.outline}</p>
+              </section>
+            ) : null}
+            {episode.scriptDirection || canEditDirection(episode) ? (
+              <section className="stack">
+                {canEditDirection(episode) ? (
+                  <DirectionForm
+                    episodeId={episode.id}
+                    direction={episode.scriptDirection}
+                    note={
+                      episode.status === "script_review"
+                        ? "고친 방향은 반려하고 다시 생성할 때 반영됩니다."
+                        : "다음 대본 생성(다시 시도)부터 반영됩니다."
+                    }
+                  />
+                ) : (
+                  <>
+                    <h2>대본 방향</h2>
+                    <p className="prewrap">{episode.scriptDirection}</p>
+                  </>
+                )}
               </section>
             ) : null}
             {stepTab === "script" ? runButton : null}

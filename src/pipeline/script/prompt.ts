@@ -32,6 +32,8 @@ export interface PromptInput {
   /** 이 편의 목표 길이에서 나온 분량. */
   rules: LengthRules;
   outline: string;
+  /** 사용자가 적은 이 편의 연출 방향(톤·느낌·구성). 없으면 빈 문자열. */
+  direction?: string;
   /** 반려·수정 요청 메모(재생성일 때). */
   reviewerNote: string | null;
   /** 반려된 이전 버전의 내레이션(재생성일 때). */
@@ -64,6 +66,14 @@ export function buildUserPrompt(input: PromptInput): string {
       const kind = clip.media === "image" ? ", 사진" : clip.seconds ? `, 원본 ${clip.seconds}초` : "";
       lines.push(`- 장면 ${index + 1}: ${clip.title} (검색어 "${clip.keyword}"${kind})`);
     });
+  }
+  const direction = input.direction?.trim();
+  if (direction) {
+    lines.push(
+      "",
+      "이 편의 연출 방향(사용자 요청). 말투·느낌·구성·강조점에 반영한다. 사실 확인·근거·분량·형식 규칙보다 앞서지는 않는다:",
+      direction,
+    );
   }
   if (input.recentEpisodes.length) {
     lines.push("", "최근 편(훅·장면 구성을 겹치지 말 것):");

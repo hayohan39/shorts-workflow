@@ -8,7 +8,16 @@ import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from
 import { SESSION_COOKIE } from "@/lib/session";
 import { getChannel } from "@/pipeline/channels";
 import { fillScenesFromPicks } from "@/pipeline/clips/picks";
-import { createEpisode, decide, getEpisode, saveUpload, setReschedule, setUploadPlan, setVoiceSelection } from "@/pipeline/episodes";
+import {
+  createEpisode,
+  decide,
+  getEpisode,
+  saveUpload,
+  setReschedule,
+  setScriptDirection,
+  setUploadPlan,
+  setVoiceSelection,
+} from "@/pipeline/episodes";
 import { lengthRules } from "@/pipeline/script/schema";
 import { latestScript, NOTE_MAX, saveEditedScript, setReviewerNote } from "@/pipeline/scripts";
 import { failProbe, requestProbe } from "@/pipeline/probe";
@@ -23,23 +32,25 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
-export type NewEpisodeState = { error?: string; topic?: string; outline?: string; targetSeconds?: number };
+export type NewEpisodeState = { error?: string; topic?: string; outline?: string; direction?: string; targetSeconds?: number };
 
 /** 새 에피소드를 만들고 바로 대본 생성을 시작한다(프로덕션에서만). */
 export async function createEpisodeAction(_prev: NewEpisodeState, formData: FormData): Promise<NewEpisodeState> {
   await requireSession();
   const topic = String(formData.get("topic") ?? "");
   const outline = String(formData.get("outline") ?? "");
+  const direction = String(formData.get("direction") ?? "");
   const targetSeconds = Number(formData.get("targetSeconds"));
+  const kept = { topic, outline, direction, targetSeconds };
   const channel = await getChannel(String(formData.get("channel") ?? ""));
-  if (!channel) return { error: "채널을 찾을 수 없습니다.", topic, outline, targetSeconds };
-  if (channel.route === "music") return { error: "음악형 채널은 음원으로 에피소드를 만듭니다.", topic, outline, targetSeconds };
+  if (!channel) return { error: "채널을 찾을 수 없습니다.", ...kept };
+  if (channel.route === "music") return { error: "음악형 채널은 음원으로 에피소드를 만듭니다.", ...kept };
 
   let id: number;
   try {
-    id = (await createEpisode({ topic, outline, channel: channel.slug, targetSeconds })).id;
+    id = (await createEpisode({ topic, outline, channel: channel.slug, targetSeconds, scriptDirection: direction })).id;
   } catch (error) {
-    if (error instanceof RangeError) return { error: error.message, topic, outline, targetSeconds };
+    if (error instanceof RangeError) return { error: error.message, ...kept };
     throw error;
   }
   if (dispatchAvailability().ok) {
@@ -74,6 +85,21 @@ export async function runStepAction(_prev: RunStepState, formData: FormData): Pr
 }
 
 export type SimpleState = { error?: string; saved?: boolean };
+
+/** 대본 탭의 대본 방향 저장(다음 대본 생성부터 반영). */
+export async function setDirectionAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return { error: "잘못된 요청입니다." };
+  try {
+    await setScriptDirection(id, String(formData.get("direction") ?? ""));
+  } catch (error) {
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
+  refresh();
+  return { saved: true };
+}
 
 /** 설정 화면의 "모델 조회". */
 export async function requestProbeAction(): Promise<SimpleState> {

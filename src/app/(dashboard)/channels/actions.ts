@@ -102,12 +102,13 @@ export async function createFromIdeaAction(_prev: IdeaActionState, formData: For
   if (!id) return { error: "잘못된 요청입니다." };
   const title = String(formData.get("title") ?? "");
   const outline = String(formData.get("outline") ?? "");
+  const scriptDirection = String(formData.get("direction") ?? "");
   let episodeId = 0;
   let adoptCollection: number | null = null;
   try {
     await claimIdea(id, async (idea) => {
       if (idea.clipIds) {
-        ({ episodeId, collectionId: adoptCollection } = await createStoryEpisode(idea, { title, outline }));
+        ({ episodeId, collectionId: adoptCollection } = await createStoryEpisode(idea, { title, outline, scriptDirection }));
       } else {
         episodeId = (
           await createEpisode({
@@ -116,6 +117,7 @@ export async function createFromIdeaAction(_prev: IdeaActionState, formData: For
             route: "ai",
             channel: idea.channel,
             targetSeconds: Number(formData.get("targetSeconds")),
+            scriptDirection,
           })
         ).id;
       }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { DirectionField } from "@/components/direction-field";
 import { LengthSelect } from "@/components/length-select";
 import type { Idea } from "@/pipeline/ideas/store";
 import { createFromIdeaAction, decideIdeaAction, requestIdeasAction, type IdeaActionState } from "../../actions";
@@ -49,6 +50,7 @@ export function IdeaActions({ idea, canStart }: { idea: Idea; canStart: boolean 
             <span>목차</span>
             <textarea name="outline" rows={5} maxLength={1900} defaultValue={idea.outline} />
           </label>
+          <DirectionField />
           {idea.clipIds ? (
             <p className="muted small">길이({idea.targetSeconds}초)와 장면 소재는 후보 그대로입니다.</p>
           ) : (
