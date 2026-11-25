@@ -108,7 +108,7 @@ console.log("(이 값은 비밀번호와 같습니다. 채팅·문서에 붙여 
 console.log("YOUTUBE_CLIENT_ID      =", clientId, " (처음 한 번만)");
 console.log("YOUTUBE_CLIENT_SECRET  = (방금 입력한 클라이언트 보안 비밀번호, 처음 한 번만)");
 console.log("리프레시 토큰          =", body.refresh_token);
-console.log("  → 대시보드 채널 → 채널 설정에 나오는 Secret 이름으로 넣으세요(예: 라쿤씨 YOUTUBE_REFRESH_TOKEN).");
+console.log("  → 대시보드 채널 → 채널 설정에 나오는 Secret 이름으로 넣으세요(예: 라쿤씨 YOUTUBE_REFRESH_TOKEN_RACCOON).");
 if (channel) {
   console.log("\n채널 ID(비밀 아님): 대시보드 채널 → 채널 설정의 \"유튜브 채널 ID\" 에 넣으세요. 다른 채널 토큰이면 올리지 않습니다.");
   console.log("유튜브 채널 ID         =", channel.id);

@@ -7,7 +7,7 @@ const credentials = {
   clientId: "cid",
   clientSecret: "cs",
   refreshToken: "rt",
-  tokenSecret: "YOUTUBE_REFRESH_TOKEN",
+  tokenSecret: "YOUTUBE_REFRESH_TOKEN_RACCOON",
   channelId: "UCmine",
 };
 
