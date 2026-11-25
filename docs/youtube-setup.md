@@ -64,8 +64,12 @@ GitHub → `shorts-workflow` → Settings → Secrets and variables → Actions 
 
 | 채널 | Secret |
 | --- | --- |
-| 🦝 피부건강 라쿤씨 | `YOUTUBE_REFRESH_TOKEN` |
+| 🦝 피부건강 라쿤씨 | `YOUTUBE_REFRESH_TOKEN_RACCOON` |
 | 🐦 새새 열매 | `YOUTUBE_REFRESH_TOKEN_SAESAE` |
+| 🎤 음악 채널 | `YOUTUBE_REFRESH_TOKEN_MUSIC` |
+
+새 채널을 추가하면 Secret 이름(`YOUTUBE_REFRESH_TOKEN_<구분자>`)을 `pipeline.yml` 의 업로드 단계에도 넘겨야 한다
+(`test/workflow-secrets.test.ts` 가 빠진 것을 잡는다).
 
 채널이 여럿이면 2단계를 채널마다 한 번씩 한다(구글 로그인 화면에서 그 채널을 고른다). 클라이언트는 같은 것을 쓴다.
 

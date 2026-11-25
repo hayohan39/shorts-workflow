@@ -29,7 +29,7 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
         youtubeChannelId,
       })),
     ).toEqual([
-      { slug: "raccoon", route: "ai", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN", youtubeChannelId: null },
+      { slug: "raccoon", route: "ai", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_RACCOON", youtubeChannelId: null },
       { slug: "saesae", route: "clips", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_SAESAE", youtubeChannelId: null },
       { slug: "music", route: "music", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_MUSIC", youtubeChannelId: null },
     ]);

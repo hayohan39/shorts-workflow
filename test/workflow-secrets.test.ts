@@ -32,4 +32,13 @@ describe("워크플로의 유튜브 키", () => {
     expect(lines.length).toBeGreaterThanOrEqual(4);
     for (const line of lines) expect(line).toContain("(inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_");
   });
+
+  it("채널마다 토큰 Secret 을 업로드 단계에 넘긴다(channels.youtube_token_secret 과 같은 이름, test/channels.test.ts)", () => {
+    const pipeline = workflows.find(({ name }) => name === "pipeline.yml")!.text;
+    for (const secret of ["YOUTUBE_REFRESH_TOKEN_RACCOON", "YOUTUBE_REFRESH_TOKEN_SAESAE", "YOUTUBE_REFRESH_TOKEN_MUSIC"]) {
+      expect(pipeline, secret).toContain(`secrets.${secret} ||`);
+    }
+    // 라쿤씨의 옛 이름은 더 넘기지 않는다.
+    expect(pipeline).not.toContain("secrets.YOUTUBE_REFRESH_TOKEN ||");
+  });
 });

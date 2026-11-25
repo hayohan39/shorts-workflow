@@ -38,4 +38,4 @@
 | **Anthropic Admin API** | 이번 달 Claude 실제 청구 비용(선택) | `ANTHROPIC_ADMIN_KEY` (GitHub) |
 | **Vercel 배포 · Claude 리뷰** | merge 후 배포, PR 리뷰·자동 수정·`@claude` (Claude 구독 사용, API 요금 없음) | `VERCEL_TOKEN` 등, `CLAUDE_CODE_OAUTH_TOKEN` (GitHub) |
 | 대시보드 로그인 | 비밀번호 1개 + 서명 쿠키 | `DASHBOARD_PASSWORD`, `SESSION_SECRET` (Vercel) |
-| **YouTube Data API** | 자동 업로드(공개·일부 공개·비공개·예약), 무료 | `YOUTUBE_CLIENT_ID` · `YOUTUBE_CLIENT_SECRET` · 채널별 리프레시 토큰(`YOUTUBE_REFRESH_TOKEN`, `YOUTUBE_REFRESH_TOKEN_SAESAE`) (GitHub, [설정](youtube-setup.md)) |
+| **YouTube Data API** | 자동 업로드(공개·일부 공개·비공개·예약), 무료 | `YOUTUBE_CLIENT_ID` · `YOUTUBE_CLIENT_SECRET` · 채널별 리프레시 토큰(`YOUTUBE_REFRESH_TOKEN_RACCOON`, `_SAESAE`, `_MUSIC`) (GitHub, [설정](youtube-setup.md)) |

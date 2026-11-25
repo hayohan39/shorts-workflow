@@ -11,7 +11,7 @@ import { buildMetadata, latestFinal } from "@/pipeline/steps/upload";
 import { createMigratedSchema, testDatabaseUrl } from "./helpers/db";
 import { validSubmission } from "./helpers/script";
 
-const credentials = { clientId: "cid", clientSecret: "csecret", refreshToken: "rtoken", tokenSecret: "YOUTUBE_REFRESH_TOKEN", channelId: "UCmine" };
+const credentials = { clientId: "cid", clientSecret: "csecret", refreshToken: "rtoken", tokenSecret: "YOUTUBE_REFRESH_TOKEN_RACCOON", channelId: "UCmine" };
 const metadata: VideoMetadata = {
   snippet: { title: "t", description: "d", tags: [], categoryId: "27", defaultLanguage: "ko" },
   status: { privacyStatus: "private", selfDeclaredMadeForKids: false, containsSyntheticMedia: false },
@@ -43,14 +43,14 @@ function youtubeFetch(
 
 describe("YouTube API", () => {
   it("채널마다 자기 토큰 Secret 을 읽고, 채널 ID 가 없거나 키가 없으면 무엇이 없는지 알려 준다", () => {
-    const raccoon = { name: "라쿤씨", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN", youtubeChannelId: "UCraccoon" };
+    const raccoon = { name: "라쿤씨", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_RACCOON", youtubeChannelId: "UCraccoon" };
     const saesae = { name: "새새 열매", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_SAESAE", youtubeChannelId: "UCsaesae" };
-    const env = { YOUTUBE_CLIENT_ID: "a", YOUTUBE_CLIENT_SECRET: "b", YOUTUBE_REFRESH_TOKEN: "r1", YOUTUBE_REFRESH_TOKEN_SAESAE: "r2" };
+    const env = { YOUTUBE_CLIENT_ID: "a", YOUTUBE_CLIENT_SECRET: "b", YOUTUBE_REFRESH_TOKEN_RACCOON: "r1", YOUTUBE_REFRESH_TOKEN_SAESAE: "r2" };
     expect(readYoutubeCredentials(raccoon, env)).toEqual({
       clientId: "a",
       clientSecret: "b",
       refreshToken: "r1",
-      tokenSecret: "YOUTUBE_REFRESH_TOKEN",
+      tokenSecret: "YOUTUBE_REFRESH_TOKEN_RACCOON",
       channelId: "UCraccoon",
     });
     expect(readYoutubeCredentials(saesae, env)).toMatchObject({ refreshToken: "r2", channelId: "UCsaesae" });
@@ -59,7 +59,7 @@ describe("YouTube API", () => {
       "YOUTUBE_REFRESH_TOKEN_SAESAE 가 없습니다",
     );
     expect(() => readYoutubeCredentials(raccoon, { YOUTUBE_CLIENT_ID: "x" })).toThrow(
-      "YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN 가 없습니다",
+      "YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN_RACCOON 가 없습니다",
     );
     expect(() => readYoutubeCredentials({ ...raccoon, youtubeChannelId: null }, env)).toThrow("유튜브 채널 ID 가 없습니다");
   });

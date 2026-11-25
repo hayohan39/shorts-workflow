@@ -100,8 +100,9 @@ jobs:
           # 리프레시 토큰은 채널마다 따로다(channels.youtube_token_secret). 업로드 단계가 에피소드 채널의 것만 읽는다.
           YOUTUBE_CLIENT_ID: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_CLIENT_ID || '' }}
           YOUTUBE_CLIENT_SECRET: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_CLIENT_SECRET || '' }}
-          YOUTUBE_REFRESH_TOKEN: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_REFRESH_TOKEN || '' }}
+          YOUTUBE_REFRESH_TOKEN_RACCOON: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_REFRESH_TOKEN_RACCOON || '' }}
           YOUTUBE_REFRESH_TOKEN_SAESAE: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_REFRESH_TOKEN_SAESAE || '' }}
+          YOUTUBE_REFRESH_TOKEN_MUSIC: ${{ (inputs.step == 'upload' || inputs.step == 'reschedule') && secrets.YOUTUBE_REFRESH_TOKEN_MUSIC || '' }}
         run: npm run pipeline -- run "$STEP" "$TARGET_ID"
 
       # 매일 실행에서만. 꺼져 있으면 DB 만 보고 바로 끝난다. probe 가 실패해도 수집은 시도한다.
