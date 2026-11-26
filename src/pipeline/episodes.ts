@@ -2,7 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool, query, transaction } from "@/lib/db";
 import { watchUrl } from "@/pipeline/youtube/links";
 import { redact } from "@/lib/health";
-import { isTargetSeconds, TARGET_SECONDS } from "@/pipeline/script/schema";
+import { DIRECTION_MAX, isTargetSeconds, TARGET_SECONDS } from "@/pipeline/script/schema";
 import {
   statusForDecision,
   statusForDone,
@@ -28,6 +28,8 @@ export interface Episode {
   targetSeconds: number;
   topic: string;
   outline: string;
+  /** 대본 생성 때 같이 보내는 이 편의 연출 방향(비우면 보내지 않음). */
+  scriptDirection: string;
   status: Status;
   step: Step | null;
   stepState: StepState | null;
@@ -57,6 +59,7 @@ interface EpisodeRow {
   target_seconds: number;
   topic: string;
   outline: string;
+  script_direction: string;
   status: Status;
   step: Step | null;
   step_state: StepState | null;
@@ -74,7 +77,7 @@ interface EpisodeRow {
   updated_at: Date;
 }
 
-const COLUMNS = `id, channel, route, target_seconds, topic, outline, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
+const COLUMNS = `id, channel, route, target_seconds, topic, outline, script_direction, status, step, step_state, step_started_at, step_progress, voice_id, voice_model, run_url, scheduled_at, upload_privacy,
   youtube_video_id, credits_used, error, created_at, updated_at`;
 
 export const TOPIC_MAX = 200;
@@ -97,6 +100,7 @@ function toEpisode(row: EpisodeRow): Episode {
     targetSeconds: row.target_seconds,
     topic: row.topic,
     outline: row.outline,
+    scriptDirection: row.script_direction,
     status: row.status,
     step: row.step,
     stepState: row.step_state,
@@ -123,9 +127,12 @@ export async function createEpisode(input: {
   channel?: string;
   /** 목표 길이(초, TARGET_SECONDS 중 하나). 없으면 DB 기본값. */
   targetSeconds?: number;
+  /** 대본 연출 방향(선택). */
+  scriptDirection?: string;
 }): Promise<Episode> {
   const topic = input.topic.trim();
   const outline = input.outline.trim();
+  const direction = checkDirection(input.scriptDirection ?? "");
   if (!topic) throw new RangeError("주제를 입력하세요.");
   if (topic.length > TOPIC_MAX) throw new RangeError(`주제는 ${TOPIC_MAX}자 이내로 입력하세요.`);
   if (outline.length > OUTLINE_MAX) throw new RangeError(`목차는 ${OUTLINE_MAX}자 이내로 입력하세요.`);
@@ -134,9 +141,9 @@ export async function createEpisode(input: {
   }
   // 채널·길이를 주지 않으면(테스트·예전 호출) 마이그레이션의 기본값과 같은 값을 쓴다.
   const [row] = await query<EpisodeRow>(
-    `insert into episodes (topic, outline, route, channel, target_seconds)
-      values ($1, $2, $3, coalesce($4, 'raccoon'), coalesce($5, 35)) returning ${COLUMNS}`,
-    [topic, outline, input.route ?? "ai", input.channel ?? null, input.targetSeconds ?? null],
+    `insert into episodes (topic, outline, route, channel, target_seconds, script_direction)
+      values ($1, $2, $3, coalesce($4, 'raccoon'), coalesce($5, 35), $6) returning ${COLUMNS}`,
+    [topic, outline, input.route ?? "ai", input.channel ?? null, input.targetSeconds ?? null, direction],
   );
   return toEpisode(row);
 }
@@ -276,6 +283,29 @@ export async function setOutline(id: number, outlineInput: string): Promise<void
     [id, outline],
   );
   if (!rows.length) throw new RangeError("대본을 만들기 전에만 바꿀 수 있습니다.");
+}
+
+function checkDirection(input: string): string {
+  const direction = input.trim();
+  if (direction.length > DIRECTION_MAX) throw new RangeError(`대본 방향은 ${DIRECTION_MAX}자 이내로 입력하세요.`);
+  return direction;
+}
+
+/** 대본 방향을 고칠 수 있는 상태: 대본 승인 전(대기·검토 중·대본 생성 실패)이고 도는 작업이 없을 때. 다음 대본 생성부터 쓴다. */
+export function canEditDirection(episode: Pick<Episode, "route" | "status" | "step" | "stepState">): boolean {
+  if (episode.route === "music" || episode.stepState === "pending" || episode.stepState === "running") return false;
+  return episode.status === "queued" || episode.status === "script_review" || (episode.status === "failed" && episode.step === "script");
+}
+
+export async function setScriptDirection(id: number, input: string): Promise<void> {
+  const direction = checkDirection(input);
+  const rows = await query<{ id: number }>(
+    `update episodes set script_direction = $2, updated_at = now()
+      where id = $1 and route <> 'music' and (step_state is null or step_state not in ('pending', 'running'))
+        and (status in ('queued', 'script_review') or (status = 'failed' and step = 'script')) returning id`,
+    [id, direction],
+  );
+  if (!rows.length) throw new RangeError("대본을 승인하기 전에만 바꿀 수 있습니다.");
 }
 
 /** 다음 내레이션에 쓸 목소리를 정한다. 값 검증은 부르는 쪽(voices.ts 목록)이 한다. */

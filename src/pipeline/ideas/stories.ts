@@ -216,7 +216,7 @@ export async function generateStories(
  */
 export async function createStoryEpisode(
   idea: Pick<Idea, "channel" | "hook" | "targetSeconds" | "clipIds">,
-  edit: { title: string; outline: string },
+  edit: { title: string; outline: string; scriptDirection?: string },
 ): Promise<{ episodeId: number; collectionId: number }> {
   const ids = idea.clipIds ?? [];
   const clips = await getClips(ids);
@@ -228,6 +228,7 @@ export async function createStoryEpisode(
     route: "clips",
     channel: idea.channel,
     targetSeconds: idea.targetSeconds,
+    scriptDirection: edit.scriptDirection,
   });
   const picked = await createStoryCollection(episode.id, edit.title, clips);
   const [saved] = await savePicks(episode, picked);

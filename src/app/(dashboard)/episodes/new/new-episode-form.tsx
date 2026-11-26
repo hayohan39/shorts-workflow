@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { DirectionField } from "@/components/direction-field";
 import { LengthSelect } from "@/components/length-select";
 import { createEpisodeAction, type NewEpisodeState } from "../../actions";
 
@@ -35,6 +36,7 @@ export function NewEpisodeForm({
           placeholder={"예: 소개 → 제조 방식 → 효과(논문·임상) → 위험성 → 마무리"}
         />
       </label>
+      <DirectionField defaultValue={state.direction} />
       <LengthSelect
         defaultValue={state.targetSeconds ?? defaultSeconds}
         hint="길수록 장면이 늘어 장면 크레딧이 늘어납니다. 완성 영상은 1분을 넘지 않게 합성 때 다시 확인합니다."

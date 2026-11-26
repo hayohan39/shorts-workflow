@@ -41,6 +41,7 @@ export async function runScriptStep(
       topic: episode.topic,
       rules: lengthRules(episode.targetSeconds),
       outline: episode.outline,
+      direction: episode.scriptDirection,
       reviewerNote: previous?.reviewerNote ?? null,
       previousNarration: previous?.reviewerNote ? previous.narration : null,
       recentEpisodes: recent.map((script) => ({

@@ -7,7 +7,7 @@ import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from
 import { fillSceneWithClip, removeSceneClip } from "@/pipeline/clips/episode";
 import { pickCount, savePicks } from "@/pipeline/clips/picks";
 import { getChannel } from "@/pipeline/channels";
-import { createEpisode, getEpisode, setOutline } from "@/pipeline/episodes";
+import { createEpisode, getEpisode, setOutline, setScriptDirection } from "@/pipeline/episodes";
 import { TransitionError } from "@/pipeline/status";
 import { triggerStep } from "@/pipeline/trigger";
 import {
@@ -200,7 +200,7 @@ export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formDat
   redirect(`/episodes/${episodeId}`);
 }
 
-export type PickState = { error?: string; concept?: string; outline?: string; scenes?: Record<string, string> };
+export type PickState = { error?: string; concept?: string; outline?: string; direction?: string; scenes?: Record<string, string> };
 
 /**
  * 소재 찾기 결과에서 장면마다 쓸 클립을 고르고 컨셉·목차를 적는다.
@@ -211,6 +211,7 @@ export async function pickClipsAction(_prev: PickState, formData: FormData): Pro
   const id = positiveId(formData.get("id"));
   const concept = String(formData.get("concept") ?? "").trim();
   const outline = String(formData.get("outline") ?? "").trim();
+  const direction = String(formData.get("direction") ?? "");
   const episode = id ? await getEpisode(id) : null;
   if (!episode) return { error: "에피소드를 찾을 수 없습니다." };
   const count = pickCount(episode);
@@ -222,10 +223,10 @@ export async function pickClipsAction(_prev: PickState, formData: FormData): Pro
     const sceneNo = Number(value);
     const clipId = positiveId(key.slice("scene-".length));
     if (!clipId || !Number.isInteger(sceneNo) || sceneNo < 1 || sceneNo > count) return { error: "잘못된 요청입니다." };
-    if (order[sceneNo - 1]) return { error: `장면 ${sceneNo}에 클립이 두 개 골라졌습니다.`, concept, outline, scenes };
+    if (order[sceneNo - 1]) return { error: `장면 ${sceneNo}에 클립이 두 개 골라졌습니다.`, concept, outline, direction, scenes };
     order[sceneNo - 1] = clipId;
   }
-  const kept = { concept, outline, scenes };
+  const kept = { concept, outline, direction, scenes };
   const missing = Array.from({ length: count }, (_, i) => i + 1).filter((no) => !order[no - 1]);
   if (missing.length) return { error: `장면 ${missing.join(", ")}에 쓸 클립을 고르세요.`, ...kept };
   if (!concept && !outline) return { error: "영상 컨셉이나 목차를 적어 주세요.", ...kept };
@@ -237,6 +238,7 @@ export async function pickClipsAction(_prev: PickState, formData: FormData): Pro
   try {
     picks = await savePicks(episode, order);
     await setOutline(episode.id, [concept && `컨셉: ${concept}`, outline].filter(Boolean).join("\n\n"));
+    await setScriptDirection(episode.id, direction);
   } catch (error) {
     refresh();
     if (error instanceof RangeError) return { error: error.message, ...kept };
