@@ -34,13 +34,13 @@ export function ChannelSettingsForm({
         <strong>
           {ROUTE_ICONS[channel.route]} {ROUTE_LABELS[channel.route]}
         </strong>
-        <span className="muted"> · 채널 특성이라 바꾸지 않습니다. 새 에피소드에서 한 편만 다른 방식으로 만들 수는 있습니다.</span>
+        <span className="muted"> · 채널 특성이라 바꾸지 않습니다. 새 쇼츠에서 한 편만 다른 방식으로 만들 수는 있습니다.</span>
       </p>
       <LengthSelect
         name="defaultSeconds"
         label="기본 영상 길이"
         defaultValue={channel.defaultSeconds}
-        hint="새 에피소드의 기본 길이입니다. 에피소드마다 바꿀 수 있습니다."
+        hint="새 쇼츠의 기본 길이입니다. 쇼츠마다 바꿀 수 있습니다."
       />
       <label className="field">
         <span>유튜브 채널 ID</span>

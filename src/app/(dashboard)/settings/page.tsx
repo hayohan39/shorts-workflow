@@ -111,7 +111,7 @@ export default async function SettingsPage() {
             },
             {
               name: "voice",
-              label: "기본 목소리 (내레이션, 에피소드마다 바꿀 수 있음)",
+              label: "기본 목소리 (내레이션, 쇼츠마다 바꿀 수 있음)",
               value: settings.voice ?? "",
               options: voiceOptions,
               recommended: DEFAULT_VOICE_ID,

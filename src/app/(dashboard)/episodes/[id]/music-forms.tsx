@@ -57,7 +57,7 @@ export function MusicUploader({ episodeId, replacing }: { episodeId: number; rep
       // 업로드 토큰을 못 받은 경우(로그인이 풀렸거나 이미 다음 단계로 넘긴 에피소드). 라이브러리 메시지는 영어라 바꿔 보여 준다.
       setError(
         /client token/i.test(message)
-          ? "업로드를 준비하지 못했습니다. 다시 로그인했는지, 이 에피소드가 아직 음원 단계인지 확인하세요."
+          ? "업로드를 준비하지 못했습니다. 다시 로그인했는지, 이 쇼츠가 아직 음원 단계인지 확인하세요."
           : message,
       );
     } finally {

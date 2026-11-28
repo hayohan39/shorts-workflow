@@ -58,7 +58,7 @@ export function IdeaActions({ idea, canStart }: { idea: Idea; canStart: boolean 
           )}
         </details>
         <button type="submit" disabled={busy}>
-          {creating ? "만드는 중…" : canStart ? "이걸로 만들기 (대본 생성 약 $0.1)" : "이걸로 에피소드 만들기"}
+          {creating ? "만드는 중…" : canStart ? "이걸로 만들기 (대본 생성 약 $0.1)" : "이걸로 쇼츠 만들기"}
         </button>
         {created.error ? <p className="error">{created.error}</p> : null}
       </form>

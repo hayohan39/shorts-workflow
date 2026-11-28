@@ -48,7 +48,7 @@ export async function savePicks(episode: Episode, clipIds: number[]): Promise<St
   const clips = new Map((await getClips(clipIds)).map((clip) => [clip.id, clip]));
   for (const id of clipIds) {
     const clip = clips.get(id);
-    if (!clip || clip.collectionId !== collection?.id) throw new RangeError("이 에피소드에서 찾은 클립만 고를 수 있습니다.");
+    if (!clip || clip.collectionId !== collection?.id) throw new RangeError("이 쇼츠에서 찾은 클립만 고를 수 있습니다.");
     if (!isSelectable(clip)) throw new RangeError(`"${clip.title}" 은(는) 내려받을 수 없는 소재입니다.`);
     if (!isCommercialUse(clip)) throw new RangeError(`"${clip.title}" 은(는) 상업적 이용이 허용되지 않는 라이선스입니다.`);
   }

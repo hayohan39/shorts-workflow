@@ -167,7 +167,7 @@ export async function decideIdea(id: number, status: "saved" | "discarded"): Pro
     `update ideas set status = $2, decided_at = now() where id = $1 and status <> 'used' returning ${IDEA_COLUMNS}`,
     [id, status],
   );
-  if (!row) throw new RangeError("이미 에피소드로 만든 기획안이거나 없는 기획안입니다.");
+  if (!row) throw new RangeError("이미 쇼츠로 만든 기획안이거나 없는 기획안입니다.");
   return toIdea(row);
 }
 
@@ -181,7 +181,7 @@ export async function claimIdea(id: number, create: (idea: Idea) => Promise<numb
       rows: [row],
     } = await client.query<IdeaRow>(`select ${IDEA_COLUMNS} from ideas where id = $1 for update`, [id]);
     if (!row) throw new RangeError("기획안을 찾을 수 없습니다.");
-    if (row.status === "used") throw new RangeError("이미 에피소드로 만든 기획안입니다.");
+    if (row.status === "used") throw new RangeError("이미 쇼츠로 만든 기획안입니다.");
     const episodeId = await create(toIdea(row));
     await client.query("update ideas set status = 'used', episode_id = $2, decided_at = now() where id = $1", [id, episodeId]);
     return episodeId;

@@ -6,11 +6,14 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { createDispatcher, createWorkflowDispatcher, dispatchAvailability } from "@/lib/github";
 import { SESSION_COOKIE } from "@/lib/session";
+import { deleteBlobFolder } from "@/pipeline/providers/blob";
 import { getChannel } from "@/pipeline/channels";
 import { fillScenesFromPicks } from "@/pipeline/clips/picks";
 import {
   createEpisode,
   decide,
+  deleteEpisode,
+  episodeBlobFolders,
   getEpisode,
   saveUpload,
   setReschedule,
@@ -44,7 +47,7 @@ export async function createEpisodeAction(_prev: NewEpisodeState, formData: Form
   const kept = { topic, outline, direction, targetSeconds };
   const channel = await getChannel(String(formData.get("channel") ?? ""));
   if (!channel) return { error: "채널을 찾을 수 없습니다.", ...kept };
-  if (channel.route === "music") return { error: "음악형 채널은 음원으로 에피소드를 만듭니다.", ...kept };
+  if (channel.route === "music") return { error: "음악형 채널은 음원으로 쇼츠를 만듭니다.", ...kept };
 
   let id: number;
   try {
@@ -85,6 +88,33 @@ export async function runStepAction(_prev: RunStepState, formData: FormData): Pr
 }
 
 export type SimpleState = { error?: string; saved?: boolean };
+
+/**
+ * 쇼츠 삭제(되돌릴 수 없음). DB 를 지운 뒤 이 쇼츠의 Blob 파일을 지운다. 파일 정리가 실패해도 삭제는 그대로 둔다.
+ * 유튜브에 올린 영상은 건드리지 않는다(화면에서 알린다).
+ */
+export async function deleteEpisodeAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
+  await requireSession();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return { error: "잘못된 요청입니다." };
+  if (formData.get("confirm") !== "on") return { error: "되돌릴 수 없다는 것을 확인해 주세요." };
+  let channel: string;
+  try {
+    ({ channel } = await deleteEpisode(id));
+  } catch (error) {
+    if (error instanceof RangeError) return { error: error.message };
+    throw error;
+  }
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (token) {
+    for (const folder of episodeBlobFolders(id)) {
+      await deleteBlobFolder(folder, token).catch((error: unknown) =>
+        console.error(`쇼츠 #${id} 파일 정리 실패(${folder}):`, error instanceof Error ? error.message : error),
+      );
+    }
+  }
+  redirect(`/channels/${channel}`);
+}
 
 /** 대본 탭의 대본 방향 저장(다음 대본 생성부터 반영). */
 export async function setDirectionAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
@@ -234,7 +264,7 @@ export async function narrationAction(_prev: RunStepState, formData: FormData): 
   const availability = dispatchAvailability();
   if (!availability.ok) return { error: availability.reason };
   const episode = await getEpisode(id);
-  if (!episode) return { error: "에피소드를 찾을 수 없습니다." };
+  if (!episode) return { error: "쇼츠를 찾을 수 없습니다." };
   if (isBusy(episode)) return { error: "진행 중인 단계가 끝난 뒤에 다시 시도하세요." };
 
   await setVoiceSelection(id, voice.id, model);

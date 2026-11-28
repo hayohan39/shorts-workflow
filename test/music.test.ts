@@ -146,7 +146,7 @@ describe.skipIf(!testDatabaseUrl)("음악형 에피소드 (실제 DB)", () => {
     const ai = await createEpisode({ topic: "보습", outline: "" });
     await expect(
       saveMusicTrack(ai.id, { audioUrl: `${BLOB}/music/${ai.id}/a.mp3`, fileName: "a.mp3", durationSeconds: 60 }),
-    ).rejects.toThrow("음악형 에피소드가 아닙니다");
+    ).rejects.toThrow("음악형 쇼츠가 아닙니다");
     const music = await createEpisode({ topic: "랩", outline: "", route: "music", channel: "music" });
     await query("update episodes set status = 'approved' where id = $1", [music.id]);
     await expect(

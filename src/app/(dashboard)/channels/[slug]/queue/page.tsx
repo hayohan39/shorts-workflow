@@ -133,7 +133,7 @@ export default async function ChannelQueuePage({ params }: PageProps<"/channels/
           ))}
         </ul>
       ) : (
-        <p className="muted small">공개 날짜를 정할 영상이 없습니다. 에피소드에서 영상을 승인하면 여기에 쌓입니다.</p>
+        <p className="muted small">공개 날짜를 정할 영상이 없습니다. 쇼츠에서 영상을 승인하면 여기에 쌓입니다.</p>
       )}
 
       <h2 className="list-title">예약됨 {scheduled.length ? `(${scheduled.length})` : ""}</h2>

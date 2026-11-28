@@ -90,7 +90,7 @@ describe.skipIf(!testDatabaseUrl)("영상 먼저 찾기: 클립 고르기·채�
       fetchedAt: new Map(),
     });
     const [foreign] = await store.listClips(other.id);
-    await expect(savePicks(episode, [ids[0], ids[1], ids[2], foreign.id])).rejects.toThrow("이 에피소드에서 찾은");
+    await expect(savePicks(episode, [ids[0], ids[1], ids[2], foreign.id])).rejects.toThrow("이 쇼츠에서 찾은");
 
     await savePicks(episode, [ids[3], ids[0], ids[5], ids[1]]);
     expect((await listPicks(episode.id)).map((c) => c.id)).toEqual([ids[3], ids[0], ids[5], ids[1]]);

@@ -33,7 +33,7 @@ describe.skipIf(!testDatabaseUrl)("채널 (실제 DB)", () => {
       { slug: "saesae", route: "clips", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_SAESAE", youtubeChannelId: null },
       { slug: "music", route: "music", youtubeTokenSecret: "YOUTUBE_REFRESH_TOKEN_MUSIC", youtubeChannelId: null },
     ]);
-    expect(channels.map(channelLabel)).toEqual(["🦝 피부건강 라쿤씨", "🐦 새새 열매", "🎤 음악 샘플"]);
+    expect(channels.map(channelLabel)).toEqual(["🦝 피부건강 라쿤씨", "🐦 새새 열매", "🎤 하박"]);
     expect(channels.map((channel) => channel.defaultSeconds)).toEqual([30, 30, 30]);
     expect(await createEpisode({ topic: "기본 채널", outline: "" })).toMatchObject({ channel: "raccoon", targetSeconds: 35 });
     expect((await createEpisode({ topic: "30초", outline: "", targetSeconds: 30 })).targetSeconds).toBe(30);

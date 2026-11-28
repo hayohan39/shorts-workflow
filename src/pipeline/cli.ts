@@ -56,7 +56,7 @@ const USAGE = "사용법: pipeline run <step> <episodeId> | pipeline fail <step>
 function parseTarget(stepArg: string | undefined, idArg: string | undefined): { step: Step; id: number } {
   if (!isStep(stepArg)) throw new Error(`알 수 없는 단계: ${stepArg ?? "(없음)"}\n${USAGE}`);
   const id = Number(idArg);
-  if (!Number.isInteger(id) || id <= 0) throw new Error(`에피소드 ID 가 올바르지 않습니다: ${idArg ?? "(없음)"}`);
+  if (!Number.isInteger(id) || id <= 0) throw new Error(`쇼츠 ID 가 올바르지 않습니다: ${idArg ?? "(없음)"}`);
   return { step: stepArg, id };
 }
 
@@ -148,7 +148,7 @@ async function clips(command: string | undefined, step: "clips" | "clips-adopt",
             return 0;
           })
         : 0;
-      await summary([title, "", `✅ ${count}개 채택${filled ? ` · 에피소드 #${episode!.id} 장면 ${filled}개 채움` : ""}`]);
+      await summary([title, "", `✅ ${count}개 채택${filled ? ` · 쇼츠 #${episode!.id} 장면 ${filled}개 채움` : ""}`]);
     } else {
       const done = await collectClips(started, {
         adapters: createAdapters(),
@@ -242,7 +242,7 @@ async function main(argv: string[]): Promise<number> {
   if (stepArg === "ideas") return ideas(command, idArg, rest.join(" "));
   if (stepArg === "ideas-daily") return ideasDailyCommand(command);
   const { step, id } = parseTarget(stepArg, idArg);
-  const title = `### 에피소드 #${id} · ${STEP_LABELS[step]}`;
+  const title = `### 쇼츠 #${id} · ${STEP_LABELS[step]}`;
 
   if (command === "run") {
     try {
@@ -254,7 +254,7 @@ async function main(argv: string[]): Promise<number> {
         if (step === "render" && (await listAssets(id, "voice")).length) {
           const composed = await runStep(id, "compose", { handlers, runUrl });
           await summary([
-            `### 에피소드 #${id} · ${STEP_LABELS.compose}`,
+            `### 쇼츠 #${id} · ${STEP_LABELS.compose}`,
             "",
             composed.ok ? `✅ 완료 → ${STATUS_LABELS[composed.episode.status]}` : `❌ 실패: ${composed.error}`,
           ]);

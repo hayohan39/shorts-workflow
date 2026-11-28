@@ -22,19 +22,19 @@ export default async function ChannelPage({ params }: PageProps<"/channels/[slug
     <>
       <AutoRefresh active={episodes.some(isBusy)} />
       <div className="row between page-head">
-        <span className="muted small">에피소드 {episodes.length}개</span>
+        <span className="muted small">쇼츠 {episodes.length}개</span>
         <Link href={newHref} className="button">
-          + 새 에피소드
+          + 새 쇼츠
         </Link>
       </div>
       {episodes.length === 0 ? (
         <div className="empty">
-          <p>아직 에피소드가 없습니다.</p>
+          <p>아직 쇼츠가 없습니다.</p>
           <p className="muted small">
             {ROUTE_LABELS[channel.route]}: {ROUTE_STAGES[channel.route].map((stage) => stageLabel(channel.route, stage)).join(" → ")}
           </p>
           <Link href={newHref} className="button">
-            첫 에피소드 만들기
+            첫 쇼츠 만들기
           </Link>
         </div>
       ) : (

@@ -11,7 +11,7 @@ export function ChannelTabs({ slug, ideas, ready }: { slug: string; ideas: numbe
   const pathname = usePathname();
   const base = `/channels/${slug}`;
   const tabs = [
-    { href: base, label: "에피소드", badge: 0 },
+    { href: base, label: "쇼츠", badge: 0 },
     ...(ideas === null ? [] : [{ href: `${base}/ideas`, label: "추천", badge: ideas }]),
     { href: `${base}/queue`, label: "업로드 큐", badge: ready },
     { href: `${base}/settings`, label: "채널 설정", badge: 0 },

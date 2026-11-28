@@ -51,8 +51,8 @@ async function lockEditable(client: PoolClient, episodeId: number): Promise<{ ta
       from episodes where id = $1 for update`,
     [episodeId],
   );
-  if (!rows[0]) throw new RangeError("에피소드를 찾을 수 없습니다.");
-  if (rows[0].route !== "music") throw new RangeError("음악형 에피소드가 아닙니다.");
+  if (!rows[0]) throw new RangeError("쇼츠를 찾을 수 없습니다.");
+  if (rows[0].route !== "music") throw new RangeError("음악형 쇼츠가 아닙니다.");
   if (!canEditMusic(rows[0])) throw new RangeError("지금은 음원을 바꿀 수 없습니다.");
   return { targetSeconds: rows[0].targetSeconds };
 }

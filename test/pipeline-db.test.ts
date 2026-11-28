@@ -157,7 +157,7 @@ describe.skipIf(!testDatabaseUrl)("파이프라인 DB (실제 DB)", () => {
     expect(await getEpisode(episode.id)).toMatchObject({ status: "failed", runUrl: "https://example.test/run/2" });
 
     const { readFile, rm } = await import("node:fs/promises");
-    expect(await readFile(summaryFile, "utf8")).toContain(`에피소드 #${episode.id}`);
+    expect(await readFile(summaryFile, "utf8")).toContain(`쇼츠 #${episode.id}`);
     await rm(summaryFile, { force: true });
   }, 30_000);
 });

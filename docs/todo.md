@@ -22,7 +22,7 @@
 
 - [ ] 라쿤씨 토큰 Secret 이름 바꾸기: 같은 토큰을 `YOUTUBE_REFRESH_TOKEN_RACCOON` 으로 새로 넣고, 첫 업로드 확인 뒤 옛 `YOUTUBE_REFRESH_TOKEN` 삭제
 - [ ] 새새 열매 유튜브 연결: `node scripts/youtube-auth.mjs` → Secret `YOUTUBE_REFRESH_TOKEN_SAESAE` + 채널 설정에 채널 ID
-- [ ] 음악 채널: 유튜브 채널 만들기 → Secret `YOUTUBE_REFRESH_TOKEN_MUSIC` + 채널 ID, 채널 이름 정하기(채널 설정)
+- [ ] 하박(음악 채널): 유튜브 채널 만들기 → Secret `YOUTUBE_REFRESH_TOKEN_MUSIC` + 채널 설정에 채널 ID
 - [ ] Suno 유료 플랜 확인(상업적 이용), 실존 가수 목소리·상표 흉내 피하기
 - [ ] 라쿤씨 첫 예약 업로드 → Studio 에서 예약 시각·시각 변경이 보이는지
 - [ ] 새새 열매 첫 스토리 후보 받아 보고 검색어 다듬기
