@@ -39,7 +39,7 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
     <>
       <AutoRefresh active={collecting || adopting} />
       <Link href={collection.episodeId ? `/episodes/${collection.episodeId}?tab=clips` : "/clips"} className="back">
-        {collection.episodeId ? `← 에피소드 #${collection.episodeId}` : "← 클립 보관함"}
+        {collection.episodeId ? `← 쇼츠 #${collection.episodeId}` : "← 클립 보관함"}
       </Link>
       <div className="row between">
         <h1>
@@ -121,8 +121,8 @@ export default async function ClipCollectionPage({ params }: PageProps<"/clips/[
 
           {collection.episodeId ? (
             <p className="callout small">
-              에피소드 <Link href={`/episodes/${collection.episodeId}?tab=clips`}>#{collection.episodeId}</Link> 에서 찾은
-              영상입니다. 장면에 고른 클립만 채택합니다(에피소드 화면에서 고르기).
+              쇼츠 <Link href={`/episodes/${collection.episodeId}?tab=clips`}>#{collection.episodeId}</Link> 에서 찾은
+              영상입니다. 장면에 고른 클립만 채택합니다(쇼츠 화면에서 고르기).
             </p>
           ) : (
             <section className="stack">

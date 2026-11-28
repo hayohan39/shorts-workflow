@@ -13,7 +13,7 @@ import { channelLabel, getChannel } from "@/pipeline/channels";
 import { canPick, listPicks } from "@/pipeline/clips/picks";
 import { isSelectable } from "@/pipeline/clips/select";
 import { episodeCollection, isJobBusy, listAdoptedClips, listClips } from "@/pipeline/clips/store";
-import { canEditDirection, getEpisode, latestUpload, SCHEDULE_MIN_LEAD_MS } from "@/pipeline/episodes";
+import { canEditDirection, getEpisode, isScheduledAhead, latestUpload, SCHEDULE_MIN_LEAD_MS } from "@/pipeline/episodes";
 import { latestScript, scriptCostTotal } from "@/pipeline/scripts";
 import { getSettings } from "@/pipeline/settings";
 import { formatUsd } from "@/pipeline/script/pricing";
@@ -37,6 +37,7 @@ import {
 import { ClipMedia, ClipMeta } from "../../clips/clip-card";
 import { AdoptButton, RetryCollectButton } from "../../clips/clip-forms";
 import { AutoUpload } from "./auto-upload";
+import { DeleteEpisodeForm } from "./delete-form";
 import { DirectionForm } from "./direction-form";
 import { PickForm } from "./pick-form";
 import { RunStepButton } from "./run-step-button";
@@ -486,6 +487,13 @@ export default async function EpisodePage({ params, searchParams }: PageProps<"/
           </>
         ) : null}
       </div>
+
+      <DeleteEpisodeForm
+        episodeId={episode.id}
+        uploaded={Boolean(episode.youtubeVideoId)}
+        scheduled={isScheduledAhead(episode)}
+        busy={busy && !stale}
+      />
 
       <p className="muted small meta">
         만든 시각 {formatDateTime(episode.createdAt)} · 마지막 변경 {formatDateTime(episode.updatedAt)}

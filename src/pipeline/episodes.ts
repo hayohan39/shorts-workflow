@@ -87,7 +87,7 @@ const PROGRESS_MAX = 200;
 
 export class EpisodeNotFoundError extends Error {
   constructor(id: number) {
-    super(`에피소드 #${id} 를 찾을 수 없습니다.`);
+    super(`쇼츠 #${id} 를 찾을 수 없습니다.`);
     this.name = "EpisodeNotFoundError";
   }
 }
@@ -306,6 +306,34 @@ export async function setScriptDirection(id: number, input: string): Promise<voi
     [id, direction],
   );
   if (!rows.length) throw new RangeError("대본을 승인하기 전에만 바꿀 수 있습니다.");
+}
+
+/**
+ * 쇼츠를 지운다. 대본·생성물·업로드 기록·고른 클립·음원은 함께 지워지고(on delete cascade),
+ * 소재 찾기·기획안 기록은 연결만 끊긴다(on delete set null). Blob 파일은 부르는 쪽이 지운다(episodeBlobFolders).
+ * 도는 작업이 있으면 RangeError. 다만 응답 없이 멈춘 작업(trigger.ts 의 isStale 과 같은 기준)은 기다리지 않는다.
+ */
+export async function deleteEpisode(id: number): Promise<{ channel: string }> {
+  const [row] = await query<{ channel: string }>(
+    `delete from episodes
+      where id = $1 and (step_state is null or step_state not in ('pending', 'running')
+        or (step_state = 'pending' and updated_at < now() - interval '10 minutes')
+        or (step_state = 'running' and updated_at < now() - interval '60 minutes'))
+      returning channel`,
+    [id],
+  );
+  if (row) return row;
+  throw new RangeError((await getEpisode(id)) ? "진행 중인 단계가 끝난 뒤에 지울 수 있습니다." : "쇼츠를 찾을 수 없습니다.");
+}
+
+/** 유튜브에 예약 공개로 올려 두었고 공개 시각이 아직 오지 않았는가. */
+export function isScheduledAhead(episode: Pick<Episode, "youtubeVideoId" | "uploadPrivacy" | "scheduledAt">, now = Date.now()): boolean {
+  return Boolean(episode.youtubeVideoId && episode.uploadPrivacy === "private" && episode.scheduledAt && episode.scheduledAt.getTime() > now);
+}
+
+/** 이 쇼츠만 쓰는 Blob 폴더(내레이션·장면·완성 영상, 음원). 채택한 무료 클립(clips/…)은 다른 쇼츠와 같이 쓰므로 넣지 않는다. */
+export function episodeBlobFolders(id: number): string[] {
+  return [`episodes/${id}/`, `music/${id}/`];
 }
 
 /** 다음 내레이션에 쓸 목소리를 정한다. 값 검증은 부르는 쪽(voices.ts 목록)이 한다. */

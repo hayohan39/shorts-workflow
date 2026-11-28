@@ -3,10 +3,13 @@ import { StatusBadge } from "@/components/status-badge";
 import { WorkflowTabs } from "@/components/workflow-steps";
 import { formatClock, formatDateTime } from "@/lib/format";
 import { channelLabel, type Channel } from "@/pipeline/channels";
-import type { Episode } from "@/pipeline/episodes";
+import { isScheduledAhead, type Episode } from "@/pipeline/episodes";
+import { isBusy } from "@/pipeline/status";
+import { isStale } from "@/pipeline/trigger";
 import { canEditMusic, musicSegment } from "@/pipeline/music/rules";
 import { getMusicTrack } from "@/pipeline/music/track";
 import { isStage, ROUTE_ICONS, ROUTE_LABELS, ROUTE_STAGES, stageLabel, workflow, type Stage } from "@/pipeline/workflow";
+import { DeleteEpisodeForm } from "./delete-form";
 import { MusicSegmentPicker, MusicUploader } from "./music-forms";
 
 // 음악형 에피소드 화면: 음원 → 가사 → 이미지 → 영상 → 업로드.
@@ -107,6 +110,13 @@ export async function MusicEpisode({ episode, channel, tab: tabParam }: { episod
           <Empty>{COMING[tab]}</Empty>
         )}
       </div>
+
+      <DeleteEpisodeForm
+        episodeId={episode.id}
+        uploaded={Boolean(episode.youtubeVideoId)}
+        scheduled={isScheduledAhead(episode)}
+        busy={isBusy(episode) && !isStale(episode)}
+      />
 
       <p className="muted small meta">
         만든 시각 {formatDateTime(episode.createdAt)} · 마지막 변경 {formatDateTime(episode.updatedAt)}

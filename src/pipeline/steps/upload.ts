@@ -97,7 +97,7 @@ export async function runUploadStep(
   const deps = options.deps ?? {};
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now;
-  if (episode.youtubeVideoId) throw new Error(`이미 업로드한 에피소드입니다(영상 ID ${episode.youtubeVideoId}).`);
+  if (episode.youtubeVideoId) throw new Error(`이미 업로드한 쇼츠입니다(영상 ID ${episode.youtubeVideoId}).`);
   if (!episode.uploadPrivacy) throw new Error("공개 상태를 고르지 않았습니다. 업로드 탭에서 고른 뒤 다시 시도하세요.");
   if (episode.scheduledAt && episode.uploadPrivacy === "private" && episode.scheduledAt.getTime() <= now() + 60_000) {
     throw new Error("예약 공개 시각이 지났습니다. 업로드 탭에서 시각을 다시 고르세요.");
@@ -146,7 +146,7 @@ export async function runRescheduleStep(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now;
   const videoId = episode.youtubeVideoId;
-  if (!videoId) throw new Error("아직 유튜브에 올리지 않은 에피소드입니다.");
+  if (!videoId) throw new Error("아직 유튜브에 올리지 않은 쇼츠입니다.");
   const at = episode.scheduledAt;
   if (!at || at.getTime() <= now() + 60_000) throw new Error("새 공개 시각이 없거나 지났습니다. 업로드 큐에서 다시 고르세요.");
 

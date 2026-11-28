@@ -42,7 +42,7 @@ export default async function NewEpisodePage({ searchParams }: PageProps<"/episo
       <Link href={`/channels/${channel.slug}`} className="back">
         ← {channelLabel(channel)}
       </Link>
-      <h1>새 에피소드</h1>
+      <h1>새 쇼츠</h1>
       {route === "music" ? (
         <section>
           <p className="muted small">
@@ -81,7 +81,7 @@ export default async function NewEpisodePage({ searchParams }: PageProps<"/episo
           <section>
             {!availability.ok ? (
               <p className="warn small">
-                이 화면에서는 에피소드만 만들어지고 {route === "ai" ? "대본 생성" : "소재 찾기"}는 시작되지 않습니다.{" "}
+                이 화면에서는 쇼츠만 만들어지고 {route === "ai" ? "대본 생성" : "소재 찾기"}는 시작되지 않습니다.{" "}
                 {availability.reason}
               </p>
             ) : null}

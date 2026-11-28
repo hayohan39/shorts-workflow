@@ -34,8 +34,8 @@ export default async function ClipsPage() {
       <AutoRefresh active={busy} />
       <h1>클립 보관함</h1>
       <p className="muted">
-        지금까지 찾은 무료 라이선스 영상입니다. 채택한 클립은 에피소드 장면에 넣을 수 있습니다. 새로 찾으려면{" "}
-        <Link href="/episodes/new?route=clips">편집형</Link> 에피소드를 만드세요.
+        지금까지 찾은 무료 라이선스 영상입니다. 채택한 클립은 쇼츠 장면에 넣을 수 있습니다. 새로 찾으려면{" "}
+        <Link href="/episodes/new?route=clips">편집형</Link> 쇼츠를 만드세요.
       </p>
 
       <section>
@@ -50,7 +50,7 @@ export default async function ClipsPage() {
                   <div className="row between">
                     <strong>
                       #{collection.id} {collection.kind === "daily" ? "[자동] " : ""}
-                      {collection.episodeId ? `[에피소드 #${collection.episodeId}] ` : ""}
+                      {collection.episodeId ? `[쇼츠 #${collection.episodeId}] ` : ""}
                       {collection.topic}
                     </strong>
                     <JobBadge status={collection.status} />

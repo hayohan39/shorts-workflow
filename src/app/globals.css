@@ -1212,3 +1212,18 @@ details.manual > summary {
   white-space: nowrap;
   padding-inline: 0.85rem;
 }
+
+/* 쇼츠 삭제: 화면 맨 아래, 접어 둔다 */
+.danger-zone {
+  margin-top: 2rem;
+}
+
+.danger-zone > summary {
+  color: var(--error);
+  font-weight: 600;
+}
+
+button.danger {
+  background: var(--error);
+  color: #ffffff;
+}

@@ -98,7 +98,7 @@ export default async function HomePage() {
       {mine.length ? (
         <EpisodeCards episodes={mine} channelLabels={labels} />
       ) : (
-        <p className="muted small">지금 검토하거나 고를 에피소드가 없습니다.</p>
+        <p className="muted small">지금 검토하거나 고를 쇼츠가 없습니다.</p>
       )}
     </>
   );

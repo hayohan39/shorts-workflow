@@ -23,7 +23,7 @@ export async function POST(request: Request): Promise<Response> {
       onBeforeGenerateToken: async (pathname) => {
         const id = parseMusicUploadPath(pathname);
         const episode = id ? await getEpisode(id) : null;
-        if (!episode || !canEditMusic(episode)) throw new Error("이 에피소드에는 지금 음원을 올릴 수 없습니다.");
+        if (!episode || !canEditMusic(episode)) throw new Error("이 쇼츠에는 지금 음원을 올릴 수 없습니다.");
         return {
           allowedContentTypes: AUDIO_CONTENT_TYPES,
           maximumSizeInBytes: AUDIO_MAX_BYTES,

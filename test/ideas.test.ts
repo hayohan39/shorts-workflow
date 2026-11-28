@@ -208,7 +208,7 @@ describe.skipIf(!testDatabaseUrl)("추천 기획안 (실제 DB)", () => {
     const episodeId = (results.find((r) => r.status === "fulfilled") as PromiseFulfilledResult<number>).value;
     const { query } = await import("@/lib/db");
     expect(await query("select id from episodes where topic = $1", [first.title])).toHaveLength(1);
-    await expect(store.decideIdea(first.id, "discarded")).rejects.toThrow("이미 에피소드로 만든");
+    await expect(store.decideIdea(first.id, "discarded")).rejects.toThrow("이미 쇼츠로 만든");
     expect(await store.getIdea(first.id)).toMatchObject({ status: "used", episodeId });
   });
 

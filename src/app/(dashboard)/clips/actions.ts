@@ -182,7 +182,7 @@ export async function createClipsEpisodeAction(_prev: ClipsEpisodeState, formDat
   if (related.trim().length > TOPIC_MAX) return { error: `연관 단어는 ${TOPIC_MAX}자 이내로 입력하세요.`, ...kept };
   const channel = await getChannel(String(formData.get("channel") ?? ""));
   if (!channel) return { error: "채널을 찾을 수 없습니다.", ...kept };
-  if (channel.route === "music") return { error: "음악형 채널은 음원으로 에피소드를 만듭니다.", ...kept };
+  if (channel.route === "music") return { error: "음악형 채널은 음원으로 쇼츠를 만듭니다.", ...kept };
 
   let episodeId: number;
   let collectionId: number;
@@ -213,7 +213,7 @@ export async function pickClipsAction(_prev: PickState, formData: FormData): Pro
   const outline = String(formData.get("outline") ?? "").trim();
   const direction = String(formData.get("direction") ?? "");
   const episode = id ? await getEpisode(id) : null;
-  if (!episode) return { error: "에피소드를 찾을 수 없습니다." };
+  if (!episode) return { error: "쇼츠를 찾을 수 없습니다." };
   const count = pickCount(episode);
   const scenes: Record<string, string> = {};
   const order: number[] = [];
